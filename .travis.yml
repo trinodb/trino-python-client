@@ -1,0 +1,12 @@
+language: python
+python:
+  - "2.7"
+  - "3.5"
+  - "3.6"
+  - "pypy"
+services:
+  - docker
+install:
+  - pip install .
+script:
+  - pytest -s tests/ integration_tests/

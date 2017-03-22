@@ -1,0 +1,3 @@
+#!/bin/sh
+
+python integration_tests/fixtures.py $*
