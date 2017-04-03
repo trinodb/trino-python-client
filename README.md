@@ -17,7 +17,7 @@ Use the DBAPI interface to query Presto:
 
 ```python
 import prestodb
-conn=prestodb.dbapi.Connection(
+conn=prestodb.dbapi.connect(
     host='localhost',
     port=8080,
     user='the-user',
@@ -36,6 +36,30 @@ The DBAPI implementation in `prestodb.dbapi` provides methods to retrieve fewer
 rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
 `prestodb.dbapi.Cursor.arraysize` accordingly.
+
+# Transactions
+The client runs by default in *autocommit* mode. To enable transactions, set
+*isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
+
+```python
+import prestodb
+with prestodb.dbapi.connect(
+    host='localhost',
+    port=8080,
+    user='the-user',
+    catalog='the-catalog',
+    schema='the-schema',
+    isolation_level=transaction.IsolationLevel.REPEATABLE_READ,
+) as conn:
+  cur = conn.cursor()
+  cur.execute('INSERT INTO sometable VALUES (1, 2, 3)')
+  cur.execute('INSERT INTO sometable VALUES (4, 5, 6)')
+```
+
+The transaction is created when the first SQL statement is executed.
+`prestodb.dbapi.Connection.commit()` will be automatically called when the code
+exits the *with* context and the queries succeed, otherwise
+`prestodb.dbapi.Connection.rollback()' will be called.
 
 # Running Tests
 

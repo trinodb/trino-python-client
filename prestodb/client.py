@@ -45,6 +45,7 @@ import requests
 from prestodb import constants
 from prestodb import exceptions
 import prestodb.logging
+from prestodb.transaction import NO_TRANSACTION
 import prestodb.redirect
 
 
@@ -73,6 +74,7 @@ class ClientSession(object):
         user,
         properties=None,
         headers=None,
+        transaction_id=None,
     ):
         self.catalog = catalog
         self.schema = schema
@@ -82,6 +84,7 @@ class ClientSession(object):
             properties = {}
         self._properties = properties
         self._headers = headers or {}
+        self.transaction_id = transaction_id
 
     @property
     def properties(self):
@@ -201,6 +204,7 @@ class PrestoRequest(object):
         schema=None,  # type: Text
         session_properties=None,  # type: Optional[Dict[Text, Any]]
         http_headers=None,  # type: Optional[Dict[Text, Text]]
+        transaction_id=NO_TRANSACTION,  # type: Optional[Text]
         http_scheme=constants.HTTP,  # type: Text
         auth=constants.DEFAULT_AUTH,  # type: Optional[Any]
         redirect_handler=prestodb.redirect.GatewayRedirectHandler(),
@@ -216,6 +220,7 @@ class PrestoRequest(object):
             user,
             session_properties,
             http_headers,
+            transaction_id,
         )
 
         self._host = host
@@ -235,6 +240,14 @@ class PrestoRequest(object):
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
         self._http_scheme = http_scheme
+
+    @property
+    def transaction_id(self):
+        return self._client_session.transaction_id
+
+    @transaction_id.setter
+    def transaction_id(self, value):
+        self._client_session.transaction_id = value
 
     @property
     def http_headers(self):
@@ -257,6 +270,9 @@ class PrestoRequest(object):
             if key in headers.keys():
                 raise ValueError('cannot override reserved HTTP header {}'.format(key))
         headers.update(self._client_session.headers)
+
+        transaction_id = self._client_session.transaction_id
+        headers[constants.HEADER_TRANSACTION] = transaction_id
 
         return headers
 

@@ -31,6 +31,7 @@ import prestodb.exceptions
 import prestodb.client
 import prestodb.logging
 import prestodb.redirect
+from prestodb.transaction import Transaction, IsolationLevel, NO_TRANSACTION
 
 
 __all__ = ['connect', 'Connection', 'Cursor']
@@ -75,35 +76,6 @@ class Connection(object):
     client implementation yet.
 
     """
-    def __init__(self, *args, **kwargs):
-        self._args = args
-        self._kwargs = kwargs
-
-    def close(self):
-        """Presto does not have anything to close"""
-        # TODO cancel outstanding queries?
-        pass
-
-    def commit(self):
-        """FIXME: Not supported yet"""
-        raise NotImplementedError
-
-    def cursor(self):
-        """Return a new :py:class:`Cursor` object using the connection."""
-        return Cursor(*self._args, **self._kwargs)
-
-    def rollback(self):
-        """FIXME: Not supported yet"""
-        raise NotImplementedError
-
-
-class Cursor(object):
-    """Database cursor.
-
-    Cursors are not isolated, i.e., any changes done to the database by a
-    cursor are immediately visible by other cursors or connections.
-
-    """
     def __init__(
         self,
         host,
@@ -119,24 +91,110 @@ class Cursor(object):
         redirect_handler=prestodb.redirect.GatewayRedirectHandler(),
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
+        isolation_level=IsolationLevel.AUTOCOMMIT,
     ):
-        self._host = host
-        self._port = port
-        self._user = user
-        self._source = source
-        self._catalog = catalog
-        self._schema = schema
-        self._session_properties = session_properties
-        self._http_headers = http_headers
-        self._http_scheme = http_scheme
-        self._auth = auth
-        self._redirect_handler = redirect_handler
-        self._max_attempts = max_attempts
-        self._request_timeout = request_timeout
+        self.host = host
+        self.port = port
+        self.user = user
+        self.source = source
+        self.catalog = catalog
+        self.schema = schema
+        self.session_properties = session_properties
+        self.http_headers = http_headers
+        self.http_scheme = http_scheme
+        self.auth = auth
+        self.redirect_handler = redirect_handler
+        self.max_attempts = max_attempts
+        self.request_timeout = request_timeout
+
+        self._isolation_level = isolation_level
+        self._transaction = None
+
+    @property
+    def isolation_level(self):
+        return self._isolation_level
+
+    @property
+    def transaction(self):
+        return self._transaction
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            self.commit()
+        except:
+            self.rollback()
+        else:
+            self.close()
+
+    def close(self):
+        """Presto does not have anything to close"""
+        # TODO cancel outstanding queries?
+        pass
+
+    def start_transaction(self):
+        request = prestodb.client.PrestoRequest(
+            self.host,
+            self.port,
+            self.user,
+            self.source,
+            self.catalog,
+            self.schema,
+            self.session_properties,
+            self.http_headers,
+            NO_TRANSACTION,
+            self.http_scheme,
+            self.auth,
+            self.redirect_handler,
+            self.max_attempts,
+            self.request_timeout,
+        )
+        self._transaction = Transaction(request)
+        self._transaction.begin()
+        return self._transaction
+
+    def commit(self):
+        if not self.isolation_level:
+            return
+        self._transaction.commit()
+        self._transaction = None
+
+    def rollback(self):
+        if not self.isolation_level:
+            raise RuntimeError('no transaction was started')
+        self._transaction.rollback()
+        self._transaction = None
+
+    def cursor(self):
+        """Return a new :py:class:`Cursor` object using the connection."""
+        return Cursor(self)
+
+
+class Cursor(object):
+    """Database cursor.
+
+    Cursors are not isolated, i.e., any changes done to the database by a
+    cursor are immediately visible by other cursors or connections.
+
+    """
+    def __init__(self, connection):
+        if not isinstance(connection, Connection):
+            raise ValueError(
+                'connection must be a Connection object: {}'.format(
+                    type(connection)
+                ))
+        self._connection = connection
 
         self.arraysize = 1
         self._iterator = None
         self._query = None
+
+    @property
+    def connection(self):
+        return self._connection
+
 
     @property
     def description(self):
@@ -173,20 +231,28 @@ class Cursor(object):
         pass
 
     def execute(self, operation, params=None):
+        if self.connection.isolation_level != IsolationLevel.AUTOCOMMIT:
+            if self.connection.transaction is None:
+                self.connection.start_transaction()
+            transaction_id = self.connection.transaction.id
+        else:
+            transaction_id = 'NONE'
+
         request = prestodb.client.PrestoRequest(
-            self._host,
-            self._port,
-            self._user,
-            self._source,
-            self._catalog,
-            self._schema,
-            self._session_properties,
-            self._http_headers,
-            self._http_scheme,
-            self._auth,
-            self._redirect_handler,
-            self._max_attempts,
-            self._request_timeout,
+            self.connection.host,
+            self.connection.port,
+            self.connection.user,
+            self.connection.source,
+            self.connection.catalog,
+            self.connection.schema,
+            self.connection.session_properties,
+            self.connection.http_headers,
+            transaction_id,
+            self.connection.http_scheme,
+            self.connection.auth,
+            self.connection.redirect_handler,
+            self.connection.max_attempts,
+            self.connection.request_timeout,
         )
 
         self._query = prestodb.client.PrestoQuery(request, sql=operation)

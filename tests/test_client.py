@@ -341,7 +341,7 @@ def test_request_headers(monkeypatch):
         assert headers[constants.HEADER_SESSION] == ''
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 7
+        assert len(headers.keys()) == 8
 
     req.post('URL')
     assert_headers(post_recorder.kwargs['headers'])

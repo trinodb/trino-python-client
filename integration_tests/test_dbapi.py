@@ -18,6 +18,8 @@ from fixtures import run_presto
 import prestodb
 import pytest
 
+from prestodb.transaction import IsolationLevel
+
 
 @pytest.fixture
 def presto_connection(run_presto):
@@ -29,6 +31,20 @@ def presto_connection(run_presto):
         user='test',
         source='test',
         max_attempts=1,
+    )
+
+
+@pytest.fixture
+def presto_connection_with_transaction(run_presto):
+    _, host, port = run_presto
+
+    yield prestodb.dbapi.Connection(
+        host=host,
+        port=port,
+        user='test',
+        source='test',
+        max_attempts=1,
+        isolation_level=IsolationLevel.READ_UNCOMMITTED,
     )
 
 
@@ -147,3 +163,37 @@ def test_session_properties(run_presto):
             assert value == '10m'
         elif prop == 'query_priority':
             assert value == '1'
+
+
+def test_transaction_single(presto_connection_with_transaction):
+    connection = presto_connection_with_transaction
+    for _ in range(3):
+        cur = connection.cursor()
+        cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        rows = cur.fetchall()
+        connection.commit()
+        assert len(rows) == 1000
+
+
+def test_transaction_rollback(presto_connection_with_transaction):
+    connection = presto_connection_with_transaction
+    for i in range(3):
+        cur = connection.cursor()
+        cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        rows = cur.fetchall()
+        connection.rollback()
+        assert len(rows) == 1000
+
+
+def test_transaction_multiple(presto_connection_with_transaction):
+    with presto_connection_with_transaction as connection:
+        cur1 = connection.cursor()
+        cur1.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        rows1 = cur1.fetchall()
+
+        cur2 = connection.cursor()
+        cur2.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        rows2 = cur2.fetchall()
+
+    assert len(rows1) == 1000
+    assert len(rows2) == 1000
