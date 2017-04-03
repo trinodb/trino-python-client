@@ -52,6 +52,40 @@ logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 
 
+class ClientSession(object):
+    def __init__(
+        self,
+        catalog,
+        schema,
+        source,
+        user,
+        properties=None,
+    ):
+        self.catalog = catalog
+        self.schema = schema
+        self.source = source
+        self.user = user
+        if properties is None:
+            properties = {}
+        self._properties = properties
+
+    @property
+    def properties(self):
+        return self._properties
+
+
+def get_header_values(headers, header):
+    return [val.strip() for val in headers[header].split(',')]
+
+
+def get_session_property_values(headers, header):
+    kvs = get_header_values(headers, header)
+    return [
+        (k.strip(), v.strip()) for k, v
+        in (kv.split('=', 1) for kv in kvs)
+    ]
+
+
 class PrestoStatus(object):
     def __init__(self, id, stats, info_uri, next_uri, rows, columns=None):
         self.id = id
@@ -149,22 +183,20 @@ class PrestoRequest(object):
         max_attempts=MAX_ATTEMPTS,  # type: int
         handle_retry=exceptions.RetryWithExponentialBackoff(),
     ):
+        self._client_session = ClientSession(
+            catalog,
+            schema,
+            source,
+            user,
+            session_properties,
+        )
+
         self._host = host
         self._port = port
-        self._user = user
-        self._source = source
-        self._catalog = catalog
-        self._schema = schema
-        if session_properties is None:
-            self._session_properties = {}
-        else:
-            self._session_properties = session_properties
-        self._http_scheme = http_scheme
-
         self._next_uri = None  # type: Optional[Text]
         # mypy cannot follow module import
-        self._session = self.http.Session()
-        self._session.headers.update(self.headers)
+        self._http_session = self.http.Session()
+        self._http_session.headers.update(self.http_headers)
         self._auth = auth
         if self._auth:
             if http_scheme == constants.HTTP:
@@ -173,6 +205,24 @@ class PrestoRequest(object):
 
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
+        self._http_scheme = http_scheme
+
+    @property
+    def http_headers(self):
+        # type: () -> Dict[Text, Text]
+        headers = {}
+
+        headers[constants.HEADER_CATALOG] = self._client_session.catalog
+        headers[constants.HEADER_SCHEMA] = self._client_session.schema
+        headers[constants.HEADER_SOURCE] = self._client_session.source
+        headers[constants.HEADER_USER] = self._client_session.user
+
+        headers[constants.HEADER_SESSION] = ','.join(
+            # ``name`` must not contain ``=``
+            '{}={}'.format(name, value)
+            for name, value in self._client_session.properties.items()
+        )
+        return headers
 
     @property
     def max_attempts(self):
@@ -184,8 +234,8 @@ class PrestoRequest(object):
         # type: int -> None
         self._max_attempts = value
         if value == 1:  # No retry
-            self._get = self._session.get
-            self._post = self._session.post
+            self._get = self._http_session.get
+            self._post = self._http_session.post
             return
 
         with_retry = exceptions.retry_with(
@@ -197,8 +247,8 @@ class PrestoRequest(object):
             ),
             max_attempts=self._max_attempts,
         )
-        self._get = with_retry(self._session.get)
-        self._post = with_retry(self._session.post)
+        self._get = with_retry(self._http_session.get)
+        self._post = with_retry(self._http_session.post)
 
     def get_url(self, path):
         # type: Text -> Text
@@ -215,33 +265,15 @@ class PrestoRequest(object):
         # type: () -> Text
         return self._next_uri
 
-    @property
-    def headers(self):
-        # type: () -> Dict[Text, Text]
-        headers = {
-            'X-Presto-Catalog': self._catalog,
-            'X-Presto-Schema': self._schema,
-            'X-Presto-Source': self._source,
-            'X-Presto-User': self._user,
-        }
-
-        if self._session_properties:
-            headers['X-Presto-Session'] = ','.join(
-                # ``name`` must not contain ``=``
-                '{}={}'.format(name, value)
-                for name, value in self._session_properties.items()
-            )
-
-        return headers
-
     def post(self, sql):
         return self._post(
             self.statement_url,
             data=sql.encode('utf-8'),
+            headers=self.http_headers,
         )
 
     def get(self, url):
-        return self._get(url)
+        return self._get(url, headers=self.http_headers)
 
     def _process_error(self, error):
         error_type = error['errorType']
@@ -273,14 +305,19 @@ class PrestoRequest(object):
         if 'error' in response:
             raise self._process_error(response['error'])
 
-        if 'X-Presto-Clear-Session' in http_response.headers:
-            propname = response.headers['X-Presto-Clear-Session']
-            self._session_properties.pop(propname, None)
+        if constants.HEADER_CLEAR_SESSION in http_response.headers:
+            for prop in get_header_values(
+                response.headers,
+                constants.HEADER_CLEAR_SESSION,
+            ):
+                self._client_session.properties.pop(prop, None)
 
-        if 'X-Presto-Set-Session' in http_response.headers:
-            set_session_header = response.headers['X-Presto-Set-Session']
-            name, value = set_session_header.split('=', 1)
-            self._session_properties[name] = value
+        if constants.HEADER_SET_SESSION in http_response.headers:
+            for key, value in get_session_property_values(
+                    response.headers,
+                    constants.HEADER_SET_SESSION,
+                ):
+                self._client_session.properties[key] = value
 
         self._next_uri = response.get('nextUri')
 

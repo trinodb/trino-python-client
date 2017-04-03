@@ -74,3 +74,28 @@ def test_select_tcph_1000(presto_connection):
     cur.execute('SELECT * FROM tcph.sf1.customer LIMIT 1000')
     rows = cur.fetchall()
     assert len(rows) == 1000
+
+
+def test_session_properties(run_presto):
+    _, host, port = run_presto
+
+    connection = prestodb.dbapi.Connection(
+        host=host,
+        port=port,
+        user='test',
+        source='test',
+        session_properties={
+         'query_max_run_time': '10m',
+         'query_priority': '1',
+        },
+        max_attempts=1,
+    )
+    cur = connection.cursor()
+    cur.execute('SHOW SESSION')
+    rows = cur.fetchall()
+    assert len(rows) > 2
+    for prop, value, _, _, _ in rows:
+        if prop == 'query_max_run_time':
+            assert value == '10m'
+        elif prop == 'query_priority':
+            assert value == '1'

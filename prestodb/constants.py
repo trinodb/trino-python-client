@@ -24,3 +24,12 @@ HTTP = 'http'
 HTTPS = 'https'
 
 URL_STATEMENT_PATH = '/v1/statement'
+
+HEADER_CATALOG = 'X-Presto-Catalog'
+HEADER_SCHEMA = 'X-Presto-Schema'
+HEADER_SOURCE = 'X-Presto-Source'
+HEADER_USER = 'X-Presto-User'
+
+HEADER_SESSION = 'X-Presto-Session'
+HEADER_SET_SESSION = 'X-Presto-Set-Session'
+HEADER_CLEAR_SESSION = 'X-Presto-Clear-Session'

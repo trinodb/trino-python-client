@@ -13,6 +13,7 @@
 import pytest
 
 from prestodb.client import PrestoRequest
+from prestodb import constants
 import prestodb.exceptions
 
 
@@ -277,6 +278,59 @@ def test_presto_initial_request(monkeypatch):
 
     assert status.next_uri == RESP_DATA_POST_0['nextUri']
     assert status.id == RESP_DATA_POST_0['id']
+
+
+class ArgumentsRecorder(object):
+    def __init__(self):
+        # Prevent functools.wraps from complaining when it decorates the
+        # instance.
+        self.__name__ = 'ArgumentsRecorder'
+        self.args = None
+        self.kwargs = None
+
+    def __call__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+
+def test_request_headers(monkeypatch):
+    post_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(PrestoRequest.http.Session, 'post', post_recorder)
+
+    get_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(PrestoRequest.http.Session, 'get', get_recorder)
+
+    catalog = 'test_catalog'
+    schema = 'test_schema'
+    user = 'test_user'
+    source = 'test_source'
+
+    req = PrestoRequest(
+        host='coordinator',
+        port=8080,
+        user=user,
+        source=source,
+        catalog=catalog,
+        schema=schema,
+        http_scheme='http',
+        session_properties={},
+    )
+
+    req.post('URL')
+    headers = post_recorder.kwargs['headers']
+
+    assert headers[constants.HEADER_CATALOG] == catalog
+    assert headers[constants.HEADER_SCHEMA] == schema
+    assert headers[constants.HEADER_SOURCE] == source
+    assert headers[constants.HEADER_USER] == user
+
+    req.get('URL')
+    headers = get_recorder.kwargs['headers']
+
+    assert headers[constants.HEADER_CATALOG] == catalog
+    assert headers[constants.HEADER_SCHEMA] == schema
+    assert headers[constants.HEADER_SOURCE] == source
+    assert headers[constants.HEADER_USER] == user
 
 
 def test_presto_fetch_request(monkeypatch):
