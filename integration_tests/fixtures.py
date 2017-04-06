@@ -60,11 +60,8 @@ def get_local_port():
         return s.getsockname()[1]
 
 
-def start_presto(with_cache=True):
+def build_image(image_tag, with_cache=True):
     logger.info('building Docker image')
-    image_name = 'presto-server'
-    tag = PRESTO_VERSION
-    image_tag = image_name + ':' + tag
     docker_build = [
         'docker',
         'build',
@@ -75,6 +72,19 @@ def start_presto(with_cache=True):
     if not with_cache:
         docker_build.append('--no-cache')
     subprocess.check_call(docker_build)
+
+
+def get_default_presto_image_tag():
+    image_name = 'presto-server'
+    tag = PRESTO_VERSION
+    return image_name + ':' + tag
+
+
+def start_presto(image_tag=None, build=True, with_cache=True):
+    if not image_tag:
+        image_tag = get_dfeault_presto_image_tag()
+    if build:
+        build_image(image_tag, with_cache)
 
     container_id = 'presto-python-client-tests-' + uuid4().hex[:7]
     local_port = get_local_port()
@@ -121,8 +131,12 @@ def wait_for_presto_coordinator(stream):
     return False
 
 
-def start_presto_and_wait(with_cache=True):
-    contained_id, proc, host, local_port = start_presto(with_cache=with_cache)
+def start_presto_and_wait(image_tag=None, build=True, with_cache=True):
+    contained_id, proc, host, local_port = start_presto(
+        image_tag,
+        build,
+        with_cache,
+    )
     print('presto.server.state starting')
     presto_ready = wait_for_presto_coordinator(proc.stderr)
     if not presto_ready:
@@ -140,9 +154,32 @@ def stop_presto(container_id, proc):
     subprocess.check_call(['docker', 'kill', container_id])
 
 
+def find_images(name):
+    assert name
+    output = subprocess.check_output([
+        'docker', 'images',
+        '--format', '{{.Repository}}:{{.Tag}}',
+        name,
+    ])
+    return [line.decode() for line in output.splitlines()]
+
+
+def image_exists(name):
+    images = find_images(name)
+    return images and images[0].strip() == name
+
+
 @pytest.fixture(scope='module')
 def run_presto():
-    container_id, proc, host, local_port = start_presto_and_wait()
+    image_tag = os.environ.get('PRESTO_IMAGE')
+    if not image_tag:
+        image_tag = get_default_presto_image_tag()
+
+    need_build = not image_exists(image_tag)
+    container_id, proc, host, local_port = start_presto_and_wait(
+        image_tag,
+        need_build,
+    )
     yield proc, host, local_port
     stop_presto(container_id, proc)
 
@@ -162,9 +199,13 @@ def presto_server(cache):
     container_id, _, _, _ = start_presto_and_wait(with_cache=cache)
 
 
-@click.argument('container_id')
+@click.argument('container_id', required=False)
 @click.command()
-def presto_cli(container_id):
+def presto_cli(container_id=None):
+    if not container_id:
+        container_id = os.environ.get('PRESTO_CONTAINER')
+        if not container_id:
+            raise ValueError('no container specified')
     subprocess.call([
         'docker', 'exec', '-t', '-i',
         container_id,
