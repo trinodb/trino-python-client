@@ -304,6 +304,8 @@ def test_request_headers(monkeypatch):
     schema = 'test_schema'
     user = 'test_user'
     source = 'test_source'
+    accept_encoding_header = 'accept-encoding'
+    accept_encoding_value = 'identity,deflate,gzip'
 
     req = PrestoRequest(
         host='coordinator',
@@ -314,23 +316,34 @@ def test_request_headers(monkeypatch):
         schema=schema,
         http_scheme='http',
         session_properties={},
+        http_headers={accept_encoding_header: accept_encoding_value},
     )
 
-    req.post('URL')
-    headers = post_recorder.kwargs['headers']
+    def assert_headers(headers):
+        assert headers[constants.HEADER_CATALOG] == catalog
+        assert headers[constants.HEADER_SCHEMA] == schema
+        assert headers[constants.HEADER_SOURCE] == source
+        assert headers[constants.HEADER_USER] == user
+        assert headers[constants.HEADER_SESSION] == ''
+        assert headers[accept_encoding_header] == accept_encoding_value
+        assert len(headers.keys()) == 6
 
-    assert headers[constants.HEADER_CATALOG] == catalog
-    assert headers[constants.HEADER_SCHEMA] == schema
-    assert headers[constants.HEADER_SOURCE] == source
-    assert headers[constants.HEADER_USER] == user
+    req.post('URL')
+    assert_headers(post_recorder.kwargs['headers'])
 
     req.get('URL')
-    headers = get_recorder.kwargs['headers']
+    assert_headers(get_recorder.kwargs['headers'])
 
-    assert headers[constants.HEADER_CATALOG] == catalog
-    assert headers[constants.HEADER_SCHEMA] == schema
-    assert headers[constants.HEADER_SOURCE] == source
-    assert headers[constants.HEADER_USER] == user
+
+def test_request_invalid_http_headers():
+    with pytest.raises(ValueError) as value_error:
+        PrestoRequest(
+            host='coordinator',
+            port=8080,
+            user='test',
+            http_headers={constants.HEADER_PREFIX + 'Invalid': ''},
+        )
+    assert str(value_error.value).startswith('invalid HTTP header')
 
 
 def test_presto_fetch_request(monkeypatch):

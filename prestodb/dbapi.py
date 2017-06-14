@@ -108,6 +108,7 @@ class Cursor(object):
         catalog=constants.DEFAULT_CATALOG,
         schema=constants.DEFAULT_SCHEMA,
         session_properties=None,
+        http_headers=None,
         http_scheme=constants.HTTP,
         auth=constants.DEFAULT_AUTH,
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
@@ -119,6 +120,7 @@ class Cursor(object):
         self._catalog = catalog
         self._schema = schema
         self._session_properties = session_properties
+        self._http_headers = http_headers
         self._http_scheme = http_scheme
         self._auth = auth
         self._max_attempts = max_attempts
@@ -163,6 +165,7 @@ class Cursor(object):
             self._catalog,
             self._schema,
             self._session_properties,
+            self._http_headers,
             self._http_scheme,
             self._auth,
             self._max_attempts,

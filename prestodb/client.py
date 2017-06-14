@@ -60,6 +60,7 @@ class ClientSession(object):
         source,
         user,
         properties=None,
+        headers=None,
     ):
         self.catalog = catalog
         self.schema = schema
@@ -68,10 +69,15 @@ class ClientSession(object):
         if properties is None:
             properties = {}
         self._properties = properties
+        self._headers = headers or {}
 
     @property
     def properties(self):
         return self._properties
+
+    @property
+    def headers(self):
+        return self._headers
 
 
 def get_header_values(headers, header):
@@ -135,6 +141,7 @@ class PrestoRequest(object):
                                session. Please refer to the output of
                                ``SHOW SESSION`` to check the available
                                properties.
+    :param http_headers: HTTP headers to post/get in the HTTP requests
     :param http_scheme: "http" or "https"
     :param auth: class that manages user authentication. ``None`` means no
                  authentication.
@@ -178,6 +185,7 @@ class PrestoRequest(object):
         catalog=None,  # type: Text
         schema=None,  # type: Text
         session_properties=None,  # type: Optional[Dict[Text, Any]]
+        http_headers=None,  # type: Optional[Dict[Text, Text]]
         http_scheme=constants.HTTP,  # type: Text
         auth=constants.DEFAULT_AUTH,  # type: Optional[Any]
         max_attempts=MAX_ATTEMPTS,  # type: int
@@ -189,6 +197,7 @@ class PrestoRequest(object):
             source,
             user,
             session_properties,
+            http_headers,
         )
 
         self._host = host
@@ -222,6 +231,16 @@ class PrestoRequest(object):
             '{}={}'.format(name, value)
             for name, value in self._client_session.properties.items()
         )
+
+        # merge custom http headers
+        for key in self._client_session.headers:
+            if key.startswith(constants.HEADER_PREFIX):
+                raise ValueError('invalid HTTP header {}: must not start with "{}"'.format(
+                    key,
+                    constants.HEADER_PREFIX,
+                ))
+        headers.update(self._client_session.headers)
+
         return headers
 
     @property
