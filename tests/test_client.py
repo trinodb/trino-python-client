@@ -10,7 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import httpretty
 import pytest
+import requests
+import time
 
 from prestodb.client import PrestoRequest
 from prestodb import constants
@@ -344,6 +347,42 @@ def test_request_invalid_http_headers():
             http_headers={constants.HEADER_PREFIX + 'Invalid': ''},
         )
     assert str(value_error.value).startswith('invalid HTTP header')
+
+
+def test_request_timeout():
+    timeout = 0.1
+    http_scheme = 'http'
+    host = 'coordinator'
+    port = 8080
+    url = http_scheme + '://' + host + ':' + str(port) + constants.URL_STATEMENT_PATH
+
+    def long_call(request, uri, headers):
+        time.sleep(timeout * 2)
+        return (200, headers, "delayed success")
+
+    httpretty.enable()
+    for method in [httpretty.POST, httpretty.GET]:
+        httpretty.register_uri(method, url, body=long_call)
+
+    # timeout without retry
+    for request_timeout in [timeout, (timeout, timeout)]:
+        req = PrestoRequest(
+            host=host,
+            port=port,
+            user='test',
+            http_scheme=http_scheme,
+            max_attempts=1,
+            request_timeout=request_timeout,
+        )
+
+        with pytest.raises(requests.exceptions.Timeout):
+            req.get(url)
+
+        with pytest.raises(requests.exceptions.Timeout):
+            req.post('select 1')
+
+    httpretty.disable()
+    httpretty.reset()
 
 
 def test_presto_fetch_request(monkeypatch):

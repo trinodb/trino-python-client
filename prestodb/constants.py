@@ -19,6 +19,7 @@ DEFAULT_CATALOG = None  # type: Optional[Text]
 DEFAULT_SCHEMA = None  # type: Optional[Text]
 DEFAULT_AUTH = None  # type: Optional[Any]
 DEFAULT_MAX_ATTEMPTS = 3
+DEFAULT_REQUEST_TIMEOUT = 30.0  # type: float
 
 HTTP = 'http'
 HTTPS = 'https'

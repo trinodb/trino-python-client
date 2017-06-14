@@ -94,7 +94,7 @@ For development purpose, pip can reference the code you are modifying in a
 *virtualenv*:
 
 ```
-$ pip install -e .
+$ pip install -e .[tests]
 ```
 
 That way, you do not need to run `pip install` again to make your changes

@@ -112,6 +112,7 @@ class Cursor(object):
         http_scheme=constants.HTTP,
         auth=constants.DEFAULT_AUTH,
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
+        request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
     ):
         self._host = host
         self._port = port
@@ -124,6 +125,7 @@ class Cursor(object):
         self._http_scheme = http_scheme
         self._auth = auth
         self._max_attempts = max_attempts
+        self._request_timeout = request_timeout
 
         self.arraysize = 1
         self._rows = None
@@ -169,6 +171,7 @@ class Cursor(object):
             self._http_scheme,
             self._auth,
             self._max_attempts,
+            self._request_timeout,
         )
 
         self._query = prestodb.client.PrestoQuery(request, sql=operation)

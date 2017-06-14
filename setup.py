@@ -62,5 +62,9 @@ setup(
         'six==1.10.0',
         'typing==3.5.3.0',
     ],
-    tests_require=['pytest', 'pytest-runner'],
+    extras_require={'tests':[
+        'httpretty==0.8.14',
+        'pytest',
+        'pytest-runner',
+    ]}
 )

@@ -7,6 +7,6 @@ python:
 services:
   - docker
 install:
-  - pip install .
+  - pip install .[tests]
 script:
   - pytest -s tests/ integration_tests/

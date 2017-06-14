@@ -35,7 +35,7 @@ The main interface is :class:`PrestoQuery`: ::
 
 from urllib.parse import urlunparse
 import logging
-from typing import Any, Dict, List, Optional, Text  # NOQA for mypy types
+from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
 import requests
 
@@ -147,6 +147,9 @@ class PrestoRequest(object):
                  authentication.
     :max_attempts: maximum number of attempts when sending HTTP requests. An
                    attempt is an HTTP request. 5 attempts means 4 retries.
+    :request_timeout: How long (in seconds) to wait for the server to send
+                      data before giving up, as a float or a
+                      ``(connect timeout, read timeout)`` tuple.
 
     The client initiates a query by sending an HTTP POST to the
     coordinator. It then gets a response back from the coordinator with:
@@ -189,6 +192,7 @@ class PrestoRequest(object):
         http_scheme=constants.HTTP,  # type: Text
         auth=constants.DEFAULT_AUTH,  # type: Optional[Any]
         max_attempts=MAX_ATTEMPTS,  # type: int
+        request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),
     ):
         self._client_session = ClientSession(
@@ -212,6 +216,7 @@ class PrestoRequest(object):
                 raise ValueError('cannot use authentication with HTTP')
             self._auth.set_session(self._session)
 
+        self._request_timeout = request_timeout
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
         self._http_scheme = http_scheme
@@ -289,10 +294,15 @@ class PrestoRequest(object):
             self.statement_url,
             data=sql.encode('utf-8'),
             headers=self.http_headers,
+            timeout=self._request_timeout,
         )
 
     def get(self, url):
-        return self._get(url, headers=self.http_headers)
+        return self._get(
+            url,
+            headers=self.http_headers,
+            timeout=self._request_timeout,
+        )
 
     def _process_error(self, error):
         error_type = error['errorType']
