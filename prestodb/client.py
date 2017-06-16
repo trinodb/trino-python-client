@@ -413,8 +413,8 @@ class PrestoQuery(object):
         sql,  # type: Text
     ):
         self.query_id = None
-        self.state = None
 
+        self._stats = {}
         self._columns = None
 
         self._finished = False
@@ -424,6 +424,10 @@ class PrestoQuery(object):
     @property
     def columns(self):
         return self._columns
+
+    @property
+    def stats(self):
+        return self._stats
 
     def execute(self):
         # type: () -> PrestoResult
@@ -438,7 +442,8 @@ class PrestoQuery(object):
         response = self._request.post(self._sql)
         status = self._request.process(response)
         self.query_id = status.id
-        self.state = status.stats['state']
+        self._stats.update({u'queryId': self.query_id})
+        self._stats.update(status.stats)
         if status.next_uri is None:
             self._finished = True
         self.result = PrestoResult(self, status.rows)
@@ -451,7 +456,7 @@ class PrestoQuery(object):
         status = self._request.process(response)
         if status.columns:
             self._columns = status.columns
-        self.state = status.stats['state']
+        self._stats.update(status.stats)
         logger.debug(status)
         if status.next_uri is None:
             self._finished = True

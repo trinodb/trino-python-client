@@ -62,6 +62,36 @@ def test_select_query_no_result(presto_connection):
     assert len(rows) == 0
 
 
+def test_select_query_stats(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute('SELECT * FROM tcph.sf1.customer')
+
+    query_id = cur.stats['queryId']
+    completed_splits = cur.stats['completedSplits']
+    cpu_time_millis = cur.stats['cpuTimeMillis']
+    processed_bytes = cur.stats['processedBytes']
+    processed_rows = cur.stats['processedRows']
+    user_time_millis = cur.stats['userTimeMillis']
+    wall_time_millis = cur.stats['wallTimeMillis']
+
+    while cur.fetchone() is not None:
+        assert query_id == cur.stats['queryId']
+        assert completed_splits <= cur.stats['completedSplits']
+        assert cpu_time_millis <= cur.stats['cpuTimeMillis']
+        assert processed_bytes <= cur.stats['processedBytes']
+        assert processed_rows <= cur.stats['processedRows']
+        assert user_time_millis <= cur.stats['userTimeMillis']
+        assert wall_time_millis <= cur.stats['wallTimeMillis']
+
+        query_id = cur.stats['queryId']
+        completed_splits = cur.stats['completedSplits']
+        cpu_time_millis = cur.stats['cpuTimeMillis']
+        processed_bytes = cur.stats['processedBytes']
+        processed_rows = cur.stats['processedRows']
+        user_time_millis = cur.stats['userTimeMillis']
+        wall_time_millis = cur.stats['wallTimeMillis']
+
+
 def test_select_failed_query(presto_connection):
     cur = presto_connection.cursor()
     with pytest.raises(prestodb.exceptions.PrestoUserError):

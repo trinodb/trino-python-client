@@ -128,7 +128,7 @@ class Cursor(object):
         self._request_timeout = request_timeout
 
         self.arraysize = 1
-        self._rows = None
+        self._iterator = None
 
     @property
     def description(self):
@@ -149,6 +149,12 @@ class Cursor(object):
         """
 
         return -1
+
+    @property
+    def stats(self):
+        if self._query is not None:
+            return self._query.stats
+        return None
 
     def setinputsizes(self, sizes):
         """Not supported"""
@@ -175,7 +181,9 @@ class Cursor(object):
         )
 
         self._query = prestodb.client.PrestoQuery(request, sql=operation)
-        return self._query.execute()
+        result = self._query.execute()
+        self._iterator = iter(result)
+        return result
 
     def fetchone(self):
         # type: () -> Optional[List[Any]]
@@ -189,7 +197,7 @@ class Cursor(object):
         """
 
         try:
-            return next(self._query.result)
+            return next(self._iterator)
         except StopIteration:
             return None
         except prestodb.exceptions.HttpError as err:
