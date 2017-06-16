@@ -82,7 +82,7 @@ def get_default_presto_image_tag():
 
 def start_presto(image_tag=None, build=True, with_cache=True):
     if not image_tag:
-        image_tag = get_dfeault_presto_image_tag()
+        image_tag = get_default_presto_image_tag()
     if build:
         build_image(image_tag, with_cache)
 
