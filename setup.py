@@ -58,6 +58,7 @@ setup(
     install_requires=[
         'click==6.7',
         'future==0.16.0',
+        'ipaddress==1.0.14',
         'requests==2.13.0',
         'requests_kerberos==0.10.0',
         'six==1.10.0',

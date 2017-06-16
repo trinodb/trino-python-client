@@ -26,6 +26,7 @@ from typing import Any, List, Optional  # NOQA for mypy types
 from prestodb import constants
 import prestodb.exceptions
 import prestodb.client
+import prestodb.redirect
 
 
 __all__ = ['connect', 'Connection', 'Cursor']
@@ -111,6 +112,7 @@ class Cursor(object):
         http_headers=None,
         http_scheme=constants.HTTP,
         auth=constants.DEFAULT_AUTH,
+        redirect_handler=prestodb.redirect.GatewayRedirectHandler(),
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
     ):
@@ -124,6 +126,7 @@ class Cursor(object):
         self._http_headers = http_headers
         self._http_scheme = http_scheme
         self._auth = auth
+        self._redirect_handler = redirect_handler
         self._max_attempts = max_attempts
         self._request_timeout = request_timeout
 
@@ -177,6 +180,7 @@ class Cursor(object):
             self._http_headers,
             self._http_scheme,
             self._auth,
+            self._redirect_handler,
             self._max_attempts,
             self._request_timeout,
         )

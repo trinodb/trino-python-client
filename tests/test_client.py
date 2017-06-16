@@ -13,6 +13,7 @@
 import httpretty
 import pytest
 import requests
+import socket
 import time
 
 from requests_kerberos.exceptions import KerberosExchangeError
@@ -326,6 +327,7 @@ def test_request_headers(monkeypatch):
             accept_encoding_header: accept_encoding_value,
             client_info_header: client_info_value,
         },
+        redirect_handler=None,
     )
 
     def assert_headers(headers):
@@ -544,3 +546,43 @@ def test_503_error_retry(monkeypatch):
 
     req.get('URL')
     assert post_retry.retry_count == attempts
+
+
+class FakeGatewayResponse(object):
+    def __init__(self, http_response, redirect_count=1):
+        self.__name__ = 'FakeGatewayResponse'
+        self.http_response = http_response
+        self.redirect_count = redirect_count
+        self.count = 0
+
+    def __call__(self, *args, **kwargs):
+        self.count += 1
+        if self.count == self.redirect_count:
+            return self.http_response
+        http_response = PrestoRequest.http.Response()
+        http_response.status_code = 301
+        http_response.headers['Location'] = 'http://1.2.3.4:8080/new-path/'
+        assert http_response.is_redirect
+        return http_response
+
+
+def test_gateway_redirect(monkeypatch):
+    http_resp = PrestoRequest.http.Response()
+    http_resp.status_code = 200
+
+    gateway_response = FakeGatewayResponse(http_resp, redirect_count=3)
+    monkeypatch.setattr(PrestoRequest.http.Session, 'post', gateway_response)
+    monkeypatch.setattr(
+        socket,
+        'gethostbyaddr',
+        lambda *args: ('finalhost', ['finalhost'], '1.2.3.4'),
+    )
+
+    req = PrestoRequest(
+        host='coordinator',
+        port=8080,
+        user='test',
+    )
+    result = req.post('http://host:80/path/')
+    assert gateway_response.count == 3
+    assert result.ok
