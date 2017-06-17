@@ -260,6 +260,7 @@ class PrestoRequest(object):
         if value == 1:  # No retry
             self._get = self._http_session.get
             self._post = self._http_session.post
+            self._delete = self._http_session.delete
             return
 
         with_retry = exceptions.retry_with(
@@ -273,6 +274,7 @@ class PrestoRequest(object):
         )
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
+        self._delete = with_retry(self._http_session.delete)
 
     def get_url(self, path):
         # type: Text -> Text
@@ -304,6 +306,12 @@ class PrestoRequest(object):
             timeout=self._request_timeout,
         )
 
+    def delete(self, url):
+        return self._delete(
+            url,
+            timeout=self._request_timeout,
+        )
+
     def _process_error(self, error):
         error_type = error['errorType']
         if error_type == 'EXTERNAL':
@@ -313,20 +321,23 @@ class PrestoRequest(object):
 
         return exceptions.PrestoQueryError(error)
 
+    def raise_response_error(self, http_response):
+        if http_response.status_code == 503:
+            raise exceptions.Http503Error('service unavailable')
+
+        raise exceptions.HttpError(
+            'error {}: {}'.format(
+                http_response.status_code,
+                http_response.content,
+            )
+        )
+
     def process(self, http_response):
         # type: requests.Response -> PrestoStatus:
         status_code = http_response.status_code
         # mypy cannot follow module import
         if status_code != self.http.codes.ok:  # type: ignore
-            if status_code == 503:
-                raise exceptions.Http503Error('service unavailable')
-
-            raise exceptions.HttpError(
-                'error {}: {}'.format(
-                    http_response.status_code,
-                    http_response.content,
-                )
-            )
+            self.raise_response_error(http_response)
 
         http_response.encoding = 'utf-8'
         response = http_response.json()
@@ -445,6 +456,16 @@ class PrestoQuery(object):
         if status.next_uri is None:
             self._finished = True
         return status.rows
+
+    def cancel(self):
+        """Cancel the current query"""
+        # type: None -> None
+        if self.is_finished():
+            return
+        response = self._request.delete(self._request.next_uri)
+        if response.status_code == requests.codes.no_content:
+            return
+        self._request.raise_response_error(response)
 
     def is_finished(self):
         # type: () -> bool

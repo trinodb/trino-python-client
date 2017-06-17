@@ -76,6 +76,16 @@ def test_select_tcph_1000(presto_connection):
     assert len(rows) == 1000
 
 
+def test_cancel_query(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute('select * from tcph.sf1.customer')
+    cur.cancel()
+
+    with pytest.raises(prestodb.exceptions.PrestoUserError) as cancel_error:
+        cur.fetchall()
+    assert 'Query was canceled' in str(cancel_error.value)
+
+
 def test_session_properties(run_presto):
     _, host, port = run_presto
 

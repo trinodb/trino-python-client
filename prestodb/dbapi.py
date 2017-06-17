@@ -235,3 +235,6 @@ class Cursor(object):
     def fetchall(self):
         # type: () -> List[List[Any]]
         return list(self.genall())
+
+    def cancel(self):
+        self._query.cancel()
