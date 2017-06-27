@@ -309,6 +309,8 @@ def test_request_headers(monkeypatch):
     source = 'test_source'
     accept_encoding_header = 'accept-encoding'
     accept_encoding_value = 'identity,deflate,gzip'
+    client_info_header = constants.HEADER_PREFIX + 'Client-Info'
+    client_info_value = 'some_client_info'
 
     req = PrestoRequest(
         host='coordinator',
@@ -319,7 +321,10 @@ def test_request_headers(monkeypatch):
         schema=schema,
         http_scheme='http',
         session_properties={},
-        http_headers={accept_encoding_header: accept_encoding_value},
+        http_headers={
+            accept_encoding_header: accept_encoding_value,
+            client_info_header: client_info_value,
+        },
     )
 
     def assert_headers(headers):
@@ -329,7 +334,8 @@ def test_request_headers(monkeypatch):
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ''
         assert headers[accept_encoding_header] == accept_encoding_value
-        assert len(headers.keys()) == 6
+        assert headers[client_info_header] == client_info_value
+        assert len(headers.keys()) == 7
 
     req.post('URL')
     assert_headers(post_recorder.kwargs['headers'])
@@ -344,9 +350,9 @@ def test_request_invalid_http_headers():
             host='coordinator',
             port=8080,
             user='test',
-            http_headers={constants.HEADER_PREFIX + 'Invalid': ''},
+            http_headers={constants.HEADER_USER: 'invalid_header'},
         )
-    assert str(value_error.value).startswith('invalid HTTP header')
+    assert str(value_error.value).startswith('cannot override reserved HTTP header')
 
 
 def test_request_timeout():

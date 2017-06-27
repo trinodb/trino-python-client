@@ -239,11 +239,8 @@ class PrestoRequest(object):
 
         # merge custom http headers
         for key in self._client_session.headers:
-            if key.startswith(constants.HEADER_PREFIX):
-                raise ValueError('invalid HTTP header {}: must not start with "{}"'.format(
-                    key,
-                    constants.HEADER_PREFIX,
-                ))
+            if key in headers.keys():
+                raise ValueError('cannot override reserved HTTP header {}'.format(key))
         headers.update(self._client_session.headers)
 
         return headers
