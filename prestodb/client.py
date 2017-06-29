@@ -320,12 +320,12 @@ class PrestoRequest(object):
 
     def raise_response_error(self, http_response):
         if http_response.status_code == 503:
-            raise exceptions.Http503Error('service unavailable')
+            raise exceptions.Http503Error('error 503: service unavailable')
 
         raise exceptions.HttpError(
-            'error {}: {}'.format(
+            'error {}{}'.format(
                 http_response.status_code,
-                http_response.content,
+                ': {}'.format(http_response.content) if http_response.content else '',
             )
         )
 
@@ -333,7 +333,7 @@ class PrestoRequest(object):
         # type: requests.Response -> PrestoStatus:
         status_code = http_response.status_code
         # mypy cannot follow module import
-        if status_code != self.http.codes.ok:  # type: ignore
+        if not http_response.ok:
             self.raise_response_error(http_response)
 
         http_response.encoding = 'utf-8'

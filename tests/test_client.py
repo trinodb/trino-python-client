@@ -446,3 +446,32 @@ def test_presto_fetch_error(monkeypatch):
     assert 'suppressed' in error.failure_info
     assert error.message == 'line 1:15: Schema must be specified when session schema is not set'
     assert error.error_location == (1, 15)
+
+
+@pytest.mark.parametrize("error_code, error_type, error_message", [
+    (503, prestodb.exceptions.Http503Error, 'service unavailable'),
+    (404, prestodb.exceptions.HttpError, 'error 404'),
+])
+def test_presto_connection_error(monkeypatch, error_code, error_type, error_message):
+    monkeypatch.setattr(
+        PrestoRequest.http.Response,
+        'json',
+        lambda x: {},
+    )
+
+    req = PrestoRequest(
+        host='coordinator',
+        port=8080,
+        user='test',
+        source='test',
+        catalog='test',
+        schema='test',
+        http_scheme='http',
+        session_properties={},
+    )
+
+    http_resp = PrestoRequest.http.Response()
+    http_resp.status_code = error_code
+    with pytest.raises(error_type) as error:
+        req.process(http_resp)
+    assert error_message in str(error)
