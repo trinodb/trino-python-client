@@ -62,6 +62,10 @@ class PrestoQueryError(Exception):
         return self._error['failureInfo']['type']
 
     @property
+    def failure_info(self):
+        return self._error['failureInfo']
+
+    @property
     def message(self):
         return self._error.get(
             'message',

@@ -434,5 +434,15 @@ def test_presto_fetch_error(monkeypatch):
 
     http_resp = PrestoRequest.http.Response()
     http_resp.status_code = 200
-    with pytest.raises(prestodb.exceptions.PrestoUserError):
+    with pytest.raises(prestodb.exceptions.PrestoUserError) as exception_info:
         req.process(http_resp)
+    error = exception_info.value
+    assert error.error_code == 1
+    assert error.error_name == 'SYNTAX_ERROR'
+    assert error.error_type == 'USER_ERROR'
+    assert error.error_exception == 'com.facebook.presto.sql.analyzer.SemanticException'
+    assert 'stack' in error.failure_info
+    assert len(error.failure_info['stack']) == 25
+    assert 'suppressed' in error.failure_info
+    assert error.message == 'line 1:15: Schema must be specified when session schema is not set'
+    assert error.error_location == (1, 15)
