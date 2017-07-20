@@ -47,9 +47,9 @@ def test_select_query(presto_connection):
 
 def test_select_query_result_iteration(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('select custkey from tcph.sf1.customer LIMIT 10')
+    cur.execute('select custkey from tpch.sf1.customer LIMIT 10')
     rows0 = cur.genall()
-    cur.execute('select custkey from tcph.sf1.customer LIMIT 10')
+    cur.execute('select custkey from tpch.sf1.customer LIMIT 10')
     rows1 = cur.fetchall()
 
     assert len(list(rows0)) == len(rows1)
@@ -64,7 +64,7 @@ def test_select_query_no_result(presto_connection):
 
 def test_select_query_stats(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('SELECT * FROM tcph.sf1.customer')
+    cur.execute('SELECT * FROM tpch.sf1.customer')
 
     query_id = cur.stats['queryId']
     completed_splits = cur.stats['completedSplits']
@@ -99,16 +99,16 @@ def test_select_failed_query(presto_connection):
         cur.fetchall()
 
 
-def test_select_tcph_1000(presto_connection):
+def test_select_tpch_1000(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('SELECT * FROM tcph.sf1.customer LIMIT 1000')
+    cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
     rows = cur.fetchall()
     assert len(rows) == 1000
 
 
 def test_cancel_query(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('select * from tcph.sf1.customer')
+    cur.execute('select * from tpch.sf1.customer')
     cur.cancel()
 
     with pytest.raises(prestodb.exceptions.PrestoUserError) as cancel_error:
