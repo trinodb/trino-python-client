@@ -35,6 +35,7 @@ The main interface is :class:`PrestoQuery`: ::
 
 from urllib.parse import urlunparse
 import logging
+import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
 import requests
@@ -50,7 +51,14 @@ logger = logging.getLogger(__name__)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
-
+SOCKS_PROXY = os.environ.get('SOCKS_PROXY')
+if SOCKS_PROXY:
+    PROXIES = {
+        'http': 'socks5://' + SOCKS_PROXY,
+        'https': 'socks5://' + SOCKS_PROXY,
+    }
+else:
+    PROXIES = None
 
 class ClientSession(object):
     def __init__(
@@ -294,6 +302,7 @@ class PrestoRequest(object):
             data=sql.encode('utf-8'),
             headers=self.http_headers,
             timeout=self._request_timeout,
+            proxies=PROXIES,
         )
 
     def get(self, url):
@@ -301,12 +310,14 @@ class PrestoRequest(object):
             url,
             headers=self.http_headers,
             timeout=self._request_timeout,
+            proxies=PROXIES,
         )
 
     def delete(self, url):
         return self._delete(
             url,
             timeout=self._request_timeout,
+            proxies=PROXIES,
         )
 
     def _process_error(self, error):

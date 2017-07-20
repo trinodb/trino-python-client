@@ -41,7 +41,7 @@ def get_latest_release():
         raise Exception('not release found')
 
 
-PRESTO_VERSION = os.environ.get('PRESTO_VERSION', get_latest_release())
+PRESTO_VERSION = os.environ.get('PRESTO_VERSION') or get_latest_release()
 PRESTO_HOST = '127.0.0.1'
 PRESTO_PORT = 8080
 
