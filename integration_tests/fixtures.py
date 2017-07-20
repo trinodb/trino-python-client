@@ -24,6 +24,7 @@ import click
 import pytest
 
 from prestodb.client import PrestoQuery, PrestoRequest
+from prestodb.constants import DEFAULT_PORT
 
 
 logger = logging.getLogger(__name__)
@@ -131,23 +132,41 @@ def wait_for_presto_coordinator(stream):
     return False
 
 
-def start_presto_and_wait(image_tag=None, build=True, with_cache=True):
-    contained_id, proc, host, local_port = start_presto(
-        image_tag,
-        build,
-        with_cache,
-    )
+def start_local_presto_server(image_tag, build=True, with_cache=True):
+    container_id, proc, host, port = start_presto(
+            image_tag,
+            build,
+            with_cache,
+        )
     print('presto.server.state starting')
     presto_ready = wait_for_presto_coordinator(proc.stderr)
     if not presto_ready:
         raise Exception('Presto server did not start')
-    wait_for_presto_workers(host, local_port)
+    wait_for_presto_workers(host, port)
     print('presto.server.state ready')
+    return container_id, proc, host, port
+
+
+def start_presto_and_wait(image_tag=None, build=True, with_cache=True):
+    container_id = None
+    proc = None
+    host = os.environ.get('PRESTO_RUNNING_HOST', None)
+    if host:
+        port = os.environ.get('PRESTO_RUNNING_PORT', DEFAULT_PORT)
+    else:
+        container_id, proc, host, port = start_local_presto_server(
+            image_tag,
+            build,
+            with_cache,
+        )
+
     print('presto.server.hostname {}'.format(host))
-    print('presto.server.port {}'.format(local_port))
-    print('presto.server.pid {}'.format(proc.pid))
-    print('presto.server.contained_id {}'.format(contained_id))
-    return contained_id, proc, host, local_port
+    print('presto.server.port {}'.format(port))
+    if proc:
+        print('presto.server.pid {}'.format(proc.pid))
+    if container_id:
+        print('presto.server.contained_id {}'.format(container_id))
+    return container_id, proc, host, port
 
 
 def stop_presto(container_id, proc):
@@ -176,12 +195,13 @@ def run_presto():
         image_tag = get_default_presto_image_tag()
 
     need_build = not image_exists(image_tag)
-    container_id, proc, host, local_port = start_presto_and_wait(
+    container_id, proc, host, port = start_presto_and_wait(
         image_tag,
         need_build,
     )
-    yield proc, host, local_port
-    stop_presto(container_id, proc)
+    yield proc, host, port
+    if container_id or proc:
+        stop_presto(container_id, proc)
 
 
 @click.group()
