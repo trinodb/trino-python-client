@@ -14,12 +14,16 @@ $ pip install presto-python-client
 Use the DBAPI interface to query Presto:
 
 ```python
-conn = prestodb.dbapi.Connection(
-    host=coordinator_hostname,
-    port=coordinator_port,
+import prestodb
+conn=prestodb.dbapi.Connection(
+    host='localhost',
+    port=8080,
+    user='the-user',
+    catalog='the-catalog',
+    schema='the-schema',
 )
 cur = conn.cursor()
-cur.execute('select * from system.runtime.nodes')
+cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 
