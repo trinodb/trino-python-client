@@ -47,23 +47,23 @@ class PrestoQueryError(Exception):
 
     @property
     def error_code(self):
-        return self._error['errorCode']
+        return self._error.get('errorCode', None)
 
     @property
     def error_name(self):
-        return self._error['errorName']
+        return self._error.get('errorName', None)
 
     @property
     def error_type(self):
-        return self._error['errorType']
+        return self._error.get('errorType', None)
 
     @property
     def error_exception(self):
-        return self._error['failureInfo']['type']
+        return self.failure_info.get('type', None) if self.failure_info else None
 
     @property
     def failure_info(self):
-        return self._error['failureInfo']
+        return self._error.get('failureInfo', None)
 
     @property
     def message(self):
