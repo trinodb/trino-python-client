@@ -272,10 +272,13 @@ class PrestoRequest(object):
         with_retry = exceptions.retry_with(
             self._handle_retry,
             exceptions=(
-                exceptions.Http503Error,
                 KerberosExchangeError,
                 PrestoRequest.http.ConnectionError,
                 PrestoRequest.http.Timeout,
+            ),
+            conditions=(
+                # need retry when there is no exception but the status code is 503
+                lambda response: getattr(response, 'status_code', None) == 503,
             ),
             max_attempts=self._max_attempts,
         )

@@ -101,14 +101,19 @@ class PrestoUserError(PrestoQueryError):
     pass
 
 
-def retry_with(handle_retry, exceptions, max_attempts):
+def retry_with(handle_retry, exceptions, conditions, max_attempts):
     def wrapper(func):
         @functools.wraps(func)
         def decorated(*args, **kwargs):
             error = None
+            result = None
             for attempt in range(1, max_attempts + 1):
                 try:
-                    return func(*args, **kwargs)
+                    result = func(*args, **kwargs)
+                    if any(guard(result) for guard in conditions):
+                        handle_retry.retry(func, args, kwargs, None, attempt)
+                        continue
+                    return result
                 except Exception as err:
                     error = err
                     if any(isinstance(err, exc) for exc in exceptions):
@@ -116,7 +121,9 @@ def retry_with(handle_retry, exceptions, max_attempts):
                         continue
                     break
             logger.info('failed after {} attempts'.format(attempt))
-            raise(error)
+            if error is not None:
+                raise error
+            return result
         return decorated
     return wrapper
 

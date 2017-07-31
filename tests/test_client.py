@@ -479,15 +479,18 @@ def test_presto_connection_error(monkeypatch, error_code, error_type, error_mess
 
 
 class RetryRecorder(object):
-    def __init__(self, error=None):
+    def __init__(self, error=None, result=None):
         self.__name__ = 'RetryRecorder'
         self._retry_count = 0
         self._error = error
+        self._result = result
 
     def __call__(self, *args, **kwargs):
         self._retry_count += 1
         if self._error is not None:
             raise self._error
+        if self._result is not None:
+            return self._result
 
     @property
     def retry_count(self):
@@ -495,10 +498,10 @@ class RetryRecorder(object):
 
 
 def test_authentication_fail_retry(monkeypatch):
-    post_retry = RetryRecorder(KerberosExchangeError())
+    post_retry = RetryRecorder(error=KerberosExchangeError())
     monkeypatch.setattr(PrestoRequest.http.Session, 'post', post_retry)
 
-    get_retry = RetryRecorder(KerberosExchangeError())
+    get_retry = RetryRecorder(error=KerberosExchangeError())
     monkeypatch.setattr(PrestoRequest.http.Session, 'get', get_retry)
 
     attempts = 3
@@ -515,4 +518,29 @@ def test_authentication_fail_retry(monkeypatch):
 
     with pytest.raises(KerberosExchangeError):
         req.get('URL')
+    assert post_retry.retry_count == attempts
+
+
+def test_503_error_retry(monkeypatch):
+    http_resp = PrestoRequest.http.Response()
+    http_resp.status_code = 503
+
+    post_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(PrestoRequest.http.Session, 'post', post_retry)
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(PrestoRequest.http.Session, 'get', get_retry)
+
+    attempts = 3
+    req = PrestoRequest(
+        host='coordinator',
+        port=8080,
+        user='test',
+        max_attempts=attempts,
+    )
+
+    req.post('URL')
+    assert post_retry.retry_count == attempts
+
+    req.get('URL')
     assert post_retry.retry_count == attempts

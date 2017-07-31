@@ -61,6 +61,7 @@ def test_retry_with():
     with_retry = exceptions.retry_with(
         handle_retry=exceptions.RetryWithExponentialBackoff(),
         exceptions=[SomeException],
+        conditions={},
         max_attempts=max_attempts,
     )
 
