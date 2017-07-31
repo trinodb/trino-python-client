@@ -36,6 +36,7 @@ The main interface is :class:`PrestoQuery`: ::
 from urllib.parse import urlunparse
 import logging
 import os
+from requests_kerberos.exceptions import KerberosExchangeError
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
 import requests
@@ -272,6 +273,7 @@ class PrestoRequest(object):
             self._handle_retry,
             exceptions=(
                 exceptions.Http503Error,
+                KerberosExchangeError,
                 PrestoRequest.http.ConnectionError,
                 PrestoRequest.http.Timeout,
             ),

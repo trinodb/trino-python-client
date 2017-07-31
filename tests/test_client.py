@@ -15,6 +15,7 @@ import pytest
 import requests
 import time
 
+from requests_kerberos.exceptions import KerberosExchangeError
 from prestodb.client import PrestoRequest
 from prestodb import constants
 import prestodb.exceptions
@@ -475,3 +476,43 @@ def test_presto_connection_error(monkeypatch, error_code, error_type, error_mess
     with pytest.raises(error_type) as error:
         req.process(http_resp)
     assert error_message in str(error)
+
+
+class RetryRecorder(object):
+    def __init__(self, error=None):
+        self.__name__ = 'RetryRecorder'
+        self._retry_count = 0
+        self._error = error
+
+    def __call__(self, *args, **kwargs):
+        self._retry_count += 1
+        if self._error is not None:
+            raise self._error
+
+    @property
+    def retry_count(self):
+        return self._retry_count
+
+
+def test_authentication_fail_retry(monkeypatch):
+    post_retry = RetryRecorder(KerberosExchangeError())
+    monkeypatch.setattr(PrestoRequest.http.Session, 'post', post_retry)
+
+    get_retry = RetryRecorder(KerberosExchangeError())
+    monkeypatch.setattr(PrestoRequest.http.Session, 'get', get_retry)
+
+    attempts = 3
+    req = PrestoRequest(
+        host='coordinator',
+        port=8080,
+        user='test',
+        max_attempts=attempts,
+    )
+
+    with pytest.raises(KerberosExchangeError):
+        req.post('URL')
+    assert post_retry.retry_count == attempts
+
+    with pytest.raises(KerberosExchangeError):
+        req.get('URL')
+    assert post_retry.retry_count == attempts

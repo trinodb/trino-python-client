@@ -59,6 +59,7 @@ setup(
         'click==6.7',
         'future==0.16.0',
         'requests==2.13.0',
+        'requests_kerberos==0.10.0',
         'six==1.10.0',
         'typing==3.5.3.0',
     ],
