@@ -129,6 +129,7 @@ class Cursor(object):
 
         self.arraysize = 1
         self._iterator = None
+        self._query = None
 
     @property
     def description(self):
@@ -245,4 +246,6 @@ class Cursor(object):
         return list(self.genall())
 
     def cancel(self):
+        if self._query is None:
+            raise OperationalError("Cancel query failed; no running query")
         self._query.cancel()

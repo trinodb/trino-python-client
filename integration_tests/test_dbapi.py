@@ -115,6 +115,11 @@ def test_cancel_query(presto_connection):
         cur.fetchall()
     assert 'Query was canceled' in str(cancel_error.value)
 
+    cur = presto_connection.cursor()
+    with pytest.raises(Exception) as cancel_error:
+        cur.cancel()
+    assert 'Cancel query failed; no running query' in str(cancel_error.value)
+
 
 def test_session_properties(run_presto):
     _, host, port = run_presto
