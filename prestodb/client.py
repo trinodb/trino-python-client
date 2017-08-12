@@ -33,7 +33,6 @@ The main interface is :class:`PrestoQuery`: ::
     >> rows = list(query.execute())
 """
 
-from urllib.parse import urlunparse
 import logging
 import os
 from requests_kerberos.exceptions import KerberosExchangeError
@@ -288,8 +287,12 @@ class PrestoRequest(object):
 
     def get_url(self, path):
         # type: Text -> Text
-        destination = '{}:{}'.format(self._host, self._port)
-        return urlunparse((self._http_scheme, destination, path, '', '', ''))
+        return "{protocol}://{host}:{port}{path}".format(
+            protocol=self._http_scheme,
+            host=self._host,
+            port=self._port,
+            path=path
+        )
 
     @property
     def statement_url(self):
