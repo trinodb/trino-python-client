@@ -49,6 +49,7 @@ __all__ = ['PrestoQuery', 'PrestoRequest']
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
