@@ -32,6 +32,9 @@ The main interface is :class:`PrestoQuery`: ::
     >> query =  PrestoQuery(request, sql)
     >> rows = list(query.execute())
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import os

@@ -17,6 +17,10 @@ https://www.python.org/dev/peps/pep-0249/ .
 Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from future.standard_library import install_aliases
 install_aliases()
 import logging
