@@ -36,7 +36,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
 import os
 from requests_kerberos.exceptions import KerberosExchangeError
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
@@ -45,14 +44,14 @@ import requests
 
 from prestodb import constants
 from prestodb import exceptions
+import prestodb.logging
 import prestodb.redirect
 
 
 __all__ = ['PrestoQuery', 'PrestoRequest']
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = prestodb.logging.get_logger(__name__)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS

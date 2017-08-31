@@ -23,13 +23,13 @@ from __future__ import print_function
 
 from future.standard_library import install_aliases
 install_aliases()
-import logging
 
 from typing import Any, List, Optional  # NOQA for mypy types
 
 from prestodb import constants
 import prestodb.exceptions
 import prestodb.client
+import prestodb.logging
 import prestodb.redirect
 
 
@@ -39,7 +39,7 @@ __all__ = ['connect', 'Connection', 'Cursor']
 apilevel = '2.0'
 threadsafety = 2
 
-logger = logging.getLogger(__name__)
+logger = prestodb.logging.get_logger(__name__)
 
 
 class Error(Exception):

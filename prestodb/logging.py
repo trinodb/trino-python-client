@@ -13,9 +13,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from . import dbapi
-from . import client
-from . import constants
-from . import logging
+import logging
 
-__version__ = '0.3.0'
+LEVEL = logging.INFO
+
+
+# TODO: provide interface to use ``logging.dictConfig``
+def get_logger(name, log_level=LEVEL):
+    logger = logging.getLogger(name)
+    logger.setLevel(log_level)
+    return logger

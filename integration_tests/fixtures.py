@@ -14,7 +14,6 @@ from __future__ import division
 from __future__ import print_function
 
 from contextlib import closing
-import logging
 import os
 import requests
 import socket
@@ -28,9 +27,10 @@ import pytest
 
 from prestodb.client import PrestoQuery, PrestoRequest
 from prestodb.constants import DEFAULT_PORT
+import prestodb.logging
 
 
-logger = logging.getLogger(__name__)
+logger = prestodb.logging.get_logger(__name__)
 
 
 def get_latest_release():
