@@ -1,3 +1,5 @@
+![Build Status](https://travis-ci.org/prestodb/presto-python-client.svg?branch=master)
+
 # Introduction
 
 This package provides a client interface to query [Presto](https://prestodb.io/)
