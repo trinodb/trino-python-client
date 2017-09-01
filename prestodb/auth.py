@@ -17,7 +17,7 @@ import abc
 import os
 
 from future.utils import with_metaclass
-from typing import Any  # NOQA
+from typing import Any, Optional, Text  # NOQA
 
 import requests_kerberos
 
@@ -44,14 +44,15 @@ class KerberosAuthentication(Authentication):
         self,
         config=None,  # type: Optional[Text]
         service_name=None,  # type: Text
-        mutual_authentication=False,  # type: boolean
-        force_preemptive=False,  # type: boolean
+        mutual_authentication=False,  # type: bool
+        force_preemptive=False,  # type: bool
         hostname_override=None,  # type: Optional[Text]
-        sanitize_mutual_error_response=True,  # type: boolean
+        sanitize_mutual_error_response=True,  # type: bool
         principal=None,  # type: Optional[Text]
-        delegate=False,  # type: boolean
+        delegate=False,  # type: bool
         ca_bundle=None,  # type: Optional[Text]
     ):
+        # type: (...) -> None
         self._config = config
         self._service_name = service_name
         self._mutual_authentication = mutual_authentication

@@ -213,7 +213,7 @@ class Cursor(object):
             raise OperationalError(str(err))
 
     def fetchmany(self, size=None):
-        # type: Optional[int] -> List[List[Any]]
+        # type: (Optional[int]) -> List[List[Any]]
         """
         PEP-0249: Fetch the next set of rows of a query result, returning a
         sequence of sequences (e.g. a list of tuples). An empty sequence is

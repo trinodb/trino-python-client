@@ -208,6 +208,7 @@ class PrestoRequest(object):
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),
     ):
+        # type: (...) -> None
         self._client_session = ClientSession(
             catalog,
             schema,
@@ -221,7 +222,7 @@ class PrestoRequest(object):
         self._port = port
         self._next_uri = None  # type: Optional[Text]
         # mypy cannot follow module import
-        self._http_session = self.http.Session()
+        self._http_session = self.http.Session()  # type: ignore
         self._http_session.headers.update(self.http_headers)
         self._auth = auth
         if self._auth:
@@ -266,7 +267,7 @@ class PrestoRequest(object):
 
     @max_attempts.setter
     def max_attempts(self, value):
-        # type: int -> None
+        # type: (int) -> None
         self._max_attempts = value
         if value == 1:  # No retry
             self._get = self._http_session.get
@@ -278,8 +279,8 @@ class PrestoRequest(object):
             self._handle_retry,
             exceptions=(
                 KerberosExchangeError,
-                PrestoRequest.http.ConnectionError,
-                PrestoRequest.http.Timeout,
+                PrestoRequest.http.ConnectionError,  # type: ignore
+                PrestoRequest.http.Timeout,  # type: ignore
             ),
             conditions=(
                 # need retry when there is no exception but the status code is 503
@@ -292,7 +293,7 @@ class PrestoRequest(object):
         self._delete = with_retry(self._http_session.delete)
 
     def get_url(self, path):
-        # type: Text -> Text
+        # type: (Text) -> Text
         return "{protocol}://{host}:{port}{path}".format(
             protocol=self._http_scheme,
             host=self._host,
@@ -377,9 +378,7 @@ class PrestoRequest(object):
         )
 
     def process(self, http_response):
-        # type: requests.Response -> PrestoStatus:
-        status_code = http_response.status_code
-        # mypy cannot follow module import
+        # type: (requests.Response) -> PrestoStatus
         if not http_response.ok:
             self.raise_response_error(http_response)
 
@@ -456,10 +455,11 @@ class PrestoQuery(object):
         request,  # type: PrestoRequest
         sql,  # type: Text
     ):
-        self.query_id = None
+        # type: (...) -> None
+        self.query_id = None  # type: Optional[Text]
 
-        self._stats = {}
-        self._columns = None
+        self._stats = {}  # type: Dict[Any, Any]
+        self._columns = None  # type: Optional[List[Text]]
 
         self._finished = False
         self._cancelled = False
@@ -515,8 +515,8 @@ class PrestoQuery(object):
         return status.rows
 
     def cancel(self):
+        # type: () -> None
         """Cancel the current query"""
-        # type: None -> None
         if self.is_finished():
             return
 
