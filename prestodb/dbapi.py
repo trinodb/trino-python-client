@@ -156,13 +156,13 @@ class Connection(object):
         return self._transaction
 
     def commit(self):
-        if not self.isolation_level:
+        if self.transaction is None:
             return
         self._transaction.commit()
         self._transaction = None
 
     def rollback(self):
-        if not self.isolation_level:
+        if self.transaction is None:
             raise RuntimeError('no transaction was started')
         self._transaction.rollback()
         self._transaction = None

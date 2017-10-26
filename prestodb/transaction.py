@@ -14,6 +14,7 @@ from __future__ import division
 from __future__ import print_function
 
 from prestodb import constants
+import prestodb.client
 import prestodb.exceptions
 import prestodb.logging
 
@@ -90,26 +91,18 @@ class Transaction(object):
 
     def commit(self):
         self._request.transaction_id = self._id
-        response = self._request.post(COMMIT)
-        if not response.ok:
+        query = prestodb.client.PrestoQuery(self._request, COMMIT)
+        try:
+            list(query.execute())
+        except Exception as err:
             raise prestodb.exceptions.DatabaseErrror(
-                'failed to commit transaction {}: {}'.format(
-                    self._id,
-                    response.status_code,
-                )
-            )
-        status = self._request.process(response)
-        if not status.next_uri:
-            return
-        response = self._request.get(status.next_uri)
+                'failed to commit transaction {}: {}'.format(self._id, err))
 
     def rollback(self):
         self._request.transaction_id = self._id
-        response = self._request.post(ROLLBACK)
-        if not response.ok:
+        query = prestodb.client.PrestoQuery(self._request, ROLLBACK)
+        try:
+            list(query.execute())
+        except Exception as err:
             raise prestodb.exceptions.DatabaseErrror(
-                'failed to rollback transaction {}: {}'.format(
-                    self._id,
-                    response.status_code,
-                )
-            )
+                'failed to rollback transaction {}: {}'.format(self._id, err))
