@@ -40,6 +40,10 @@ class PrestoError(Exception):
     pass
 
 
+class DatabaseError(Exception):
+    pass
+
+
 class PrestoQueryError(Exception):
     def __init__(self, error):
         self._error = error

@@ -95,7 +95,7 @@ class Transaction(object):
         try:
             list(query.execute())
         except Exception as err:
-            raise prestodb.exceptions.DatabaseErrror(
+            raise prestodb.exceptions.DatabaseError(
                 'failed to commit transaction {}: {}'.format(self._id, err))
 
     def rollback(self):
@@ -104,5 +104,5 @@ class Transaction(object):
         try:
             list(query.execute())
         except Exception as err:
-            raise prestodb.exceptions.DatabaseErrror(
+            raise prestodb.exceptions.DatabaseError(
                 'failed to rollback transaction {}: {}'.format(self._id, err))
