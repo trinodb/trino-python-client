@@ -420,6 +420,28 @@ def test_presto_fetch_request(monkeypatch):
     assert status.rows == RESP_DATA_GET_0['data']
 
 
+def test_presto_fetch_request_with_cookie(monkeypatch):
+    monkeypatch.setattr(PrestoRequest.http.Response, 'json', get_json_get_0)
+
+    req = PrestoRequest(
+        host='coordinator',
+        port=8080,
+        user='test',
+        source='test',
+        catalog='test',
+        schema='test',
+        http_scheme='http',
+        session_properties={},
+    )
+
+    http_resp = PrestoRequest.http.Response()
+    http_resp.status_code = 200
+    http_resp.cookies['key'] = 'value'
+    req.process(http_resp)
+
+    assert req._http_cookies['key'] == 'value'
+
+
 def test_presto_fetch_error(monkeypatch):
     monkeypatch.setattr(
         PrestoRequest.http.Response,

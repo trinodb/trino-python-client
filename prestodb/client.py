@@ -229,6 +229,7 @@ class PrestoRequest(object):
         # mypy cannot follow module import
         self._http_session = self.http.Session()  # type: ignore
         self._http_session.headers.update(self.http_headers)
+        self._http_cookies = {}
         self._auth = auth
         if self._auth:
             if http_scheme == constants.HTTP:
@@ -304,9 +305,19 @@ class PrestoRequest(object):
             ),
             max_attempts=self._max_attempts,
         )
-        self._get = with_retry(self._http_session.get)
-        self._post = with_retry(self._http_session.post)
-        self._delete = with_retry(self._http_session.delete)
+        def get(*args, **kwargs):
+            return self._http_session.get(
+                *args, cookies=self._http_cookies, **kwargs)
+        def post(*args, **kwargs):
+            return self._http_session.post(
+                *args, cookies=self._http_cookies, **kwargs)
+        def delete(*args, **kwargs):
+            return self._http_session.delete(
+                *args, cookies=self._http_cookies, **kwargs)
+
+        self._get = with_retry(get)
+        self._post = with_retry(post)
+        self._delete = with_retry(delete)
 
     def get_url(self, path):
         # type: (Text) -> Text
@@ -417,6 +428,9 @@ class PrestoRequest(object):
                     constants.HEADER_SET_SESSION,
                 ):
                 self._client_session.properties[key] = value
+
+        if http_response.cookies:
+            self._http_cookies.update(http_response.cookies)
 
         self._next_uri = response.get('nextUri')
 
