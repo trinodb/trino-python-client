@@ -45,8 +45,9 @@ class DatabaseError(Exception):
 
 
 class PrestoQueryError(Exception):
-    def __init__(self, error):
+    def __init__(self, error, query_id=None):
         self._error = error
+        self._query_id = query_id
 
     @property
     def error_code(self):
@@ -80,12 +81,17 @@ class PrestoQueryError(Exception):
         location = self._error['errorLocation']
         return (location['lineNumber'], location['columnNumber'])
 
+    @property
+    def query_id(self):
+        return self._query_id
+
     def __repr__(self):
-        return '{}(type={}, name={}, message="{}")'.format(
+        return '{}(type={}, name={}, message="{}", query_id={})'.format(
             self.__class__.__name__,
             self.error_type,
             self.error_name,
             self.message,
+            self.query_id,
         )
 
     def __str__(self):

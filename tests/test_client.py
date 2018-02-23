@@ -452,6 +452,7 @@ def test_presto_fetch_error(monkeypatch):
     assert 'suppressed' in error.failure_info
     assert error.message == 'line 1:15: Schema must be specified when session schema is not set'
     assert error.error_location == (1, 15)
+    assert error.query_id == '20161116_205844_00002_xtnym'
 
 
 @pytest.mark.parametrize("error_code, error_type, error_message", [

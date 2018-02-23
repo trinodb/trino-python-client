@@ -373,14 +373,14 @@ class PrestoRequest(object):
             proxies=PROXIES,
         )
 
-    def _process_error(self, error):
+    def _process_error(self, error, query_id):
         error_type = error['errorType']
         if error_type == 'EXTERNAL':
-            raise exceptions.PrestoExternalError(error)
+            raise exceptions.PrestoExternalError(error, query_id)
         elif error_type == 'USER_ERROR':
-            return exceptions.PrestoUserError(error)
+            return exceptions.PrestoUserError(error, query_id)
 
-        return exceptions.PrestoQueryError(error)
+        return exceptions.PrestoQueryError(error, query_id)
 
     def raise_response_error(self, http_response):
         if http_response.status_code == 503:
@@ -402,7 +402,7 @@ class PrestoRequest(object):
         response = http_response.json()
         logger.debug('HTTP {}: {}'.format(http_response.status_code, response))
         if 'error' in response:
-            raise self._process_error(response['error'])
+            raise self._process_error(response['error'], response.get('id'))
 
         if constants.HEADER_CLEAR_SESSION in http_response.headers:
             for prop in get_header_values(
@@ -505,7 +505,10 @@ class PrestoQuery(object):
         call fetch() until is_finished is true.
         """
         if self._cancelled:
-            raise exceptions.PrestoUserError("Query has been cancelled")
+            raise exceptions.PrestoUserError(
+                "Query has been cancelled",
+                self.query_id,
+            )
 
         response = self._request.post(self._sql)
         status = self._request.process(response)
