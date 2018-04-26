@@ -100,6 +100,8 @@ class Connection(object):
         self.catalog = catalog
         self.schema = schema
         self.session_properties = session_properties
+        # mypy cannot follow module import
+        self._http_session = prestodb.client.PrestoRequest.http.Session()
         self.http_headers = http_headers
         self.http_scheme = http_scheme
         self.auth = auth
@@ -108,6 +110,7 @@ class Connection(object):
         self.request_timeout = request_timeout
 
         self._isolation_level = isolation_level
+        self._request = None
         self._transaction = None
 
     @property
@@ -124,7 +127,7 @@ class Connection(object):
     def __exit__(self, exc_type, exc_value, traceback):
         try:
             self.commit()
-        except:
+        except Exception:
             self.rollback()
         else:
             self.close()
@@ -135,23 +138,7 @@ class Connection(object):
         pass
 
     def start_transaction(self):
-        request = prestodb.client.PrestoRequest(
-            self.host,
-            self.port,
-            self.user,
-            self.source,
-            self.catalog,
-            self.schema,
-            self.session_properties,
-            self.http_headers,
-            NO_TRANSACTION,
-            self.http_scheme,
-            self.auth,
-            self.redirect_handler,
-            self.max_attempts,
-            self.request_timeout,
-        )
-        self._transaction = Transaction(request)
+        self._transaction = Transaction(self._create_request())
         self._transaction.begin()
         return self._transaction
 
@@ -167,9 +154,28 @@ class Connection(object):
         self._transaction.rollback()
         self._transaction = None
 
+    def _create_request(self):
+        return prestodb.client.PrestoRequest(
+            self.host,
+            self.port,
+            self.user,
+            self.source,
+            self.catalog,
+            self.schema,
+            self.session_properties,
+            self._http_session,
+            self.http_headers,
+            NO_TRANSACTION,
+            self.http_scheme,
+            self.auth,
+            self.redirect_handler,
+            self.max_attempts,
+            self.request_timeout,
+        )
+
     def cursor(self):
         """Return a new :py:class:`Cursor` object using the connection."""
-        return Cursor(self)
+        return Cursor(self, self._create_request())
 
 
 class Cursor(object):
@@ -179,13 +185,14 @@ class Cursor(object):
     cursor are immediately visible by other cursors or connections.
 
     """
-    def __init__(self, connection):
+    def __init__(self, connection, request):
         if not isinstance(connection, Connection):
             raise ValueError(
                 'connection must be a Connection object: {}'.format(
                     type(connection)
                 ))
         self._connection = connection
+        self._request = request
 
         self.arraysize = 1
         self._iterator = None
@@ -194,7 +201,6 @@ class Cursor(object):
     @property
     def connection(self):
         return self._connection
-
 
     @property
     def description(self):
@@ -234,28 +240,8 @@ class Cursor(object):
         if self.connection.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.connection.transaction is None:
                 self.connection.start_transaction()
-            transaction_id = self.connection.transaction.id
-        else:
-            transaction_id = 'NONE'
 
-        request = prestodb.client.PrestoRequest(
-            self.connection.host,
-            self.connection.port,
-            self.connection.user,
-            self.connection.source,
-            self.connection.catalog,
-            self.connection.schema,
-            self.connection.session_properties,
-            self.connection.http_headers,
-            transaction_id,
-            self.connection.http_scheme,
-            self.connection.auth,
-            self.connection.redirect_handler,
-            self.connection.max_attempts,
-            self.connection.request_timeout,
-        )
-
-        self._query = prestodb.client.PrestoQuery(request, sql=operation)
+        self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
         result = self._query.execute()
         self._iterator = iter(result)
         return result

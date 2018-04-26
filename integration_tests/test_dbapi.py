@@ -65,11 +65,13 @@ def test_select_query(presto_connection):
 
 
 def test_select_query_result_iteration(presto_connection):
-    cur = presto_connection.cursor()
-    cur.execute('select custkey from tpch.sf1.customer LIMIT 10')
-    rows0 = cur.genall()
-    cur.execute('select custkey from tpch.sf1.customer LIMIT 10')
-    rows1 = cur.fetchall()
+    cur0 = presto_connection.cursor()
+    cur0.execute('select custkey from tpch.sf1.customer LIMIT 10')
+    rows0 = cur0.genall()
+
+    cur1 = presto_connection.cursor()
+    cur1.execute('select custkey from tpch.sf1.customer LIMIT 10')
+    rows1 = cur1.fetchall()
 
     assert len(list(rows0)) == len(rows1)
 
@@ -177,7 +179,7 @@ def test_transaction_single(presto_connection_with_transaction):
 
 def test_transaction_rollback(presto_connection_with_transaction):
     connection = presto_connection_with_transaction
-    for i in range(3):
+    for _ in range(3):
         cur = connection.cursor()
         cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
         rows = cur.fetchall()

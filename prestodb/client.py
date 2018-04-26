@@ -203,6 +203,7 @@ class PrestoRequest(object):
         catalog=None,  # type: Text
         schema=None,  # type: Text
         session_properties=None,  # type: Optional[Dict[Text, Any]]
+        http_session=None,  # type: Any
         http_headers=None,  # type: Optional[Dict[Text, Text]]
         transaction_id=NO_TRANSACTION,  # type: Optional[Text]
         http_scheme=constants.HTTP,  # type: Text
@@ -226,8 +227,12 @@ class PrestoRequest(object):
         self._host = host
         self._port = port
         self._next_uri = None  # type: Optional[Text]
-        # mypy cannot follow module import
-        self._http_session = self.http.Session()  # type: ignore
+
+        if http_session is not None:
+            self._http_session = http_session
+        else:
+            # mypy cannot follow module import
+            self._http_session = self.http.Session()  # type: ignore
         self._http_session.headers.update(self.http_headers)
         self._auth = auth
         if self._auth:
@@ -413,9 +418,9 @@ class PrestoRequest(object):
 
         if constants.HEADER_SET_SESSION in http_response.headers:
             for key, value in get_session_property_values(
-                    response.headers,
-                    constants.HEADER_SET_SESSION,
-                ):
+                response.headers,
+                constants.HEADER_SET_SESSION,
+            ):
                 self._client_session.properties[key] = value
 
         self._next_uri = response.get('nextUri')

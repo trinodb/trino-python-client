@@ -87,22 +87,25 @@ class Transaction(object):
                     response.headers[constants.HEADER_STARTED_TRANSACTION]
                 )
             status = self._request.process(response)
+        self._request.transaction_id = self._id
         logger.info('transaction started: ' + self._id)
 
     def commit(self):
-        self._request.transaction_id = self._id
         query = prestodb.client.PrestoQuery(self._request, COMMIT)
         try:
             list(query.execute())
         except Exception as err:
             raise prestodb.exceptions.DatabaseError(
                 'failed to commit transaction {}: {}'.format(self._id, err))
+        self._id = NO_TRANSACTION
+        self._request.transaction_id = self._id
 
     def rollback(self):
-        self._request.transaction_id = self._id
         query = prestodb.client.PrestoQuery(self._request, ROLLBACK)
         try:
             list(query.execute())
         except Exception as err:
             raise prestodb.exceptions.DatabaseError(
                 'failed to rollback transaction {}: {}'.format(self._id, err))
+        self._id = NO_TRANSACTION
+        self._request.transaction_id = self._id
