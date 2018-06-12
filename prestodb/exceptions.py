@@ -44,6 +44,10 @@ class DatabaseError(Exception):
     pass
 
 
+class TimeoutError(Exception):
+    pass
+
+
 class PrestoQueryError(Exception):
     def __init__(self, error, query_id=None):
         self._error = error

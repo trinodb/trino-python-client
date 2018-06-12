@@ -27,6 +27,7 @@ import pytest
 
 from prestodb.client import PrestoQuery, PrestoRequest
 from prestodb.constants import DEFAULT_PORT
+from prestodb.exceptions import TimeoutError
 import prestodb.logging
 
 
@@ -126,12 +127,19 @@ def wait_for_presto_workers(host, port, timeout=30):
         time.sleep(1)
 
 
-def wait_for_presto_coordinator(stream):
+def wait_for_presto_coordinator(stream, timeout=30):
     started_tag = '======== SERVER STARTED ========'
+    t0 = time.time()
     for line in iter(stream.readline, b''):
+        if line:
+            print(line)
         if started_tag in line:
             time.sleep(5)
             return True
+        if time.time() - t0 > timeout:
+            logger.error(
+                'coordinator took longer than {} to start'.format(timeout))
+            raise TimeoutError
     return False
 
 
