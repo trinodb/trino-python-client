@@ -19,4 +19,4 @@ from . import constants
 from . import exceptions
 from . import logging
 
-__version__ = '0.4.2'
+__version__ = '0.5.1'
