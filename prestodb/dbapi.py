@@ -175,7 +175,13 @@ class Connection(object):
 
     def cursor(self):
         """Return a new :py:class:`Cursor` object using the connection."""
-        return Cursor(self, self._create_request())
+        if self.isolation_level != IsolationLevel.AUTOCOMMIT:
+            if self.transaction is None:
+                self.start_transaction()
+            request = self.transaction._request
+        else:
+            request = self._create_request()
+        return Cursor(self, request)
 
 
 class Cursor(object):
@@ -237,10 +243,6 @@ class Cursor(object):
         pass
 
     def execute(self, operation, params=None):
-        if self.connection.isolation_level != IsolationLevel.AUTOCOMMIT:
-            if self.connection.transaction is None:
-                self.connection.start_transaction()
-
         self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
         result = self._query.execute()
         self._iterator = iter(result)
