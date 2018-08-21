@@ -16,7 +16,7 @@ from __future__ import print_function
 import abc
 import os
 
-from future.utils import with_metaclass
+from six import with_metaclass
 from typing import Any, Optional, Text  # NOQA
 
 import requests_kerberos

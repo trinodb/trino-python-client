@@ -14,14 +14,12 @@ from __future__ import division
 from __future__ import print_function
 
 import abc
-from future.standard_library import install_aliases
-install_aliases()
 
-from future.utils import with_metaclass
+from six import with_metaclass
 import ipaddress
 import socket
 from typing import Any, Text  # NOQA
-from urllib.parse import urlparse
+from six.moves.urllib_parse import urlparse
 
 
 class RedirectHandler(with_metaclass(abc.ABCMeta)):  # type: ignore

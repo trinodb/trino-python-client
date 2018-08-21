@@ -21,9 +21,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from future.standard_library import install_aliases
-install_aliases()
-
 from typing import Any, List, Optional  # NOQA for mypy types
 
 from prestodb import constants
