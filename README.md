@@ -131,3 +131,9 @@ That way, you do not need to run `pip install` again to make your changes
 applied to the *virtualenv*.
 
 When the code is ready, submit a Pull Request.
+
+# Need Help?
+
+Feel free to create an issue as it make your request visible to other users and contributors.
+
+If an interactive discussion would be better or if you just want to hangout and chat about the Presto Python client, you can join us on the *#presto-python-client* channel on [Slack](https://prestodb.slack.com).
