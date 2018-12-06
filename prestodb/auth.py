@@ -19,8 +19,6 @@ import os
 from six import with_metaclass
 from typing import Any, Optional, Text  # NOQA
 
-import requests_kerberos
-
 
 class Authentication(with_metaclass(abc.ABCMeta)):  # type: ignore
     @abc.abstractmethod
@@ -67,6 +65,11 @@ class KerberosAuthentication(Authentication):
         pass
 
     def set_http_session(self, http_session):
+        try:
+            import requests_kerberos
+        except ImportError:
+            raise RuntimeError('unable to import requests_kerberos')
+
         if self._config:
             os.environ['KRB5_CONFIG'] = self._config
         http_session.trust_env = False

@@ -13,11 +13,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-try:
-    from .auth import KerberosAuthentication
-except ImportError:
-    pass
-
+from . import auth
 from . import dbapi
 from . import client
 from . import constants
