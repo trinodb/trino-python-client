@@ -58,15 +58,11 @@ setup(
     install_requires=[
         'click',
         'requests',
-        'requests_kerberos',
         'six',
     ],
     extras_require={
-        'tests':[
-            'httpretty',
-            'pytest',
-            'pytest-runner',
-        ],
+        'kerberos': ['requests_kerberos'],
+        'tests': ['httpretty', 'pytest', 'pytest-runner'],
         ':python_version=="2.7"': ['ipaddress', 'typing'],
     },
 )
