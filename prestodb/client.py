@@ -37,7 +37,6 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-from requests_kerberos.exceptions import KerberosExchangeError
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
 import requests
@@ -240,6 +239,16 @@ class PrestoRequest(object):
                 raise ValueError('cannot use authentication with HTTP')
             self._auth.set_http_session(self._http_session)
 
+        default_exceptions = (
+            PrestoRequest.http.ConnectionError,  # type: ignore
+            PrestoRequest.http.Timeout,  # type: ignore
+        )
+        try:
+            from requests_kerberos.exceptions import KerberosExchangeError
+            self._exceptions = default_exceptions + (KerberosExchangeError,)
+        except ImportError:
+            self._exceptions = default_exceptions
+
         self._redirect_handler = redirect_handler
         self._request_timeout = request_timeout
         self._handle_retry = handle_retry
@@ -298,11 +307,7 @@ class PrestoRequest(object):
 
         with_retry = exceptions.retry_with(
             self._handle_retry,
-            exceptions=(
-                KerberosExchangeError,
-                PrestoRequest.http.ConnectionError,  # type: ignore
-                PrestoRequest.http.Timeout,  # type: ignore
-            ),
+            exceptions=self._exceptions,
             conditions=(
                 # need retry when there is no exception but the status code is 503
                 lambda response: getattr(response, 'status_code', None) == 503,
