@@ -24,6 +24,18 @@ with open('prestodb/__init__.py', 'rb') as f:
         f.read().decode('utf-8')).group(1)))
 
 
+kerberos_require = ['requests_kerberos']
+
+all_require = [kerberos_require]
+
+tests_require = all_require + [
+    'httpretty',
+    'pytest',
+    'pytest-runner'
+]
+
+py27_require = ['ipaddress', 'typing']
+
 setup(
     name='presto-python-client',
     author='Presto Team',
@@ -61,8 +73,9 @@ setup(
         'six',
     ],
     extras_require={
-        'kerberos': ['requests_kerberos'],
-        'tests': ['httpretty', 'pytest', 'pytest-runner'],
-        ':python_version=="2.7"': ['ipaddress', 'typing'],
+        'all': all_require,
+        'kerberos': kerberos_require,
+        'tests': tests_require,
+        ':python_version=="2.7"': py27_require,
     },
 )
