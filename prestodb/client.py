@@ -413,14 +413,14 @@ class PrestoRequest(object):
 
         if constants.HEADER_CLEAR_SESSION in http_response.headers:
             for prop in get_header_values(
-                response.headers,
+                http_response.headers,
                 constants.HEADER_CLEAR_SESSION,
             ):
                 self._client_session.properties.pop(prop, None)
 
         if constants.HEADER_SET_SESSION in http_response.headers:
             for key, value in get_session_property_values(
-                response.headers,
+                http_response.headers,
                 constants.HEADER_SET_SESSION,
             ):
                 self._client_session.properties[key] = value
