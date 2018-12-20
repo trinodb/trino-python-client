@@ -21,6 +21,7 @@ import time
 
 from requests_kerberos.exceptions import KerberosExchangeError
 from prestodb.client import PrestoRequest
+from prestodb.auth import KerberosAuthentication
 from prestodb import constants
 import prestodb.exceptions
 
@@ -511,10 +512,13 @@ def test_authentication_fail_retry(monkeypatch):
     monkeypatch.setattr(PrestoRequest.http.Session, 'get', get_retry)
 
     attempts = 3
+    kerberos_auth = KerberosAuthentication()
     req = PrestoRequest(
         host='coordinator',
         port=8080,
         user='test',
+        http_scheme=constants.HTTPS,
+        auth=kerberos_auth,
         max_attempts=attempts,
     )
 
