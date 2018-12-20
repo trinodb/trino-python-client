@@ -193,6 +193,11 @@ class PrestoRequest(object):
 
     http = requests
 
+    HTTP_EXCEPTIONS = (
+        http.ConnectionError,  # type: ignore
+        http.Timeout,  # type: ignore
+    )
+
     def __init__(
         self,
         host,  # type: Text
@@ -233,21 +238,13 @@ class PrestoRequest(object):
             # mypy cannot follow module import
             self._http_session = self.http.Session()  # type: ignore
         self._http_session.headers.update(self.http_headers)
+        self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
         if self._auth:
             if http_scheme == constants.HTTP:
                 raise ValueError('cannot use authentication with HTTP')
             self._auth.set_http_session(self._http_session)
-
-        default_exceptions = (
-            PrestoRequest.http.ConnectionError,  # type: ignore
-            PrestoRequest.http.Timeout,  # type: ignore
-        )
-        try:
-            from requests_kerberos.exceptions import KerberosExchangeError
-            self._exceptions = default_exceptions + (KerberosExchangeError,)
-        except ImportError:
-            self._exceptions = default_exceptions
+            self._exceptions += self._auth.get_exceptions()
 
         self._redirect_handler = redirect_handler
         self._request_timeout = request_timeout

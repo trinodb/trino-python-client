@@ -33,6 +33,9 @@ class Authentication(with_metaclass(abc.ABCMeta)):  # type: ignore
     def setup(self):
         pass
 
+    def get_exceptions(self):
+        return tuple()
+
     def handle_err(self, error):
         pass
 
@@ -89,6 +92,13 @@ class KerberosAuthentication(Authentication):
     def setup(self, presto_client):
         self.set_client_session(presto_client.client_session)
         self.set_http_session(presto_client.http_session)
+
+    def get_exceptions(self):
+        try:
+            from requests_kerberos.exceptions import KerberosExchangeError
+            return (KerberosExchangeError,)
+        except ImportError:
+            raise RuntimeError('unable to import requests_kerberos')
 
     def handle_error(self, handle_error):
         pass
