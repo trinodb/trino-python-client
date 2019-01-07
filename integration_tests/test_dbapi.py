@@ -56,7 +56,7 @@ def test_select_query(presto_connection):
     row = rows[0]
     assert row[0] == 'test'
     assert row[2] == fixtures.PRESTO_VERSION
-    columns = dict(cur.description)
+    columns = dict([desc[:2] for desc in cur.description])
     assert columns['node_id'] == 'varchar'
     assert columns['http_uri'] == 'varchar'
     assert columns['node_version'] == 'varchar'
