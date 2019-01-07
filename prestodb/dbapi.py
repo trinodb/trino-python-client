@@ -246,6 +246,10 @@ class Cursor(object):
         self._iterator = iter(result)
         return result
 
+    def executemany(self, operation, seq_of_params):
+        """Not supported"""
+        pass
+
     def fetchone(self):
         # type: () -> Optional[List[Any]]
         """
@@ -309,3 +313,6 @@ class Cursor(object):
         if self._query is None:
             raise OperationalError("Cancel query failed; no running query")
         self._query.cancel()
+
+    def close(self):
+        self._connection.close()
