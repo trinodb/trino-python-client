@@ -217,12 +217,10 @@ class Cursor(object):
         return None
 
     def setinputsizes(self, sizes):
-        """Not supported"""
-        pass
+        raise prestodb.exceptions.NotSupportedError
 
     def setoutputsize(self, size, column):
-        """Not supported"""
-        pass
+        raise prestodb.exceptions.NotSupportedError
 
     def execute(self, operation, params=None):
         self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
@@ -231,8 +229,7 @@ class Cursor(object):
         return result
 
     def executemany(self, operation, seq_of_params):
-        """Not supported"""
-        pass
+        raise prestodb.exceptions.NotSupportedError
 
     def fetchone(self):
         # type: () -> Optional[List[Any]]
