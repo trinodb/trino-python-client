@@ -40,22 +40,6 @@ threadsafety = 2
 logger = prestodb.logging.get_logger(__name__)
 
 
-class Error(Exception):
-    pass
-
-
-class OperationalError(Error):
-    """
-
-    Exception raised for errors that are related to the database's operation
-    and not necessarily under the control of the programmer, e.g. an unexpected
-    disconnect occurs, the data source name is not found, a transaction could
-    not be processed, a memory allocation error occurred during processing, ...
-
-    """
-    pass
-
-
 def connect(*args, **kwargs):
     """Constructor for creating a connection to the database.
 
@@ -266,7 +250,7 @@ class Cursor(object):
         except StopIteration:
             return None
         except prestodb.exceptions.HttpError as err:
-            raise OperationalError(str(err))
+            raise prestodb.exceptions.OperationalError(str(err))
 
     def fetchmany(self, size=None):
         # type: (Optional[int]) -> List[List[Any]]
@@ -311,7 +295,7 @@ class Cursor(object):
 
     def cancel(self):
         if self._query is None:
-            raise OperationalError("Cancel query failed; no running query")
+            raise prestodb.exceptions.OperationalError("Cancel query failed; no running query")
         self._query.cancel()
 
     def close(self):
