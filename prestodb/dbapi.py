@@ -22,6 +22,7 @@ from __future__ import division
 from __future__ import print_function
 
 from typing import Any, List, Optional  # NOQA for mypy types
+import datetime
 
 from prestodb import constants
 import prestodb.exceptions
@@ -297,3 +298,41 @@ class Cursor(object):
 
     def close(self):
         self._connection.close()
+
+
+Date = datetime.date
+Time = datetime.time
+Timestamp = datetime.datetime
+DateFromTicks = datetime.date.fromtimestamp
+TimestampFromTicks = datetime.datetime.fromtimestamp
+
+
+def TimeFromTicks(ticks):
+    return datetime.time(*datetime.localtime(ticks)[3:6])
+
+
+def Binary(string):
+    return string.encode('utf-8')
+
+
+class DBAPITypeObject:
+
+    def __init__(self, *values):
+        self.values = [v.lower() for v in values]
+
+    def __eq__(self, other):
+        return other.lower() in self.values
+
+
+STRING = DBAPITypeObject('VARCHAR', 'CHAR', 'VARBINARY', 'JSON', 'IPADDRESS')
+
+BINARY = DBAPITypeObject('ARRAY', 'MAP', 'ROW', 'HyperLogLog', 'P4HyperLogLog', 'QDigest')
+
+NUMBER = DBAPITypeObject('BOOLEAN', 'TINYINT', 'SMALLINT', 'INTEGER', 'BIGINT',
+                         'REAL', 'DOUBLE', 'DECIMAL')
+
+DATETIME = DBAPITypeObject('DATE', 'TIME', 'TIME WITH TIME ZONE', 'TIMESTAMP',
+                           'TIMESTAMP WITH TIME ZONE', 'INTERVAL YEAR TO MONTH',
+                           'INTERVAL DAY TO SECOND')
+
+ROWID = DBAPITypeObject()  # nothing indicates row id in Presto
