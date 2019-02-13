@@ -219,6 +219,12 @@ class Cursor(object):
             return self._query.stats
         return None
 
+    @property
+    def warnings(self):
+        if self._query is not None:
+            return self._query.warnings
+        return None
+
     def setinputsizes(self, sizes):
         raise prestodb.exceptions.NotSupportedError
 

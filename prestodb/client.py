@@ -98,9 +98,10 @@ def get_session_property_values(headers, header):
 
 
 class PrestoStatus(object):
-    def __init__(self, id, stats, info_uri, next_uri, rows, columns=None):
+    def __init__(self, id, stats, warnings, info_uri, next_uri, rows, columns=None):
         self.id = id
         self.stats = stats
+        self.warnings = warnings
         self.info_uri = info_uri
         self.next_uri = next_uri
         self.rows = rows
@@ -108,9 +109,15 @@ class PrestoStatus(object):
 
     def __repr__(self):
         return (
-            "PrestoStatus("
-            "id={}, stats={{...}}, info_uri={}, next_uri={}, rows=<count={}>"
-            ")".format(self.id, self.info_uri, self.next_uri, len(self.rows))
+            'PrestoStatus('
+            'id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>'
+            ')'.format(
+                self.id,
+                len(self.warnings),
+                self.info_uri,
+                self.next_uri,
+                len(self.rows),
+            )
         )
 
 
@@ -406,9 +413,10 @@ class PrestoRequest(object):
         self._next_uri = response.get("nextUri")
 
         return PrestoStatus(
-            id=response["id"],
-            stats=response["stats"],
-            info_uri=response["infoUri"],
+            id=response['id'],
+            stats=response['stats'],
+            warnings=response.get('warnings', []),
+            info_uri=response['infoUri'],
             next_uri=self._next_uri,
             rows=response.get("data", []),
             columns=response.get("columns"),
@@ -461,6 +469,7 @@ class PrestoQuery(object):
         self.query_id = None  # type: Optional[Text]
 
         self._stats = {}  # type: Dict[Any, Any]
+        self._warnings = []  # type: List[Dict[Any, Any]]
         self._columns = None  # type: Optional[List[Text]]
 
         self._finished = False
@@ -476,6 +485,10 @@ class PrestoQuery(object):
     @property
     def stats(self):
         return self._stats
+
+    @property
+    def warnings(self):
+        return self._warnings
 
     @property
     def result(self):
@@ -498,6 +511,7 @@ class PrestoQuery(object):
         self.query_id = status.id
         self._stats.update({u"queryId": self.query_id})
         self._stats.update(status.stats)
+        self._warnings = getattr(status, 'warnings', [])
         if status.next_uri is None:
             self._finished = True
         self._result = PrestoResult(self, status.rows)
