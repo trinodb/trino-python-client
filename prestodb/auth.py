@@ -102,3 +102,34 @@ class KerberosAuthentication(Authentication):
 
     def handle_error(self, handle_error):
         pass
+
+
+class BasicAuthentication(Authentication):
+    def __init__(self, username, password):
+        self._username = username
+        self._password = password
+
+    def set_client_session(self, client_session):
+        pass
+
+    def set_http_session(self, http_session):
+        try:
+            import requests.auth
+        except ImportError:
+            raise RuntimeError('unable to import requests.auth')
+
+        http_session.auth = requests.auth.HTTPBasicAuth(
+            self._username,
+            self._password
+        )
+        return http_session
+
+    def setup(self, presto_client):
+        self.set_client_session(presto_client.client_session)
+        self.set_http_session(presto_client.http_session)
+
+    def get_exceptions(self):
+        return ()
+
+    def handle_error(self, handle_error):
+        pass
