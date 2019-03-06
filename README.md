@@ -37,6 +37,25 @@ rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
 `prestodb.dbapi.Cursor.arraysize` accordingly.
 
+# Basic Authentication
+The `BasicAuthentication` class can be used to connect to a LDAP-configured Presto
+cluster:
+```python
+import prestodb
+conn=prestodb.dbapi.connect(
+    host='coordinator url',
+    port=8443,
+    user='the-user',
+    catalog='the-catalog',
+    schema='the-schema',
+    http_scheme='https',
+    auth=prestodb.auth.BasicAuthentication("principal id", "password"),
+)
+cur = conn.cursor()
+cur.execute('SELECT * FROM system.runtime.nodes')
+rows = cur.fetchall()
+```
+
 # Transactions
 The client runs by default in *autocommit* mode. To enable transactions, set
 *isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
