@@ -32,37 +32,31 @@ The main interface is :class:`PrestoQuery`: ::
     >> query =  PrestoQuery(request, sql)
     >> rows = list(query.execute())
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
-import requests
-
-from prestodb import constants
-from prestodb import exceptions
 import prestodb.logging
-from prestodb.transaction import NO_TRANSACTION
 import prestodb.redirect
+import requests
+from prestodb import constants, exceptions
+from prestodb.transaction import NO_TRANSACTION
 
 
-__all__ = ['PrestoQuery', 'PrestoRequest']
+__all__ = ["PrestoQuery", "PrestoRequest"]
 
 
 logger = prestodb.logging.get_logger(__name__)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
-SOCKS_PROXY = os.environ.get('SOCKS_PROXY')
+SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
 if SOCKS_PROXY:
-    PROXIES = {
-        'http': 'socks5://' + SOCKS_PROXY,
-        'https': 'socks5://' + SOCKS_PROXY,
-    }
+    PROXIES = {"http": "socks5://" + SOCKS_PROXY, "https": "socks5://" + SOCKS_PROXY}
 else:
     PROXIES = None
+
 
 class ClientSession(object):
     def __init__(
@@ -95,15 +89,12 @@ class ClientSession(object):
 
 
 def get_header_values(headers, header):
-    return [val.strip() for val in headers[header].split(',')]
+    return [val.strip() for val in headers[header].split(",")]
 
 
 def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), v.strip()) for k, v
-        in (kv.split('=', 1) for kv in kvs)
-    ]
+    return [(k.strip(), v.strip()) for k, v in (kv.split("=", 1) for kv in kvs)]
 
 
 class PrestoStatus(object):
@@ -117,14 +108,9 @@ class PrestoStatus(object):
 
     def __repr__(self):
         return (
-            'PrestoStatus('
-            'id={}, stats={{...}}, info_uri={}, next_uri={}, rows=<count={}>'
-            ')'.format(
-                self.id,
-                self.info_uri,
-                self.next_uri,
-                len(self.rows),
-            )
+            "PrestoStatus("
+            "id={}, stats={{...}}, info_uri={}, next_uri={}, rows=<count={}>"
+            ")".format(self.id, self.info_uri, self.next_uri, len(self.rows))
         )
 
 
@@ -242,7 +228,7 @@ class PrestoRequest(object):
         self._auth = auth
         if self._auth:
             if http_scheme == constants.HTTP:
-                raise ValueError('cannot use authentication with HTTP')
+                raise ValueError("cannot use authentication with HTTP")
             self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
 
@@ -270,16 +256,16 @@ class PrestoRequest(object):
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
 
-        headers[constants.HEADER_SESSION] = ','.join(
+        headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            '{}={}'.format(name, value)
+            "{}={}".format(name, value)
             for name, value in self._client_session.properties.items()
         )
 
         # merge custom http headers
         for key in self._client_session.headers:
             if key in headers.keys():
-                raise ValueError('cannot override reserved HTTP header {}'.format(key))
+                raise ValueError("cannot override reserved HTTP header {}".format(key))
         headers.update(self._client_session.headers)
 
         transaction_id = self._client_session.transaction_id
@@ -307,7 +293,8 @@ class PrestoRequest(object):
             exceptions=self._exceptions,
             conditions=(
                 # need retry when there is no exception but the status code is 503
-                lambda response: getattr(response, 'status_code', None) == 503,
+                lambda response: getattr(response, "status_code", None)
+                == 503,
             ),
             max_attempts=self._max_attempts,
         )
@@ -318,10 +305,7 @@ class PrestoRequest(object):
     def get_url(self, path):
         # type: (Text) -> Text
         return "{protocol}://{host}:{port}{path}".format(
-            protocol=self._http_scheme,
-            host=self._host,
-            port=self._port,
-            path=path
+            protocol=self._http_scheme, host=self._host, port=self._port, path=path
         )
 
     @property
@@ -335,7 +319,7 @@ class PrestoRequest(object):
         return self._next_uri
 
     def post(self, sql):
-        data = sql.encode('utf-8')
+        data = sql.encode("utf-8")
         http_headers = self.http_headers
 
         http_response = self._post(
@@ -348,13 +332,13 @@ class PrestoRequest(object):
         )
         if self._redirect_handler is not None:
             while http_response is not None and http_response.is_redirect:
-                location = http_response.headers['Location']
+                location = http_response.headers["Location"]
                 url = self._redirect_handler.handle(location)
-                logger.info('redirect {} from {} to {}'.format(
-                    http_response.status_code,
-                    location,
-                    url,
-                ))
+                logger.info(
+                    "redirect {} from {} to {}".format(
+                        http_response.status_code, location, url
+                    )
+                )
                 http_response = self._post(
                     url,
                     data=data,
@@ -374,29 +358,25 @@ class PrestoRequest(object):
         )
 
     def delete(self, url):
-        return self._delete(
-            url,
-            timeout=self._request_timeout,
-            proxies=PROXIES,
-        )
+        return self._delete(url, timeout=self._request_timeout, proxies=PROXIES)
 
     def _process_error(self, error, query_id):
-        error_type = error['errorType']
-        if error_type == 'EXTERNAL':
+        error_type = error["errorType"]
+        if error_type == "EXTERNAL":
             raise exceptions.PrestoExternalError(error, query_id)
-        elif error_type == 'USER_ERROR':
+        elif error_type == "USER_ERROR":
             return exceptions.PrestoUserError(error, query_id)
 
         return exceptions.PrestoQueryError(error, query_id)
 
     def raise_response_error(self, http_response):
         if http_response.status_code == 503:
-            raise exceptions.Http503Error('error 503: service unavailable')
+            raise exceptions.Http503Error("error 503: service unavailable")
 
         raise exceptions.HttpError(
-            'error {}{}'.format(
+            "error {}{}".format(
                 http_response.status_code,
-                ': {}'.format(http_response.content) if http_response.content else '',
+                ": {}".format(http_response.content) if http_response.content else "",
             )
         )
 
@@ -405,35 +385,33 @@ class PrestoRequest(object):
         if not http_response.ok:
             self.raise_response_error(http_response)
 
-        http_response.encoding = 'utf-8'
+        http_response.encoding = "utf-8"
         response = http_response.json()
-        logger.debug('HTTP {}: {}'.format(http_response.status_code, response))
-        if 'error' in response:
-            raise self._process_error(response['error'], response.get('id'))
+        logger.debug("HTTP {}: {}".format(http_response.status_code, response))
+        if "error" in response:
+            raise self._process_error(response["error"], response.get("id"))
 
         if constants.HEADER_CLEAR_SESSION in http_response.headers:
             for prop in get_header_values(
-                http_response.headers,
-                constants.HEADER_CLEAR_SESSION,
+                http_response.headers, constants.HEADER_CLEAR_SESSION
             ):
                 self._client_session.properties.pop(prop, None)
 
         if constants.HEADER_SET_SESSION in http_response.headers:
             for key, value in get_session_property_values(
-                http_response.headers,
-                constants.HEADER_SET_SESSION,
+                http_response.headers, constants.HEADER_SET_SESSION
             ):
                 self._client_session.properties[key] = value
 
-        self._next_uri = response.get('nextUri')
+        self._next_uri = response.get("nextUri")
 
         return PrestoStatus(
-            id=response['id'],
-            stats=response['stats'],
-            info_uri=response['infoUri'],
+            id=response["id"],
+            stats=response["stats"],
+            info_uri=response["infoUri"],
             next_uri=self._next_uri,
-            rows=response.get('data', []),
-            columns=response.get('columns'),
+            rows=response.get("data", []),
+            columns=response.get("columns"),
         )
 
 
@@ -467,12 +445,13 @@ class PrestoResult(object):
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                logger.debug('row {}'.format(row))
+                logger.debug("row {}".format(row))
                 yield row
 
 
 class PrestoQuery(object):
     """Represent the execution of a SQL statement by Presto."""
+
     def __init__(
         self,
         request,  # type: PrestoRequest
@@ -512,15 +491,12 @@ class PrestoQuery(object):
         call fetch() until is_finished is true.
         """
         if self._cancelled:
-            raise exceptions.PrestoUserError(
-                "Query has been cancelled",
-                self.query_id,
-            )
+            raise exceptions.PrestoUserError("Query has been cancelled", self.query_id)
 
         response = self._request.post(self._sql)
         status = self._request.process(response)
         self.query_id = status.id
-        self._stats.update({u'queryId': self.query_id})
+        self._stats.update({u"queryId": self.query_id})
         self._stats.update(status.stats)
         if status.next_uri is None:
             self._finished = True

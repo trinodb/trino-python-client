@@ -17,27 +17,27 @@ from typing import Any, Optional, Text  # NOQA: mypy types
 
 
 DEFAULT_PORT = 8080
-DEFAULT_SOURCE = 'presto-python-client'
+DEFAULT_SOURCE = "presto-python-client"
 DEFAULT_CATALOG = None  # type: Optional[Text]
 DEFAULT_SCHEMA = None  # type: Optional[Text]
 DEFAULT_AUTH = None  # type: Optional[Any]
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_REQUEST_TIMEOUT = 30.0  # type: float
 
-HTTP = 'http'
-HTTPS = 'https'
+HTTP = "http"
+HTTPS = "https"
 
-URL_STATEMENT_PATH = '/v1/statement'
+URL_STATEMENT_PATH = "/v1/statement"
 
-HEADER_PREFIX = 'X-Presto-'
-HEADER_CATALOG = HEADER_PREFIX + 'Catalog'
-HEADER_SCHEMA = HEADER_PREFIX + 'Schema'
-HEADER_SOURCE = HEADER_PREFIX + 'Source'
-HEADER_USER = HEADER_PREFIX + 'User'
+HEADER_PREFIX = "X-Presto-"
+HEADER_CATALOG = HEADER_PREFIX + "Catalog"
+HEADER_SCHEMA = HEADER_PREFIX + "Schema"
+HEADER_SOURCE = HEADER_PREFIX + "Source"
+HEADER_USER = HEADER_PREFIX + "User"
 
-HEADER_SESSION = HEADER_PREFIX + 'Session'
-HEADER_SET_SESSION = HEADER_PREFIX + 'Set-Session'
-HEADER_CLEAR_SESSION = HEADER_PREFIX + 'Clear-Session'
+HEADER_SESSION = HEADER_PREFIX + "Session"
+HEADER_SET_SESSION = HEADER_PREFIX + "Set-Session"
+HEADER_CLEAR_SESSION = HEADER_PREFIX + "Clear-Session"
 
-HEADER_STARTED_TRANSACTION = HEADER_PREFIX + 'Started-Transaction-Id'
-HEADER_TRANSACTION = HEADER_PREFIX + 'Transaction-Id'
+HEADER_STARTED_TRANSACTION = HEADER_PREFIX + "Started-Transaction-Id"
+HEADER_TRANSACTION = HEADER_PREFIX + "Transaction-Id"

@@ -22,10 +22,10 @@ import prestodb.logging
 logger = prestodb.logging.get_logger(__name__)
 
 
-NO_TRANSACTION = 'NONE'
-START_TRANSACTION = 'START TRANSACTION'
-ROLLBACK = 'ROLLBACK'
-COMMIT = 'COMMIT'
+NO_TRANSACTION = "NONE"
+START_TRANSACTION = "START TRANSACTION"
+ROLLBACK = "ROLLBACK"
+COMMIT = "COMMIT"
 
 
 class IsolationLevel(object):
@@ -37,21 +37,16 @@ class IsolationLevel(object):
 
     @classmethod
     def levels(cls):
-        return {
-            k for k in cls.__dict__.keys()
-            if not k.startswith('_')
-        }
+        return {k for k in cls.__dict__.keys() if not k.startswith("_")}
 
     @classmethod
     def values(cls):
-        return {
-            getattr(cls, level) for level in cls.levels()
-        }
+        return {getattr(cls, level) for level in cls.levels()}
 
     @classmethod
     def check(cls, level):
         if level not in cls.values():
-            raise ValueError('invalid isolation level {}'.format(level))
+            raise ValueError("invalid isolation level {}".format(level))
         return level
 
 
@@ -68,27 +63,20 @@ class Transaction(object):
         response = self._request.post(START_TRANSACTION)
         if not response.ok:
             raise prestodb.exceptions.DatabaseError(
-                'failed to start transaction: {}'.format(response.status_code))
-        transaction_id = response.headers.get(
-            constants.HEADER_STARTED_TRANSACTION
-        )
-        if transaction_id and transaction_id != NO_TRANSACTION:
-            self._id = (
-                response.headers[constants.HEADER_STARTED_TRANSACTION]
+                "failed to start transaction: {}".format(response.status_code)
             )
+        transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
+        if transaction_id and transaction_id != NO_TRANSACTION:
+            self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
         status = self._request.process(response)
         while status.next_uri:
             response = self._request.get(status.next_uri)
-            transaction_id = response.headers.get(
-                constants.HEADER_STARTED_TRANSACTION
-            )
+            transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
             if transaction_id and transaction_id != NO_TRANSACTION:
-                self._id = (
-                    response.headers[constants.HEADER_STARTED_TRANSACTION]
-                )
+                self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
             status = self._request.process(response)
         self._request.transaction_id = self._id
-        logger.info('transaction started: ' + self._id)
+        logger.info("transaction started: " + self._id)
 
     def commit(self):
         query = prestodb.client.PrestoQuery(self._request, COMMIT)
@@ -96,7 +84,8 @@ class Transaction(object):
             list(query.execute())
         except Exception as err:
             raise prestodb.exceptions.DatabaseError(
-                'failed to commit transaction {}: {}'.format(self._id, err))
+                "failed to commit transaction {}: {}".format(self._id, err)
+            )
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
@@ -106,6 +95,7 @@ class Transaction(object):
             list(query.execute())
         except Exception as err:
             raise prestodb.exceptions.DatabaseError(
-                'failed to rollback transaction {}: {}'.format(self._id, err))
+                "failed to rollback transaction {}: {}".format(self._id, err)
+            )
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id

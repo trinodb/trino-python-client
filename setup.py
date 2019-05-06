@@ -16,66 +16,61 @@ from setuptools import setup
 import textwrap
 
 
-_version_re = re.compile(r'__version__\s+=\s+(.*)')
+_version_re = re.compile(r"__version__\s+=\s+(.*)")
 
 
-with open('prestodb/__init__.py', 'rb') as f:
-    version = str(ast.literal_eval(_version_re.search(
-        f.read().decode('utf-8')).group(1)))
+with open("prestodb/__init__.py", "rb") as f:
+    version = str(
+        ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
+    )
 
 
-kerberos_require = ['requests_kerberos']
+kerberos_require = ["requests_kerberos"]
 
 all_require = [kerberos_require]
 
-tests_require = all_require + [
-    'httpretty',
-    'pytest',
-    'pytest-runner'
-]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
 
-py27_require = ['ipaddress', 'typing']
+py27_require = ["ipaddress", "typing"]
 
 setup(
-    name='presto-python-client',
-    author='Presto Team',
-    author_email='presto-users@googlegroups.com',
+    name="presto-python-client",
+    author="Presto Team",
+    author_email="presto-users@googlegroups.com",
     version=version,
-    url='https://github.com/prestodb/presto-python-client',
-    packages=['prestodb'],
-    package_data={'': ['LICENSE', 'README.md']},
-    description='Client for the Presto distributed SQL Engine',
-    long_description=textwrap.dedent("""
+    url="https://github.com/prestodb/presto-python-client",
+    packages=["prestodb"],
+    package_data={"": ["LICENSE", "README.md"]},
+    description="Client for the Presto distributed SQL Engine",
+    long_description=textwrap.dedent(
+        """
     Client for Presto (https://prestodb.io), a distributed SQL engine for
     interactive and batch big data processing. Provides a low-level client and
     a DBAPI 2.0 implementation.
-    """),
-    license='Apache 2.0',
+    """
+    ),
+    license="Apache 2.0",
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: Apache Software License',
-        'Operating System :: MacOS :: MacOS X',
-        'Operating System :: POSIX',
-        'Operating System :: Microsoft :: Windows',
-        'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy',
-        'Topic :: Database :: Front-Ends',
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Operating System :: MacOS :: MacOS X",
+        "Operating System :: POSIX",
+        "Operating System :: Microsoft :: Windows",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
+        "Topic :: Database :: Front-Ends",
     ],
-    install_requires=[
-        'click',
-        'requests',
-        'six',
-    ],
+    install_requires=["click", "requests", "six"],
     extras_require={
-        'all': all_require,
-        'kerberos': kerberos_require,
-        'tests': tests_require,
+        "all": all_require,
+        "kerberos": kerberos_require,
+        "tests": tests_require,
         ':python_version=="2.7"': py27_require,
     },
 )

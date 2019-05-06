@@ -26,11 +26,7 @@ def presto_connection(run_presto):
     _, host, port = run_presto
 
     yield prestodb.dbapi.Connection(
-        host=host,
-        port=port,
-        user='test',
-        source='test',
-        max_attempts=1,
+        host=host, port=port, user="test", source="test", max_attempts=1
     )
 
 
@@ -41,8 +37,8 @@ def presto_connection_with_transaction(run_presto):
     yield prestodb.dbapi.Connection(
         host=host,
         port=port,
-        user='test',
-        source='test',
+        user="test",
+        source="test",
         max_attempts=1,
         isolation_level=IsolationLevel.READ_UNCOMMITTED,
     )
@@ -50,27 +46,27 @@ def presto_connection_with_transaction(run_presto):
 
 def test_select_query(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('select * from system.runtime.nodes')
+    cur.execute("select * from system.runtime.nodes")
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    assert row[0] == 'test'
+    assert row[0] == "test"
     assert row[2] == fixtures.PRESTO_VERSION
     columns = dict([desc[:2] for desc in cur.description])
-    assert columns['node_id'] == 'varchar'
-    assert columns['http_uri'] == 'varchar'
-    assert columns['node_version'] == 'varchar'
-    assert columns['coordinator'] == 'boolean'
-    assert columns['state'] == 'varchar'
+    assert columns["node_id"] == "varchar"
+    assert columns["http_uri"] == "varchar"
+    assert columns["node_version"] == "varchar"
+    assert columns["coordinator"] == "boolean"
+    assert columns["state"] == "varchar"
 
 
 def test_select_query_result_iteration(presto_connection):
     cur0 = presto_connection.cursor()
-    cur0.execute('select custkey from tpch.sf1.customer LIMIT 10')
+    cur0.execute("select custkey from tpch.sf1.customer LIMIT 10")
     rows0 = cur0.genall()
 
     cur1 = presto_connection.cursor()
-    cur1.execute('select custkey from tpch.sf1.customer LIMIT 10')
+    cur1.execute("select custkey from tpch.sf1.customer LIMIT 10")
     rows1 = cur1.fetchall()
 
     assert len(list(rows0)) == len(rows1)
@@ -78,68 +74,68 @@ def test_select_query_result_iteration(presto_connection):
 
 def test_select_query_no_result(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('select * from system.runtime.nodes where false')
+    cur.execute("select * from system.runtime.nodes where false")
     rows = cur.fetchall()
     assert len(rows) == 0
 
 
 def test_select_query_stats(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('SELECT * FROM tpch.sf1.customer')
+    cur.execute("SELECT * FROM tpch.sf1.customer")
 
-    query_id = cur.stats['queryId']
-    completed_splits = cur.stats['completedSplits']
-    cpu_time_millis = cur.stats['cpuTimeMillis']
-    processed_bytes = cur.stats['processedBytes']
-    processed_rows = cur.stats['processedRows']
-    user_time_millis = cur.stats['userTimeMillis']
-    wall_time_millis = cur.stats['wallTimeMillis']
+    query_id = cur.stats["queryId"]
+    completed_splits = cur.stats["completedSplits"]
+    cpu_time_millis = cur.stats["cpuTimeMillis"]
+    processed_bytes = cur.stats["processedBytes"]
+    processed_rows = cur.stats["processedRows"]
+    user_time_millis = cur.stats["userTimeMillis"]
+    wall_time_millis = cur.stats["wallTimeMillis"]
 
     while cur.fetchone() is not None:
-        assert query_id == cur.stats['queryId']
-        assert completed_splits <= cur.stats['completedSplits']
-        assert cpu_time_millis <= cur.stats['cpuTimeMillis']
-        assert processed_bytes <= cur.stats['processedBytes']
-        assert processed_rows <= cur.stats['processedRows']
-        assert user_time_millis <= cur.stats['userTimeMillis']
-        assert wall_time_millis <= cur.stats['wallTimeMillis']
+        assert query_id == cur.stats["queryId"]
+        assert completed_splits <= cur.stats["completedSplits"]
+        assert cpu_time_millis <= cur.stats["cpuTimeMillis"]
+        assert processed_bytes <= cur.stats["processedBytes"]
+        assert processed_rows <= cur.stats["processedRows"]
+        assert user_time_millis <= cur.stats["userTimeMillis"]
+        assert wall_time_millis <= cur.stats["wallTimeMillis"]
 
-        query_id = cur.stats['queryId']
-        completed_splits = cur.stats['completedSplits']
-        cpu_time_millis = cur.stats['cpuTimeMillis']
-        processed_bytes = cur.stats['processedBytes']
-        processed_rows = cur.stats['processedRows']
-        user_time_millis = cur.stats['userTimeMillis']
-        wall_time_millis = cur.stats['wallTimeMillis']
+        query_id = cur.stats["queryId"]
+        completed_splits = cur.stats["completedSplits"]
+        cpu_time_millis = cur.stats["cpuTimeMillis"]
+        processed_bytes = cur.stats["processedBytes"]
+        processed_rows = cur.stats["processedRows"]
+        user_time_millis = cur.stats["userTimeMillis"]
+        wall_time_millis = cur.stats["wallTimeMillis"]
 
 
 def test_select_failed_query(presto_connection):
     cur = presto_connection.cursor()
     with pytest.raises(prestodb.exceptions.PrestoUserError):
-        cur.execute('select * from catalog.schema.do_not_exist')
+        cur.execute("select * from catalog.schema.do_not_exist")
         cur.fetchall()
 
 
 def test_select_tpch_1000(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+    cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
     rows = cur.fetchall()
     assert len(rows) == 1000
 
 
 def test_cancel_query(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute('select * from tpch.sf1.customer')
+    cur.execute("select * from tpch.sf1.customer")
     cur.cancel()
 
     with pytest.raises(prestodb.exceptions.PrestoUserError) as cancel_error:
         cur.fetchall()
-    assert 'Query was canceled' in str(cancel_error.value)
+    assert "Query was canceled" in str(cancel_error.value)
 
     cur = presto_connection.cursor()
     with pytest.raises(Exception) as cancel_error:
         cur.cancel()
-    assert 'Cancel query failed; no running query' in str(cancel_error.value)
+    assert "Cancel query failed; no running query" in str(cancel_error.value)
 
 
 def test_session_properties(run_presto):
@@ -148,30 +144,27 @@ def test_session_properties(run_presto):
     connection = prestodb.dbapi.Connection(
         host=host,
         port=port,
-        user='test',
-        source='test',
-        session_properties={
-         'query_max_run_time': '10m',
-         'query_priority': '1',
-        },
+        user="test",
+        source="test",
+        session_properties={"query_max_run_time": "10m", "query_priority": "1"},
         max_attempts=1,
     )
     cur = connection.cursor()
-    cur.execute('SHOW SESSION')
+    cur.execute("SHOW SESSION")
     rows = cur.fetchall()
     assert len(rows) > 2
     for prop, value, _, _, _ in rows:
-        if prop == 'query_max_run_time':
-            assert value == '10m'
-        elif prop == 'query_priority':
-            assert value == '1'
+        if prop == "query_max_run_time":
+            assert value == "10m"
+        elif prop == "query_priority":
+            assert value == "1"
 
 
 def test_transaction_single(presto_connection_with_transaction):
     connection = presto_connection_with_transaction
     for _ in range(3):
         cur = connection.cursor()
-        cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
         rows = cur.fetchall()
         connection.commit()
         assert len(rows) == 1000
@@ -181,7 +174,7 @@ def test_transaction_rollback(presto_connection_with_transaction):
     connection = presto_connection_with_transaction
     for _ in range(3):
         cur = connection.cursor()
-        cur.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
         rows = cur.fetchall()
         connection.rollback()
         assert len(rows) == 1000
@@ -190,11 +183,11 @@ def test_transaction_rollback(presto_connection_with_transaction):
 def test_transaction_multiple(presto_connection_with_transaction):
     with presto_connection_with_transaction as connection:
         cur1 = connection.cursor()
-        cur1.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        cur1.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
         rows1 = cur1.fetchall()
 
         cur2 = connection.cursor()
-        cur2.execute('SELECT * FROM tpch.sf1.customer LIMIT 1000')
+        cur2.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
         rows2 = cur2.fetchall()
 
     assert len(rows1) == 1000

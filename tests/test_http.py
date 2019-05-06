@@ -15,16 +15,12 @@ from prestodb import constants
 
 
 def test_get_header_values():
-    headers = {
-        constants.HEADER_SET_SESSION: 'a, b',
-    }
+    headers = {constants.HEADER_SET_SESSION: "a, b"}
     values = get_header_values(headers, constants.HEADER_SET_SESSION)
-    assert values == ['a', 'b']
+    assert values == ["a", "b"]
 
 
 def test_get_session_property_values():
-    headers = {
-        constants.HEADER_SET_SESSION: 'a=1, b=2',
-    }
+    headers = {constants.HEADER_SET_SESSION: "a=1, b=2"}
     values = get_session_property_values(headers, constants.HEADER_SET_SESSION)
-    assert values == [('a', '1'), ('b', '2')]
+    assert values == [("a", "1"), ("b", "2")]

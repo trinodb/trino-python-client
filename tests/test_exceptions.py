@@ -24,9 +24,8 @@ import pytest
 
 
 def test_delay_exponential_without_jitter():
-    max_delay = 1200.
-    get_delay = exceptions.DelayExponential(
-        base=5, jitter=False, max_delay=max_delay)
+    max_delay = 1200.0
+    get_delay = exceptions.DelayExponential(base=5, jitter=False, max_delay=max_delay)
     results = [
         10.0,
         20.0,
@@ -43,9 +42,8 @@ def test_delay_exponential_without_jitter():
 
 
 def test_delay_exponential_with_jitter():
-    max_delay = 120.
-    get_delay = exceptions.DelayExponential(
-        base=10, jitter=False, max_delay=max_delay)
+    max_delay = 120.0
+    get_delay = exceptions.DelayExponential(base=10, jitter=False, max_delay=max_delay)
     for i in range(10):
         assert get_delay(i) <= max_delay
 

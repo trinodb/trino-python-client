@@ -71,10 +71,10 @@ class KerberosAuthentication(Authentication):
         try:
             import requests_kerberos
         except ImportError:
-            raise RuntimeError('unable to import requests_kerberos')
+            raise RuntimeError("unable to import requests_kerberos")
 
         if self._config:
-            os.environ['KRB5_CONFIG'] = self._config
+            os.environ["KRB5_CONFIG"] = self._config
         http_session.trust_env = False
         http_session.auth = requests_kerberos.HTTPKerberosAuth(
             mutual_authentication=self._mutual_authentication,
@@ -96,9 +96,10 @@ class KerberosAuthentication(Authentication):
     def get_exceptions(self):
         try:
             from requests_kerberos.exceptions import KerberosExchangeError
+
             return (KerberosExchangeError,)
         except ImportError:
-            raise RuntimeError('unable to import requests_kerberos')
+            raise RuntimeError("unable to import requests_kerberos")
 
     def handle_error(self, handle_error):
         pass
@@ -116,12 +117,9 @@ class BasicAuthentication(Authentication):
         try:
             import requests.auth
         except ImportError:
-            raise RuntimeError('unable to import requests.auth')
+            raise RuntimeError("unable to import requests.auth")
 
-        http_session.auth = requests.auth.HTTPBasicAuth(
-            self._username,
-            self._password
-        )
+        http_session.auth = requests.auth.HTTPBasicAuth(self._username, self._password)
         return http_session
 
     def setup(self, presto_client):

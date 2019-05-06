@@ -51,35 +51,32 @@ class PrestoQueryError(Exception):
 
     @property
     def error_code(self):
-        return self._error.get('errorCode', None)
+        return self._error.get("errorCode", None)
 
     @property
     def error_name(self):
-        return self._error.get('errorName', None)
+        return self._error.get("errorName", None)
 
     @property
     def error_type(self):
-        return self._error.get('errorType', None)
+        return self._error.get("errorType", None)
 
     @property
     def error_exception(self):
-        return self.failure_info.get('type', None) if self.failure_info else None
+        return self.failure_info.get("type", None) if self.failure_info else None
 
     @property
     def failure_info(self):
-        return self._error.get('failureInfo', None)
+        return self._error.get("failureInfo", None)
 
     @property
     def message(self):
-        return self._error.get(
-            'message',
-            'Presto did no return an error message',
-        )
+        return self._error.get("message", "Presto did no return an error message")
 
     @property
     def error_location(self):
-        location = self._error['errorLocation']
-        return (location['lineNumber'], location['columnNumber'])
+        location = self._error["errorLocation"]
+        return (location["lineNumber"], location["columnNumber"])
 
     @property
     def query_id(self):
@@ -129,21 +126,19 @@ def retry_with(handle_retry, exceptions, conditions, max_attempts):
                         handle_retry.retry(func, args, kwargs, err, attempt)
                         continue
                     break
-            logger.info('failed after {} attempts'.format(attempt))
+            logger.info("failed after {} attempts".format(attempt))
             if error is not None:
                 raise error
             return result
+
         return decorated
+
     return wrapper
 
 
 class DelayExponential(object):
     def __init__(
-        self,
-        base=0.1,  # 100ms
-        exponent=2,
-        jitter=True,
-        max_delay=2 * 3600,  # 2 hours
+        self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
     ):
         self._base = base
         self._exponent = exponent
@@ -160,14 +155,9 @@ class DelayExponential(object):
 
 class RetryWithExponentialBackoff(object):
     def __init__(
-        self,
-        base=0.1,  # 100ms
-        exponent=2,
-        jitter=True,
-        max_delay=2 * 3600  # 2 hours
+        self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
     ):
-        self._get_delay = DelayExponential(
-            base, exponent, jitter, max_delay)
+        self._get_delay = DelayExponential(base, exponent, jitter, max_delay)
 
     def retry(self, func, args, kwargs, err, attempt):
         delay = self._get_delay(attempt)
