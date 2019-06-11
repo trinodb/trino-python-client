@@ -62,6 +62,7 @@ The client runs by default in *autocommit* mode. To enable transactions, set
 
 ```python
 import prestodb
+from prestodb import transaction
 with prestodb.dbapi.connect(
     host='localhost',
     port=8080,
