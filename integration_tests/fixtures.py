@@ -45,7 +45,7 @@ def get_latest_release():
 
 # Temporary fix because can't start 0.203
 # Use get_latest_release() instead
-PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or "0.202"
+PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or get_latest_release()
 PRESTO_HOST = "127.0.0.1"
 PRESTO_PORT = 8080
 
