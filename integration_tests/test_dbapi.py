@@ -78,14 +78,13 @@ def test_select_query_no_result(presto_connection):
 
 def test_select_query_stats(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute("SELECT * FROM tpch.sf1.customer")
+    cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
 
     query_id = cur.stats["queryId"]
     completed_splits = cur.stats["completedSplits"]
     cpu_time_millis = cur.stats["cpuTimeMillis"]
     processed_bytes = cur.stats["processedBytes"]
     processed_rows = cur.stats["processedRows"]
-    user_time_millis = cur.stats["userTimeMillis"]
     wall_time_millis = cur.stats["wallTimeMillis"]
 
     while cur.fetchone() is not None:
@@ -94,7 +93,6 @@ def test_select_query_stats(presto_connection):
         assert cpu_time_millis <= cur.stats["cpuTimeMillis"]
         assert processed_bytes <= cur.stats["processedBytes"]
         assert processed_rows <= cur.stats["processedRows"]
-        assert user_time_millis <= cur.stats["userTimeMillis"]
         assert wall_time_millis <= cur.stats["wallTimeMillis"]
 
         query_id = cur.stats["queryId"]
@@ -102,7 +100,6 @@ def test_select_query_stats(presto_connection):
         cpu_time_millis = cur.stats["cpuTimeMillis"]
         processed_bytes = cur.stats["processedBytes"]
         processed_rows = cur.stats["processedRows"]
-        user_time_millis = cur.stats["userTimeMillis"]
         wall_time_millis = cur.stats["wallTimeMillis"]
 
 
