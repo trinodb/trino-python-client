@@ -109,9 +109,9 @@ class PrestoStatus(object):
 
     def __repr__(self):
         return (
-            'PrestoStatus('
-            'id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>'
-            ')'.format(
+            "PrestoStatus("
+            "id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>"
+            ")".format(
                 self.id,
                 len(self.warnings),
                 self.info_uri,
@@ -413,10 +413,10 @@ class PrestoRequest(object):
         self._next_uri = response.get("nextUri")
 
         return PrestoStatus(
-            id=response['id'],
-            stats=response['stats'],
-            warnings=response.get('warnings', []),
-            info_uri=response['infoUri'],
+            id=response["id"],
+            stats=response["stats"],
+            warnings=response.get("warnings", []),
+            info_uri=response["infoUri"],
             next_uri=self._next_uri,
             rows=response.get("data", []),
             columns=response.get("columns"),
@@ -511,7 +511,7 @@ class PrestoQuery(object):
         self.query_id = status.id
         self._stats.update({u"queryId": self.query_id})
         self._stats.update(status.stats)
-        self._warnings = getattr(status, 'warnings', [])
+        self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
         self._result = PrestoResult(self, status.rows)
