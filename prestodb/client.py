@@ -533,15 +533,16 @@ class PrestoQuery(object):
     def cancel(self):
         # type: () -> None
         """Cancel the current query"""
-        if self.is_finished():
+        if self.query_id is None or self.is_finished():
             return
 
         self._cancelled = True
-        if self._request.next_uri is None:
-            return
-
-        response = self._request.delete(self._request.next_uri)
+        url = self._request.get_url("/v1/query/{}".format(self.query_id))
+        logger.debug("cancelling query: %s", self.query_id)
+        response = self._request.delete(url)
+        logger.info(response)
         if response.status_code == requests.codes.no_content:
+            logger.debug("query cancelled: %s", self.query_id)
             return
         self._request.raise_response_error(response)
 

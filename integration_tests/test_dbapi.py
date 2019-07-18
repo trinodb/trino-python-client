@@ -120,11 +120,7 @@ def test_select_tpch_1000(presto_connection):
 def test_cancel_query(presto_connection):
     cur = presto_connection.cursor()
     cur.execute("select * from tpch.sf1.customer")
-    cur.cancel()
-
-    with pytest.raises(prestodb.exceptions.PrestoUserError) as cancel_error:
-        cur.fetchall()
-    assert "Query was canceled" in str(cancel_error.value)
+    cur.cancel()  # would raise an exception if cancel fails
 
     cur = presto_connection.cursor()
     with pytest.raises(Exception) as cancel_error:
