@@ -423,42 +423,14 @@ class PrestoRequest(object):
         )
 
 
-class PrestoResult(object):
+class PrestoQuery(object):
     """
-    Represent the result of a Presto query as an iterator on rows.
+    Represent the execution of a SQL statement by Presto.
 
-    This class implements the iterator protocol as a generator type
+    Results of the query can be extracted by iterating over this class, since it
+    implements the iterator protocol as a generator type
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
-
-    def __init__(self, query, rows=None):
-        self._query = query
-        self._rows = rows or []
-        self._rownumber = 0
-
-    @property
-    def rownumber(self):
-        # type: () -> int
-        return self._rownumber
-
-    def __iter__(self):
-        # Initial fetch from the first POST request
-        for row in self._rows:
-            self._rownumber += 1
-            yield row
-        self._rows = None
-
-        # Subsequent fetches from GET requests until next_uri is empty.
-        while not self._query.is_finished():
-            rows = self._query.fetch()
-            for row in rows:
-                self._rownumber += 1
-                logger.debug("row {}".format(row))
-                yield row
-
-
-class PrestoQuery(object):
-    """Represent the execution of a SQL statement by Presto."""
 
     def __init__(
         self,
@@ -476,7 +448,9 @@ class PrestoQuery(object):
         self._cancelled = False
         self._request = request
         self._sql = sql
-        self._result = PrestoResult(self)
+
+        self._rows = []
+        self._rownumber = 0
 
     @property
     def columns(self):
@@ -489,10 +463,6 @@ class PrestoQuery(object):
     @property
     def warnings(self):
         return self._warnings
-
-    @property
-    def result(self):
-        return self._result
 
     def execute(self):
         # type: () -> PrestoResult
@@ -514,10 +484,10 @@ class PrestoQuery(object):
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
-        self._result = PrestoResult(self, status.rows)
-        return self._result
+        self._rows = status.rows
+        return self
 
-    def fetch(self):
+    def _fetch(self):
         # type: () -> List[List[Any]]
         """Continue fetching data for the current query_id"""
         response = self._request.get(self._request.next_uri)
@@ -529,6 +499,14 @@ class PrestoQuery(object):
         if status.next_uri is None:
             self._finished = True
         return status.rows
+
+    def poll(self):
+        # type: () -> Dict
+        """Retrieve the current status of a presto query, caching any results."""
+        if not self.query_id or self._finished:
+            return self.stats
+        self._rows.extend(self._fetch())
+        return self.stats
 
     def cancel(self):
         # type: () -> None
@@ -549,3 +527,12 @@ class PrestoQuery(object):
     def is_finished(self):
         # type: () -> bool
         return self._finished
+
+    def __iter__(self):
+        while self._rows or not self.is_finished():
+            for row in self._rows:
+                self._rownumber += 1
+                logger.debug('row {}'.format(row))
+                yield row
+            self._rows = []
+            self.poll()
