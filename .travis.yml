@@ -3,8 +3,6 @@ python:
   - "2.7"
   - "3.5"
   - "3.6"
-env:
-  - PRESTO_VERSION=0.202
 services:
   - docker
 install:
