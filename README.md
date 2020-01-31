@@ -108,21 +108,9 @@ To run integration tests:
 $ pytest integration_tests
 ```
 
-They build a `Docker` image and then run a container with a Presto server:
-- the image is named `presto-server:${PRESTO_VERSION}`
+They pull a Docker image and then run a container with a Presto server:
+- the image is named `prestosql/presto:${PRESTO_VERSION}`
 - the container is named `presto-python-client-tests-{uuid4()[:7]}`
-
-The container is expected to be removed after the tests are finished.
-
-Please refer to the `Dockerfile` for details. You will find the configuration
-in `etc/`.
-
-You can use `./run` to manipulate the containers:
-
-- `./run presto_server`: build and run Presto in a container
-- `./run presto_cli CONTAINER_ID`: connect the Java Presto CLI to a container
-- `./run list`: list the running containers
-- `./run clean`: kill the containers
 
 # Development
 

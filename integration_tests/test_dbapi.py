@@ -47,8 +47,7 @@ def test_select_query(presto_connection):
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    assert row[0] == "test"
-    assert row[2].split("-")[0] == fixtures.PRESTO_VERSION
+    assert row[2] == fixtures.PRESTO_VERSION
     columns = dict([desc[:2] for desc in cur.description])
     assert columns["node_id"] == "varchar"
     assert columns["http_uri"] == "varchar"
@@ -120,6 +119,7 @@ def test_select_tpch_1000(presto_connection):
 def test_cancel_query(presto_connection):
     cur = presto_connection.cursor()
     cur.execute("select * from tpch.sf1.customer")
+    cur.fetchone()  # TODO (https://github.com/prestosql/presto/issues/2683) test with and without .fetchone
     cur.cancel()  # would raise an exception if cancel fails
 
     cur = presto_connection.cursor()
