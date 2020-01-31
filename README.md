@@ -1,14 +1,14 @@
-![Build Status](https://travis-ci.org/prestodb/presto-python-client.svg?branch=master)
+![Build Status](https://travis-ci.org/prestosql/python-client.svg?branch=master)
 
 # Introduction
 
-This package provides a client interface to query [Presto](https://prestodb.io/)
+This package provides a client interface to query [Presto](https://prestosql.io/)
 a distributed SQL engine. It supports Python 2.7, 3.5, 3.6, and pypy.
 
 # Installation
 
 ```
-$ pip install presto-python-client
+$ pip install presto-client
 ```
 
 # Quick Start
@@ -132,7 +132,7 @@ Please refer to `CONTRIBUTING.md` before submitting your contributions.
 Clone the repository and go inside the code directory. Then you can get the
 version with `python setup.py --version`.
 
-We recommend that you use `virtualenv` to develop on `presto-python-client`:
+We recommend that you use `virtualenv` for development:
 
 ```
 $ virtualenv /path/to/env
@@ -156,4 +156,6 @@ When the code is ready, submit a Pull Request.
 
 Feel free to create an issue as it make your request visible to other users and contributors.
 
-If an interactive discussion would be better or if you just want to hangout and chat about the Presto Python client, you can join us on the *#presto-python-client* channel on [Slack](https://prestodb.slack.com).
+If an interactive discussion would be better or if you just want to hangout and chat about
+the Presto Python client, you can join us on the *#python-client* channel on
+[Presto Slack](https://prestosql.io/slack.html).

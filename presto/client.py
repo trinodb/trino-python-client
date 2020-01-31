@@ -13,7 +13,7 @@
 
 This module implements the Presto protocol to submit SQL statements, track
 their state and retrieve their result as described in
-https://github.com/prestodb/presto/wiki/HTTP-Protocol
+https://github.com/prestosql/presto/wiki/HTTP-Protocol
 and Presto source code.
 
 The outline of a query is:
