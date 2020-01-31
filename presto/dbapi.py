@@ -24,12 +24,12 @@ from __future__ import print_function
 from typing import Any, List, Optional  # NOQA for mypy types
 import datetime
 
-from prestodb import constants
-import prestodb.exceptions
-import prestodb.client
-import prestodb.logging
-import prestodb.redirect
-from prestodb.transaction import Transaction, IsolationLevel, NO_TRANSACTION
+from presto import constants
+import presto.exceptions
+import presto.client
+import presto.logging
+import presto.redirect
+from presto.transaction import Transaction, IsolationLevel, NO_TRANSACTION
 
 
 __all__ = ["connect", "Connection", "Cursor"]
@@ -38,7 +38,7 @@ __all__ = ["connect", "Connection", "Cursor"]
 apilevel = "2.0"
 threadsafety = 2
 
-logger = prestodb.logging.get_logger(__name__)
+logger = presto.logging.get_logger(__name__)
 
 
 def connect(*args, **kwargs):
@@ -71,7 +71,7 @@ class Connection(object):
         http_headers=None,
         http_scheme=constants.HTTP,
         auth=constants.DEFAULT_AUTH,
-        redirect_handler=prestodb.redirect.GatewayRedirectHandler(),
+        redirect_handler=presto.redirect.GatewayRedirectHandler(),
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
@@ -84,7 +84,7 @@ class Connection(object):
         self.schema = schema
         self.session_properties = session_properties
         # mypy cannot follow module import
-        self._http_session = prestodb.client.PrestoRequest.http.Session()
+        self._http_session = presto.client.PrestoRequest.http.Session()
         self.http_headers = http_headers
         self.http_scheme = http_scheme
         self.auth = auth
@@ -138,7 +138,7 @@ class Connection(object):
         self._transaction = None
 
     def _create_request(self):
-        return prestodb.client.PrestoRequest(
+        return presto.client.PrestoRequest(
             self.host,
             self.port,
             self.user,
@@ -226,19 +226,19 @@ class Cursor(object):
         return None
 
     def setinputsizes(self, sizes):
-        raise prestodb.exceptions.NotSupportedError
+        raise presto.exceptions.NotSupportedError
 
     def setoutputsize(self, size, column):
-        raise prestodb.exceptions.NotSupportedError
+        raise presto.exceptions.NotSupportedError
 
     def execute(self, operation, params=None):
-        self._query = prestodb.client.PrestoQuery(self._request, sql=operation)
+        self._query = presto.client.PrestoQuery(self._request, sql=operation)
         result = self._query.execute()
         self._iterator = iter(result)
         return result
 
     def executemany(self, operation, seq_of_params):
-        raise prestodb.exceptions.NotSupportedError
+        raise presto.exceptions.NotSupportedError
 
     def fetchone(self):
         # type: () -> Optional[List[Any]]
@@ -255,8 +255,8 @@ class Cursor(object):
             return next(self._iterator)
         except StopIteration:
             return None
-        except prestodb.exceptions.HttpError as err:
-            raise prestodb.exceptions.OperationalError(str(err))
+        except presto.exceptions.HttpError as err:
+            raise presto.exceptions.OperationalError(str(err))
 
     def fetchmany(self, size=None):
         # type: (Optional[int]) -> List[List[Any]]
@@ -301,7 +301,7 @@ class Cursor(object):
 
     def cancel(self):
         if self._query is None:
-            raise prestodb.exceptions.OperationalError(
+            raise presto.exceptions.OperationalError(
                 "Cancel query failed; no running query"
             )
         self._query.cancel()

@@ -19,7 +19,7 @@ import textwrap
 _version_re = re.compile(r"__version__\s+=\s+(.*)")
 
 
-with open("prestodb/__init__.py", "rb") as f:
+with open("presto/__init__.py", "rb") as f:
     version = str(
         ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
     )
@@ -39,7 +39,7 @@ setup(
     author_email="presto-users@googlegroups.com",
     version=version,
     url="https://github.com/prestodb/presto-python-client",
-    packages=["prestodb"],
+    packages=["presto"],
     package_data={"": ["LICENSE", "README.md"]},
     description="Client for the Presto distributed SQL Engine",
     long_description=textwrap.dedent(

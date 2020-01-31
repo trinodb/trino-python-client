@@ -20,10 +20,10 @@ import socket
 import time
 
 from requests_kerberos.exceptions import KerberosExchangeError
-from prestodb.client import PrestoRequest
-from prestodb.auth import KerberosAuthentication
-from prestodb import constants
-import prestodb.exceptions
+from presto.client import PrestoRequest
+from presto.auth import KerberosAuthentication
+from presto import constants
+import presto.exceptions
 
 
 """
@@ -32,14 +32,14 @@ Presto session. It is deliberately not truncated to document such response
 and allow to use it for other tests.
 To get some HTTP response, set logging level to DEBUG with
 ``logging.basicConfig(level=logging.DEBUG)`` or
-``prestodb.client.logger.setLevel(logging.DEBUG)``.
+``presto.client.logger.setLevel(logging.DEBUG)``.
 
 ::
-    from prestodb import dbapi
+    from presto import dbapi
 
     >>> import logging
-    >>> import prestodb.client
-    >>> prestodb.client.logger.setLevel(logging.DEBUG)
+    >>> import presto.client
+    >>> presto.client.logger.setLevel(logging.DEBUG)
     >>> conn = dbapi.Connection('localhost', 8080, 'ggreg', 'test')
     >>> cur = conn.cursor()
     >>> res = cur.execute('select * from system.runtime.nodes')
@@ -434,7 +434,7 @@ def test_presto_fetch_error(monkeypatch):
 
     http_resp = PrestoRequest.http.Response()
     http_resp.status_code = 200
-    with pytest.raises(prestodb.exceptions.PrestoUserError) as exception_info:
+    with pytest.raises(presto.exceptions.PrestoUserError) as exception_info:
         req.process(http_resp)
     error = exception_info.value
     assert error.error_code == 1
@@ -455,8 +455,8 @@ def test_presto_fetch_error(monkeypatch):
 @pytest.mark.parametrize(
     "error_code, error_type, error_message",
     [
-        (503, prestodb.exceptions.Http503Error, "service unavailable"),
-        (404, prestodb.exceptions.HttpError, "error 404"),
+        (503, presto.exceptions.Http503Error, "service unavailable"),
+        (404, presto.exceptions.HttpError, "error 404"),
     ],
 )
 def test_presto_connection_error(monkeypatch, error_code, error_type, error_message):

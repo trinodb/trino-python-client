@@ -20,15 +20,15 @@ from contextlib import closing
 from uuid import uuid4
 
 import click
-import prestodb.logging
+import presto.logging
 import pytest
 import requests
-from prestodb.client import PrestoQuery, PrestoRequest
-from prestodb.constants import DEFAULT_PORT
-from prestodb.exceptions import TimeoutError
+from presto.client import PrestoQuery, PrestoRequest
+from presto.constants import DEFAULT_PORT
+from presto.exceptions import TimeoutError
 
 
-logger = prestodb.logging.get_logger(__name__)
+logger = presto.logging.get_logger(__name__)
 
 
 def get_latest_release():

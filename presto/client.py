@@ -37,17 +37,17 @@ from __future__ import absolute_import, division, print_function
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
-import prestodb.logging
-import prestodb.redirect
+import presto.logging
+import presto.redirect
 import requests
-from prestodb import constants, exceptions
-from prestodb.transaction import NO_TRANSACTION
+from presto import constants, exceptions
+from presto.transaction import NO_TRANSACTION
 
 
 __all__ = ["PrestoQuery", "PrestoRequest"]
 
 
-logger = prestodb.logging.get_logger(__name__)
+logger = presto.logging.get_logger(__name__)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
@@ -205,7 +205,7 @@ class PrestoRequest(object):
         transaction_id=NO_TRANSACTION,  # type: Optional[Text]
         http_scheme=constants.HTTP,  # type: Text
         auth=constants.DEFAULT_AUTH,  # type: Optional[Any]
-        redirect_handler=prestodb.redirect.GatewayRedirectHandler(),
+        redirect_handler=presto.redirect.GatewayRedirectHandler(),
         max_attempts=MAX_ATTEMPTS,  # type: int
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),

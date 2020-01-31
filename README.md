@@ -16,8 +16,8 @@ $ pip install presto-python-client
 Use the DBAPI interface to query Presto:
 
 ```python
-import prestodb
-conn=prestodb.dbapi.connect(
+import presto
+conn=presto.dbapi.connect(
     host='localhost',
     port=8080,
     user='the-user',
@@ -32,24 +32,24 @@ rows = cur.fetchall()
 This will query the `system.runtime.nodes` system tables that shows the nodes
 in the Presto cluster.
 
-The DBAPI implementation in `prestodb.dbapi` provides methods to retrieve fewer
+The DBAPI implementation in `presto.dbapi` provides methods to retrieve fewer
 rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
-`prestodb.dbapi.Cursor.arraysize` accordingly.
+`presto.dbapi.Cursor.arraysize` accordingly.
 
 # Basic Authentication
 The `BasicAuthentication` class can be used to connect to a LDAP-configured Presto
 cluster:
 ```python
-import prestodb
-conn=prestodb.dbapi.connect(
+import presto
+conn=presto.dbapi.connect(
     host='coordinator url',
     port=8443,
     user='the-user',
     catalog='the-catalog',
     schema='the-schema',
     http_scheme='https',
-    auth=prestodb.auth.BasicAuthentication("principal id", "password"),
+    auth=presto.auth.BasicAuthentication("principal id", "password"),
 )
 cur = conn.cursor()
 cur.execute('SELECT * FROM system.runtime.nodes')
@@ -61,9 +61,9 @@ The client runs by default in *autocommit* mode. To enable transactions, set
 *isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
 
 ```python
-import prestodb
-from prestodb import transaction
-with prestodb.dbapi.connect(
+import presto
+from presto import transaction
+with presto.dbapi.connect(
     host='localhost',
     port=8080,
     user='the-user',
@@ -77,9 +77,9 @@ with prestodb.dbapi.connect(
 ```
 
 The transaction is created when the first SQL statement is executed.
-`prestodb.dbapi.Connection.commit()` will be automatically called when the code
+`presto.dbapi.Connection.commit()` will be automatically called when the code
 exits the *with* context and the queries succeed, otherwise
-`prestodb.dbapi.Connection.rollback()' will be called.
+`presto.dbapi.Connection.rollback()' will be called.
 
 # Running Tests
 

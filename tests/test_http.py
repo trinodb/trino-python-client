@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from prestodb.client import get_header_values, get_session_property_values
-from prestodb import constants
+from presto.client import get_header_values, get_session_property_values
+from presto import constants
 
 
 def test_get_header_values():

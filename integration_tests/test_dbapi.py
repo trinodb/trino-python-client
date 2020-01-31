@@ -12,17 +12,17 @@
 from __future__ import absolute_import, division, print_function
 
 import fixtures
-import prestodb
+import presto
 import pytest
 from fixtures import run_presto
-from prestodb.transaction import IsolationLevel
+from presto.transaction import IsolationLevel
 
 
 @pytest.fixture
 def presto_connection(run_presto):
     _, host, port = run_presto
 
-    yield prestodb.dbapi.Connection(
+    yield presto.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
     )
 
@@ -31,7 +31,7 @@ def presto_connection(run_presto):
 def presto_connection_with_transaction(run_presto):
     _, host, port = run_presto
 
-    yield prestodb.dbapi.Connection(
+    yield presto.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -105,7 +105,7 @@ def test_select_query_stats(presto_connection):
 
 def test_select_failed_query(presto_connection):
     cur = presto_connection.cursor()
-    with pytest.raises(prestodb.exceptions.PrestoUserError):
+    with pytest.raises(presto.exceptions.PrestoUserError):
         cur.execute("select * from catalog.schema.do_not_exist")
         cur.fetchall()
 
@@ -131,7 +131,7 @@ def test_cancel_query(presto_connection):
 def test_session_properties(run_presto):
     _, host, port = run_presto
 
-    connection = prestodb.dbapi.Connection(
+    connection = presto.dbapi.Connection(
         host=host,
         port=port,
         user="test",

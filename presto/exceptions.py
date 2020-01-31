@@ -23,9 +23,9 @@ import functools
 import random
 import time
 
-import prestodb.logging
+import presto.logging
 
-logger = prestodb.logging.get_logger(__name__)
+logger = presto.logging.get_logger(__name__)
 
 
 class HttpError(Exception):
