@@ -34,17 +34,17 @@ tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
 py27_require = ["ipaddress", "typing"]
 
 setup(
-    name="presto-python-client",
+    name="presto-client",
     author="Presto Team",
-    author_email="presto-users@googlegroups.com",
+    author_email="python-client@prestosql.io",
     version=version,
-    url="https://github.com/prestodb/presto-python-client",
+    url="https://github.com/prestosql/presto-python-client",
     packages=["presto"],
     package_data={"": ["LICENSE", "README.md"]},
     description="Client for the Presto distributed SQL Engine",
     long_description=textwrap.dedent(
         """
-    Client for Presto (https://prestodb.io), a distributed SQL engine for
+    Client for Presto (https://prestosql.io), a distributed SQL engine for
     interactive and batch big data processing. Provides a low-level client and
     a DBAPI 2.0 implementation.
     """
