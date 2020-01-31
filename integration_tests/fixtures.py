@@ -15,14 +15,12 @@ import os
 import socket
 import subprocess
 import time
-import xml.etree.ElementTree as ET
 from contextlib import closing
 from uuid import uuid4
 
 import click
 import prestodb.logging
 import pytest
-import requests
 from prestodb.client import PrestoQuery, PrestoRequest
 from prestodb.constants import DEFAULT_PORT
 from prestodb.exceptions import TimeoutError
@@ -31,21 +29,7 @@ from prestodb.exceptions import TimeoutError
 logger = prestodb.logging.get_logger(__name__)
 
 
-def get_latest_release():
-    resp = requests.get(
-        "https://repo1.maven.org/maven2/com/"
-        "facebook/presto/presto-server/maven-metadata.xml"
-    )
-    xml_root = ET.fromstring(resp.content)
-    try:
-        return xml_root.find("versioning").find("release").text.strip()
-    except AttributeError:
-        raise Exception("not release found")
-
-
-# Temporary fix because can't start 0.203
-# Use get_latest_release() instead
-PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or get_latest_release()
+PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or "329"
 PRESTO_HOST = "127.0.0.1"
 PRESTO_PORT = 8080
 
@@ -64,33 +48,13 @@ def get_local_port():
         return s.getsockname()[1]
 
 
-def build_image(image_tag, with_cache=True):
-    logger.info("building Docker image")
-    docker_build = [
-        "docker",
-        "build",
-        "--build-arg",
-        "PRESTO_VERSION=" + PRESTO_VERSION,
-        "--tag",
-        image_tag,
-        ".",
-    ]
-    if not with_cache:
-        docker_build.append("--no-cache")
-    subprocess.check_call(docker_build)
-
-
 def get_default_presto_image_tag():
-    image_name = "presto-server"
-    tag = PRESTO_VERSION
-    return image_name + ":" + tag
+    return "prestosql/presto:" + PRESTO_VERSION
 
 
-def start_presto(image_tag=None, build=True, with_cache=True):
+def start_presto(image_tag=None):
     if not image_tag:
         image_tag = get_default_presto_image_tag()
-    if build:
-        build_image(image_tag, with_cache)
 
     container_id = "presto-python-client-tests-" + uuid4().hex[:7]
     local_port = get_local_port()
@@ -123,7 +87,7 @@ def wait_for_presto_workers(host, port, timeout=30):
         time.sleep(1)
 
 
-def wait_for_presto_coordinator(stream, timeout=30):
+def wait_for_presto_coordinator(stream, timeout=180):
     started_tag = "======== SERVER STARTED ========"
     t0 = time.time()
     for line in iter(stream.readline, b""):
@@ -138,8 +102,8 @@ def wait_for_presto_coordinator(stream, timeout=30):
     return False
 
 
-def start_local_presto_server(image_tag, build=True, with_cache=True):
-    container_id, proc, host, port = start_presto(image_tag, build, with_cache)
+def start_local_presto_server(image_tag):
+    container_id, proc, host, port = start_presto(image_tag)
     print("presto.server.state starting")
     presto_ready = wait_for_presto_coordinator(proc.stderr)
     if not presto_ready:
@@ -149,16 +113,14 @@ def start_local_presto_server(image_tag, build=True, with_cache=True):
     return container_id, proc, host, port
 
 
-def start_presto_and_wait(image_tag=None, build=True, with_cache=True):
+def start_presto_and_wait(image_tag=None):
     container_id = None
     proc = None
     host = os.environ.get("PRESTO_RUNNING_HOST", None)
     if host:
         port = os.environ.get("PRESTO_RUNNING_PORT", DEFAULT_PORT)
     else:
-        container_id, proc, host, port = start_local_presto_server(
-            image_tag, build, with_cache
-        )
+        container_id, proc, host, port = start_local_presto_server(image_tag)
 
     print("presto.server.hostname {}".format(host))
     print("presto.server.port {}".format(port))
@@ -192,8 +154,7 @@ def run_presto():
     if not image_tag:
         image_tag = get_default_presto_image_tag()
 
-    need_build = not image_exists(image_tag)
-    container_id, proc, host, port = start_presto_and_wait(image_tag, need_build)
+    container_id, proc, host, port = start_presto_and_wait(image_tag)
     yield proc, host, port
     if container_id or proc:
         stop_presto(container_id, proc)
@@ -208,8 +169,8 @@ def cli():
     "--cache/--no-cache", default=True, help="enable/disable Docker build cache"
 )
 @click.command()
-def presto_server(cache):
-    container_id, _, _, _ = start_presto_and_wait(with_cache=cache)
+def presto_server():
+    container_id, _, _, _ = start_presto_and_wait()
 
 
 @click.argument("container_id", required=False)

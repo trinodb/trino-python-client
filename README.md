@@ -108,8 +108,8 @@ To run integration tests:
 $ pytest integration_tests
 ```
 
-They build a `Docker` image and then run a container with a Presto server:
-- the image is named `presto-server:${PRESTO_VERSION}`
+They pull a `Docker` image and then run a container with a Presto server:
+- the image is named `prestosql/presto:${PRESTO_VERSION}`
 - the container is named `presto-python-client-tests-{uuid4()[:7]}`
 
 The container is expected to be removed after the tests are finished.
