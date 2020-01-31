@@ -43,7 +43,7 @@ def presto_connection_with_transaction(run_presto):
 
 def test_select_query(presto_connection):
     cur = presto_connection.cursor()
-    cur.execute("select * from system.runtime.nodes")
+    cur.execute("select node_id, http_uri, node_version, coordinator, state from system.runtime.nodes")
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
