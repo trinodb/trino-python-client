@@ -117,7 +117,7 @@ They pull a Docker image and then run a container with a Presto server:
 Start by forking the repository and then modify the code in your fork.
 
 Clone the repository and go inside the code directory. Then you can get the
-version with `python setup.py --version`.
+version with `./setup.py --version`.
 
 We recommend that you use `virtualenv` for development:
 
