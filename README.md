@@ -115,7 +115,6 @@ They pull a Docker image and then run a container with a Presto server:
 # Development
 
 Start by forking the repository and then modify the code in your fork.
-Please refer to `CONTRIBUTING.md` before submitting your contributions.
 
 Clone the repository and go inside the code directory. Then you can get the
 version with `python setup.py --version`.
