@@ -1,4 +1,4 @@
-![Build Status](https://travis-ci.org/prestosql/python-client.svg?branch=master)
+![Build Status](https://travis-ci.org/prestosql/presto-python-client.svg?branch=master)
 
 # Introduction
 
