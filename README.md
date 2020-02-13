@@ -17,7 +17,7 @@ Use the DBAPI interface to query Presto:
 
 ```python
 import presto
-conn=presto.dbapi.connect(
+conn = presto.dbapi.connect(
     host='localhost',
     port=8080,
     user='the-user',
@@ -42,7 +42,7 @@ The `BasicAuthentication` class can be used to connect to a LDAP-configured Pres
 cluster:
 ```python
 import presto
-conn=presto.dbapi.connect(
+conn = presto.dbapi.connect(
     host='coordinator url',
     port=8443,
     user='the-user',
