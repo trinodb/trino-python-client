@@ -22,7 +22,7 @@ from __future__ import division
 from __future__ import print_function
 
 from collections.abc import Iterable
-from typing import Any, List, Optional, Union  # NOQA for mypy types
+from typing import Any, List, Optional  # NOQA for mypy types
 import datetime
 
 from presto import constants
@@ -47,7 +47,7 @@ class ParamEscaper(object):
     Escapes parameters for an SQL query in Presto. The entry point is the public method escape_args.
     """
 
-    def escape_args(self, parameters: Union[dict, list, tuple]) -> Union[dict, tuple]:
+    def escape_args(self, parameters):
         """
         Escapes string parameters for an SQL query in Presto. String parameters are escaped in _escape_string.
         Numbers in the parameters are returned as they are. Iterable collections are processed recursively down to
@@ -70,7 +70,7 @@ class ParamEscaper(object):
                             type(parameters) + ".")
 
     @staticmethod
-    def _escape_string(item: str) -> str:
+    def _escape_string(item):
         """
         Escapes string query parameters.
         1. UTF-decode string if needed (to support old sqlalchemy)
@@ -91,7 +91,7 @@ class ParamEscaper(object):
 
         return "'" + item.replace("'", "''") + "'"
 
-    def _escape_sequence(self, sequence: Iterable) -> str:
+    def _escape_sequence(self, sequence):
         """
         Escapes iterable collections. Collections containing other collections will be escaped recursively through
         _escape_item().
@@ -102,7 +102,7 @@ class ParamEscaper(object):
         items = map(str, map(self._escape_item, sequence))
         return '(' + ", ".join(items) + ')'
 
-    def _escape_item(self, item) -> Union[int, float, str]:
+    def _escape_item(self, item):
         """
         Escapes a single item of the parameters.
         Python's None is transformed to 'NULL' string to be added as NULL to SQL query.
