@@ -66,8 +66,8 @@ class ParamEscaper(object):
         elif isinstance(parameters, (list, tuple)):
             return tuple(self._escape_item(x) for x in parameters)
         else:
-            raise TypeError("Unsupported parameters type. Parameters: {parameters}, type: {type}.".
-                            format(parameters=parameters, type=type(parameters)))
+            raise TypeError("Unsupported parameters type. Parameters: " + str(parameters) + " Type: " +
+                            type(parameters) + ".")
 
     @staticmethod
     def _escape_string(item: str) -> str:
@@ -89,7 +89,7 @@ class ParamEscaper(object):
         if isinstance(item, bytes):
             item = item.decode('utf-8')
 
-        return "'{}'".format(item.replace("'", "''"))
+        return "'" + item.replace("'", "''") + "'"
 
     def _escape_sequence(self, sequence: Iterable) -> str:
         """
@@ -100,7 +100,7 @@ class ParamEscaper(object):
         :return: String containing the escaped given collection, with parentheses to make a proper SQL array
         """
         items = map(str, map(self._escape_item, sequence))
-        return '({array_items})'.format(array_items=", ".join(items))
+        return '(' + ", ".join(items) + ')'
 
     def _escape_item(self, item) -> Union[int, float, str]:
         """
@@ -122,8 +122,7 @@ class ParamEscaper(object):
         elif isinstance(item, Iterable):
             return self._escape_sequence(item)
         else:
-            raise TypeError("Unsupported parameter type. Parameter: {item}, type: {type}.".
-                            format(item=item, type=type(item)))
+            raise TypeError("Unsupported parameter type. Parameter: " + str(item) + " Type: " + type(item) + ".")
 
 
 def connect(*args, **kwargs):
