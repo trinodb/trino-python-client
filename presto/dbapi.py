@@ -21,7 +21,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from typing import Any, List, Optional  # NOQA for mypy types
+from collections.abc import Iterable
+from typing import Any, List, Optional, Union  # NOQA for mypy types
 import datetime
 
 from presto import constants
@@ -39,6 +40,90 @@ apilevel = "2.0"
 threadsafety = 2
 
 logger = presto.logging.get_logger(__name__)
+
+
+class ParamEscaper(object):
+    """
+    Escapes parameters for an SQL query in Presto. The entry point is the public method escape_args.
+    """
+
+    def escape_args(self, parameters: Union[dict, list, tuple]) -> Union[dict, tuple]:
+        """
+        Escapes string parameters for an SQL query in Presto. String parameters are escaped in _escape_string.
+        Numbers in the parameters are returned as they are. Iterable collections are processed recursively down to
+        individual numbers or strings. Python's None is transformed to 'NULL' string to be added as NULL to SQL query.
+
+        :param parameters: Either a dict, or a tuple, or a string with the parameters. If the query has unnamed
+        parameter stubs like "WHERE id = %s" then a list or a tuple of parameters has to be passed in the same order.
+        If the query has named parameter stubs like "WHERE id = %(user_id)s" then a dict with the same-named keys
+        should be passed as the parameters: {'user_id': user_id, ...}
+        Array parameters are also supported: "WHERE id IN %(ids)s" and {'ids': (1, 2, 3)}
+        :return: A dict if the parameters were passed as a dict; or a tuple if they were passed as a tuple or a list
+        :raises TypeError: if anything but a dict/list/tuple is passed into parameters
+        """
+        if isinstance(parameters, dict):
+            return {k: self._escape_item(v) for k, v in parameters.items()}
+        elif isinstance(parameters, (list, tuple)):
+            return tuple(self._escape_item(x) for x in parameters)
+        else:
+            raise TypeError("Unsupported parameters type. Parameters: {parameters}, type: {type}.".
+                            format(parameters=parameters, type=type(parameters)))
+
+    @staticmethod
+    def _escape_string(item: str) -> str:
+        """
+        Escapes string query parameters.
+        1. UTF-decode string if needed (to support old sqlalchemy)
+        2. Escape single quotes by additional single quotes to prevent SQL injection
+        3. Add surrounding single quotes to be inserted into SQL query later
+        The single quote is the only special character to escape in Presto, and it is escaped by another single quote
+        character. Escaping single quote in string parameters protects from semicolon ";" SQL injections, as well as
+        comment "--" injections, as well as injections with dummy filters like "' or 1=1 --".
+
+        :param str item: The string to escape
+        :return: UTF-decoded, single-quote-escaped string, surrounded by additional single quotes
+        """
+        # Need to decode UTF-8 because of old sqlalchemy.
+        # Newer SQLAlchemy checks dialect.supports_unicode_binds before encoding Unicode strings as byte strings.
+        # The old version always encodes Unicode as byte strings, which would otherwise break string formatting here.
+        if isinstance(item, bytes):
+            item = item.decode('utf-8')
+
+        return "'{}'".format(item.replace("'", "''"))
+
+    def _escape_sequence(self, sequence: Iterable) -> str:
+        """
+        Escapes iterable collections. Collections containing other collections will be escaped recursively through
+        _escape_item().
+
+        :param Iterable sequence: The sequence to be escaped
+        :return: String containing the escaped given collection, with parentheses to make a proper SQL array
+        """
+        items = map(str, map(self._escape_item, sequence))
+        return '({array_items})'.format(array_items=", ".join(items))
+
+    def _escape_item(self, item) -> Union[int, float, str]:
+        """
+        Escapes a single item of the parameters.
+        Python's None is transformed to 'NULL' string to be added as NULL to SQL query.
+        Numbers returned as they are (they don't require escaping).
+        Strings are escaped in _escape_string().
+        Iterable collections are processed recursively down to individual numbers or strings.
+
+        :param item: The item to escape
+        :return: An int, a float, or a string
+        """
+        if item is None:
+            return 'NULL'
+        elif isinstance(item, (int, float)):
+            return item
+        elif isinstance(item, str):
+            return self._escape_string(item)
+        elif isinstance(item, Iterable):
+            return self._escape_sequence(item)
+        else:
+            raise TypeError("Unsupported parameter type. Parameter: {item}, type: {type}.".
+                            format(item=item, type=type(item)))
 
 
 def connect(*args, **kwargs):
@@ -232,6 +317,8 @@ class Cursor(object):
         raise presto.exceptions.NotSupportedError
 
     def execute(self, operation, params=None):
+        if params:
+            operation = operation % ParamEscaper().escape_args(parameters=params)
         self._query = presto.client.PrestoQuery(self._request, sql=operation)
         result = self._query.execute()
         self._iterator = iter(result)
