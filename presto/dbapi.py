@@ -21,7 +21,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from collections.abc import Iterable
+try:  # Iterable in Python3
+    from collections.abc import Iterable  # noqa
+except ImportError:  # Iterable in Python2
+    from collections import Iterable  # noqa
+
 from typing import Any, List, Optional  # NOQA for mypy types
 import datetime
 
@@ -50,8 +54,9 @@ class ParamEscaper(object):
     def escape_args(self, parameters):
         """
         Escapes string parameters for an SQL query in Presto. String parameters are escaped in _escape_string.
-        Numbers in the parameters are returned as they are. Iterable collections are processed recursively down to
-        individual numbers or strings. Python's None is transformed to 'NULL' string to be added as NULL to SQL query.
+        Boolean values are transformed to either 'TRUE' or 'FALSE' to be added to SQL query. Numbers in the
+        parameters are returned as they are. Iterable collections are processed recursively down to individual
+        booleans, numbers or strings. Python's None is transformed to 'NULL' string to be added as NULL to SQL query.
 
         :param parameters: Either a dict, or a tuple, or a string with the parameters. If the query has unnamed
         parameter stubs like "WHERE id = %s" then a list or a tuple of parameters has to be passed in the same order.
@@ -106,15 +111,18 @@ class ParamEscaper(object):
         """
         Escapes a single item of the parameters.
         Python's None is transformed to 'NULL' string to be added as NULL to SQL query.
+        Boolean values are transformed to either 'TRUE' or 'FALSE' to be added to SQL query.
         Numbers returned as they are (they don't require escaping).
         Strings are escaped in _escape_string().
-        Iterable collections are processed recursively down to individual numbers or strings.
+        Iterable collections are processed recursively down to individual booleans, numbers or strings.
 
         :param item: The item to escape
         :return: An int, a float, or a string
         """
         if item is None:
             return 'NULL'
+        elif isinstance(item, bool):
+            return 'TRUE' if item else 'FALSE'
         elif isinstance(item, (int, float)):
             return item
         elif isinstance(item, str):

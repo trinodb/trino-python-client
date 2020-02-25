@@ -87,7 +87,7 @@ def wait_for_presto_workers(host, port, timeout=180):
         time.sleep(1)
 
 
-def wait_for_presto_coordinator(stream, timeout=180):
+def wait_for_presto_coordinator(stream, timeout=360):
     started_tag = "======== SERVER STARTED ========"
     t0 = time.time()
     for line in iter(stream.readline, b""):

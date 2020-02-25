@@ -116,6 +116,70 @@ def test_select_tpch_1000(presto_connection):
     assert len(rows) == 1000
 
 
+def test_select_params_dict(presto_connection):
+    query = """
+        select coordinator, state, node_version from system.runtime.nodes
+        where coordinator = %(bool_param)s
+        and state = %(str_param)s
+        and cast(node_version as bigint) > %(int_param)s
+        and cast(node_version as decimal) > %(float_param)s
+        and node_version not in %(array_param)s
+        and node_version is not %(null_param)s
+    """
+    params = {
+        'bool_param': True,
+        'str_param': 'active',
+        'int_param': 0,
+        'float_param': 0.0,
+        'array_param': ('inexistent', 'values'),
+        'null_param': None
+    }
+    cur = presto_connection.cursor()
+    cur.execute(operation=query, params=params)
+    rows = cur.fetchall()
+
+    assert len(rows) > 0
+    row = rows[0]
+    assert row[0] is True
+    assert row[1] == 'active'
+    assert int(row[2]) > 0
+    assert float(row[2]) > 0.0
+    assert row[2] not in ('inexistent', 'values')
+    assert row[2] is not None
+
+
+def test_select_params_tuple(presto_connection, params_array_as_list=False):
+    query = """
+        select coordinator, state, node_version from system.runtime.nodes
+        where coordinator = %s
+        and state = %s
+        and cast(node_version as bigint) > %s
+        and cast(node_version as decimal) > %s
+        and state in %s
+        and node_version is not %s
+    """
+    params_array = (True, 'active', 0, 0.0, ('active', 'another_value'), None)
+    if params_array_as_list:
+        params_array = list(params_array)
+
+    cur = presto_connection.cursor()
+    cur.execute(operation=query, params=params_array)
+    rows = cur.fetchall()
+
+    assert len(rows) > 0
+    row = rows[0]
+    assert row[0] is True
+    assert row[1] == 'active'
+    assert int(row[2]) > 0
+    assert float(row[2]) > 0.0
+    assert row[1] in ('active', 'another_value')
+    assert row[2] is not None
+
+
+def test_select_params_list(presto_connection):
+    test_select_params_tuple(presto_connection, params_array_as_list=True)
+
+
 def test_cancel_query(presto_connection):
     cur = presto_connection.cursor()
     cur.execute("select * from tpch.sf1.customer")
