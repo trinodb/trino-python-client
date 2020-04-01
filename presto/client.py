@@ -449,8 +449,9 @@ class PrestoQuery(object):
         self._request = request
         self._sql = sql
 
-        self._rows = []
         self._rownumber = 0
+        self._rows = []
+        self._rowsoffset = 0
 
     @property
     def columns(self):
@@ -530,9 +531,11 @@ class PrestoQuery(object):
 
     def __iter__(self):
         while self._rows or not self.is_finished():
-            for row in self._rows:
+            for row in self._rows[self._rowsoffset:]:
                 self._rownumber += 1
+                self._rowsoffset +=1
                 logger.debug('row {}'.format(row))
                 yield row
             self._rows = []
+            self._rowsoffset = 0
             self.poll()
