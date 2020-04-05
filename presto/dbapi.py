@@ -225,6 +225,9 @@ class Cursor(object):
             return self._query.warnings
         return None
 
+    def poll(self):
+        return self._query.poll()
+
     def setinputsizes(self, sizes):
         raise presto.exceptions.NotSupportedError
 
@@ -232,10 +235,8 @@ class Cursor(object):
         raise presto.exceptions.NotSupportedError
 
     def execute(self, operation, params=None):
-        self._query = presto.client.PrestoQuery(self._request, sql=operation)
-        result = self._query.execute()
-        self._iterator = iter(result)
-        return result
+        self._query = presto.client.PrestoQuery(self._request, sql=operation).execute()
+        return self._query
 
     def executemany(self, operation, seq_of_params):
         raise presto.exceptions.NotSupportedError
@@ -250,13 +251,10 @@ class Cursor(object):
         An Error (or subclass) exception is raised if the previous call to
         .execute*() did not produce any result set or no call was issued yet.
         """
-
-        try:
-            return next(self._iterator)
-        except StopIteration:
+        result = self.fetchmany(1)
+        if len(result) != 1:
             return None
-        except presto.exceptions.HttpError as err:
-            raise presto.exceptions.OperationalError(str(err))
+        return result[0]
 
     def fetchmany(self, size=None):
         # type: (Optional[int]) -> List[List[Any]]
@@ -284,16 +282,20 @@ class Cursor(object):
             size = self.arraysize
 
         result = []
+        iterator = iter(self._query)
+
         for _ in range(size):
-            row = self.fetchone()
-            if row is None:
+            try:
+                result.append(next(iterator))
+            except StopIteration:
                 break
-            result.append(row)
+            except prestodb.exceptions.HttpError as err:
+                raise prestodb.exceptions.OperationalError(str(err))
 
         return result
 
     def genall(self):
-        return self._query.result
+        return self._query
 
     def fetchall(self):
         # type: () -> List[List[Any]]
