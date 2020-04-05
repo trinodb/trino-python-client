@@ -114,6 +114,8 @@ They pull a Docker image and then run a container with a Presto server:
 
 # Development
 
+## Getting Started With Development
+
 Start by forking the repository and then modify the code in your fork.
 
 Clone the repository and go inside the code directory. Then you can get the
@@ -138,6 +140,12 @@ That way, you do not need to run `pip install` again to make your changes
 applied to the *virtualenv*.
 
 When the code is ready, submit a Pull Request.
+
+## Code Style
+
+- For Python code, adhere to PEP 8.
+- Prefer code that is readable over one that is "clever".
+- When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
 # Need Help?
 
