@@ -231,7 +231,8 @@ class Cursor(object):
     def setoutputsize(self, size, column):
         raise presto.exceptions.NotSupportedError
 
-    def execute(self, operation, params=None):
+    # TODO support params
+    def execute(self, operation):
         self._query = presto.client.PrestoQuery(self._request, sql=operation)
         result = self._query.execute()
         self._iterator = iter(result)
