@@ -205,7 +205,7 @@ class PrestoRequest(object):
         transaction_id=NO_TRANSACTION,  # type: Optional[Text]
         http_scheme=constants.HTTP,  # type: Text
         auth=constants.DEFAULT_AUTH,  # type: Optional[Any]
-        redirect_handler=presto.redirect.GatewayRedirectHandler(),
+        redirect_handler=None,
         max_attempts=MAX_ATTEMPTS,  # type: int
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
         handle_retry=exceptions.RetryWithExponentialBackoff(),
