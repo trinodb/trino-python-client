@@ -24,6 +24,7 @@ from presto.client import PrestoRequest
 from presto.auth import KerberosAuthentication
 from presto import constants
 import presto.exceptions
+import presto.redirect
 
 
 """
@@ -576,7 +577,7 @@ def test_gateway_redirect(monkeypatch):
         socket, "gethostbyaddr", lambda *args: ("finalhost", ["finalhost"], "1.2.3.4")
     )
 
-    req = PrestoRequest(host="coordinator", port=8080, user="test")
+    req = PrestoRequest(host="coordinator", port=8080, user="test", redirect_handler=presto.redirect.GatewayRedirectHandler())
     result = req.post("http://host:80/path/")
     assert gateway_response.count == 3
     assert result.ok

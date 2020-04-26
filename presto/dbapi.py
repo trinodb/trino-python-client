@@ -71,7 +71,7 @@ class Connection(object):
         http_headers=None,
         http_scheme=constants.HTTP,
         auth=constants.DEFAULT_AUTH,
-        redirect_handler=presto.redirect.GatewayRedirectHandler(),
+        redirect_handler=None,
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
