@@ -313,7 +313,7 @@ def test_request_headers(monkeypatch):
     source = "test_source"
     accept_encoding_header = "accept-encoding"
     accept_encoding_value = "identity,deflate,gzip"
-    client_info_header = constants.HEADER_PREFIX + "Client-Info"
+    client_info_header = constants.HEADER_CLIENT_INFO
     client_info_value = "some_client_info"
 
     req = PrestoRequest(
