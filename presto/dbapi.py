@@ -75,6 +75,7 @@ class Connection(object):
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
+        verify=True
     ):
         self.host = host
         self.port = port
@@ -85,6 +86,7 @@ class Connection(object):
         self.session_properties = session_properties
         # mypy cannot follow module import
         self._http_session = presto.client.PrestoRequest.http.Session()
+        self._http_session.verify = verify
         self.http_headers = http_headers
         self.http_scheme = http_scheme
         self.auth = auth
