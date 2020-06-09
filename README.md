@@ -1,4 +1,6 @@
-![Build Status](https://travis-ci.org/prestosql/presto-python-client.svg?branch=master)
+[![Build Status](https://travis-ci.com/prestosql/presto-python-client.svg?branch=master)](https://travis-ci.com/prestosql/presto-python-client)
+[![Presto Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://prestosql.io/slack.html)
+[![Presto: The Definitive Guide book download](https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburstdata.com/oreilly-presto-guide-download/)
 
 # Introduction
 
@@ -114,6 +116,8 @@ They pull a Docker image and then run a container with a Presto server:
 
 # Development
 
+## Getting Started With Development
+
 Start by forking the repository and then modify the code in your fork.
 
 Clone the repository and go inside the code directory. Then you can get the
@@ -138,6 +142,12 @@ That way, you do not need to run `pip install` again to make your changes
 applied to the *virtualenv*.
 
 When the code is ready, submit a Pull Request.
+
+## Code Style
+
+- For Python code, adhere to PEP 8.
+- Prefer code that is readable over one that is "clever".
+- When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
 # Need Help?
 
