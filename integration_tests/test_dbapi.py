@@ -68,6 +68,21 @@ def test_select_query_result_iteration(presto_connection):
     assert len(list(rows0)) == len(rows1)
 
 
+def test_select_cursor_iteration(presto_connection):
+    cur0 = presto_connection.cursor()
+    cur0.execute("select nationkey from tpch.sf1.nation")
+    rows0 = []
+    for row in cur0:
+        rows0.append(row)
+
+    cur1 = presto_connection.cursor()
+    cur1.execute("select nationkey from tpch.sf1.nation")
+    rows1 = cur1.fetchall()
+
+    assert len(rows0) == len(rows1)
+    assert sorted(rows0) == sorted(rows1)
+
+
 def test_select_query_no_result(presto_connection):
     cur = presto_connection.cursor()
     cur.execute("select * from system.runtime.nodes where false")
