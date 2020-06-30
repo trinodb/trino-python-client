@@ -189,6 +189,9 @@ class Cursor(object):
         self._iterator = None
         self._query = None
 
+    def __iter__(self):
+        return self._iterator
+
     @property
     def connection(self):
         return self._connection
