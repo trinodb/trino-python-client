@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/prestosql/presto-python-client.svg?branch=master)](https://travis-ci.com/prestosql/presto-python-client)
+[![Build Status](https://github.com/prestosql/presto-python-client/workflows/ci/badge.svg)](https://github.com/prestosql/presto-python-client/actions?query=workflow%3Aci+event%3Apush+branch%3Amaster)
 [![Presto Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://prestosql.io/slack.html)
 [![Presto: The Definitive Guide book download](https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburstdata.com/oreilly-presto-guide-download/)
 
