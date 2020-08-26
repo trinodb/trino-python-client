@@ -68,6 +68,42 @@ def test_select_query_result_iteration(presto_connection):
     assert len(list(rows0)) == len(rows1)
 
 
+def test_select_query_result_iteration_statement_params(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute(
+        """
+        select * from (
+            values
+            (1, 'one', 'a'),
+            (2, 'two', 'b'),
+            (3, 'three', 'c'),
+            (4, 'four', 'd'),
+            (5, 'five', 'e')
+        ) x (id, name, letter)
+        where id >= ?
+        """,
+        params=(3,)  # expecting all the rows with id >= 3
+    )
+
+    rows = cur.fetchall()
+    assert len(rows) == 3
+
+    for row in rows:
+        # Validate that all the ids of the returned rows are greather or equals than 3
+        assert row[0] >= 3
+
+
+@pytest.mark.parametrize('params', [
+    'NOT A LIST OR TUPPLE',
+    {'invalid', 'params'},
+    object,
+])
+def test_select_query_invalid_params(presto_connection, params):
+    cur = presto_connection.cursor()
+    with pytest.raises(AssertionError):
+        cur.execute('select ?', params=params)
+
+
 def test_select_cursor_iteration(presto_connection):
     cur0 = presto_connection.cursor()
     cur0.execute("select nationkey from tpch.sf1.nation")

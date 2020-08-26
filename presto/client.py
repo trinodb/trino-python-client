@@ -34,6 +34,7 @@ The main interface is :class:`PrestoQuery`: ::
 """
 from __future__ import absolute_import, division, print_function
 
+import copy
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
@@ -327,9 +328,14 @@ class PrestoRequest(object):
         # type: () -> Text
         return self._next_uri
 
-    def post(self, sql):
+    def post(self, sql, additional_http_headers=None):
         data = sql.encode("utf-8")
-        http_headers = self.http_headers
+        # Deep copy of the http_headers dict since they may be modified for this
+        # request by the provided additional_http_headers
+        http_headers = copy.deepcopy(self.http_headers)
+
+        # Update the request headers with the additional_http_headers
+        http_headers.update(additional_http_headers or {})
 
         http_response = self._post(
             self.statement_url,
@@ -458,6 +464,10 @@ class PrestoResult(object):
                 logger.debug("row {}".format(row))
                 yield row
 
+    @property
+    def response_headers(self):
+        return self._query.response_headers
+
 
 class PrestoQuery(object):
     """Represent the execution of a SQL statement by Presto."""
@@ -479,6 +489,7 @@ class PrestoQuery(object):
         self._request = request
         self._sql = sql
         self._result = PrestoResult(self)
+        self._response_headers = None
 
     @property
     def columns(self):
@@ -496,7 +507,7 @@ class PrestoQuery(object):
     def result(self):
         return self._result
 
-    def execute(self):
+    def execute(self, additional_http_headers=None):
         # type: () -> PrestoResult
         """Initiate a Presto query by sending the SQL statement
 
@@ -508,7 +519,7 @@ class PrestoQuery(object):
         if self._cancelled:
             raise exceptions.PrestoUserError("Query has been cancelled", self.query_id)
 
-        response = self._request.post(self._sql)
+        response = self._request.post(self._sql, additional_http_headers)
         status = self._request.process(response)
         self.query_id = status.id
         self._stats.update({u"queryId": self.query_id})
@@ -528,6 +539,7 @@ class PrestoQuery(object):
             self._columns = status.columns
         self._stats.update(status.stats)
         logger.debug(status)
+        self._response_headers = response.headers
         if status.next_uri is None:
             self._finished = True
         return status.rows
@@ -551,3 +563,7 @@ class PrestoQuery(object):
     def is_finished(self):
         # type: () -> bool
         return self._finished
+
+    @property
+    def response_headers(self):
+        return self._response_headers

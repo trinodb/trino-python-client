@@ -31,7 +31,7 @@ kerberos_require = ["requests_kerberos"]
 
 all_require = [kerberos_require]
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner"]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "mock"]
 
 py27_require = ["ipaddress", "typing"]
 

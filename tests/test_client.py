@@ -19,8 +19,14 @@ import requests
 import socket
 import time
 
+try:
+    from unittest import mock
+except ImportError:
+    # python 2
+    import mock
+
 from requests_kerberos.exceptions import KerberosExchangeError
-from presto.client import PrestoRequest
+from presto.client import PROXIES, PrestoQuery, PrestoRequest, PrestoResult
 from presto.auth import KerberosAuthentication
 from presto import constants
 import presto.exceptions
@@ -349,6 +355,40 @@ def test_request_headers(monkeypatch):
     assert_headers(get_recorder.kwargs["headers"])
 
 
+def test_additional_request_post_headers(monkeypatch):
+    """
+    Tests that the `PrestoRequest.post` function can take addtional headers
+    and that it combines them with the existing ones to perform the request.
+    """
+    post_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(PrestoRequest.http.Session, "post", post_recorder)
+
+    req = PrestoRequest(
+        host="coordinator",
+        port=8080,
+        user="test",
+        source="test",
+        catalog="test",
+        schema="test",
+        http_scheme="http",
+        session_properties={},
+    )
+
+    sql = 'select 1'
+    additional_headers = {
+        'X-Presto-Fake-1': 'one',
+        'X-Presto-Fake-2': 'two',
+    }
+
+    combined_headers = req.http_headers
+    combined_headers.update(additional_headers)
+
+    req.post(sql, additional_headers)
+
+    # Validate that the post call was performed including the addtional headers
+    assert post_recorder.kwargs['headers'] == combined_headers
+
+
 def test_request_invalid_http_headers():
     with pytest.raises(ValueError) as value_error:
         PrestoRequest(
@@ -581,3 +621,71 @@ def test_gateway_redirect(monkeypatch):
     result = req.post("http://host:80/path/")
     assert gateway_response.count == 3
     assert result.ok
+
+
+def test_presto_result_response_headers():
+    """
+    Validates that the `PrestoResult.response_headers` property returns the
+    headers associated to the PrestoQuery instance provided to the `PrestoResult`
+    class.
+    """
+    mock_presto_query = mock.Mock(respone_headers={
+        'X-Presto-Fake-1': 'one',
+        'X-Presto-Fake-2': 'two',
+    })
+
+    result = PrestoResult(
+        query=mock_presto_query,
+    )
+    assert result.response_headers == mock_presto_query.response_headers
+
+
+def test_presto_query_response_headers():
+    """
+    Validates that the `PrestoQuery.execute` function can take addtional headers
+    that are pass the the provided request instance post function call and it
+    returns a `PrestoResult` instance.
+    """
+    class MockResponse(mock.Mock):
+        # Fake response class
+        @property
+        def headers(self):
+            return {
+                'X-Presto-Fake-1': 'one',
+                'X-Presto-Fake-2': 'two',
+            }
+
+        def json(self):
+            return get_json_post_0(self)
+
+    req = PrestoRequest(
+        host="coordinator",
+        port=8080,
+        user="test",
+        source="test",
+        catalog="test",
+        schema="test",
+        http_scheme="http",
+        session_properties={},
+    )
+
+    sql = 'execute my_stament using 1, 2, 3'
+    additional_headers = {
+        constants.HEADER_PREPARED_STATEMENT: 'my_statement=added_prepare_statement_header'
+    }
+
+    # Patch the post function to avoid making the requests, as well as to
+    # validate that the function was called with the right arguments.
+    with mock.patch.object(req, 'post', return_value=MockResponse()) as mock_post:
+
+        query = PrestoQuery(
+            request=req,
+            sql=sql
+        )
+        result = query.execute(additional_http_headers=additional_headers)
+
+        # Validate the the post function was called with the right argguments
+        mock_post.assert_called_once_with(sql, additional_headers)
+
+        # Validate the result is an instance of PrestoResult
+        assert isinstance(result, PrestoResult)

@@ -22,7 +22,16 @@ from __future__ import division
 from __future__ import print_function
 
 from typing import Any, List, Optional  # NOQA for mypy types
+
+try:
+    from urllib.parse import urlencode
+except ImportError:
+    # Python 2
+    from urllib import urlencode
+
+import copy
 import datetime
+import uuid
 
 from presto import constants
 import presto.exceptions
@@ -37,6 +46,7 @@ __all__ = ["connect", "Connection", "Cursor"]
 
 apilevel = "2.0"
 threadsafety = 2
+paramstyle = "qmark"
 
 logger = presto.logging.get_logger(__name__)
 
@@ -236,10 +246,112 @@ class Cursor(object):
     def setoutputsize(self, size, column):
         raise presto.exceptions.NotSupportedError
 
-    # TODO support params
-    def execute(self, operation):
-        self._query = presto.client.PrestoQuery(self._request, sql=operation)
-        result = self._query.execute()
+    def _prepare_statement(self, operation, statement_name):
+        """
+        Prepends the given `operation` with "PREPARE <statement_name> FROM" and
+        executes as a prepare statement.
+
+        :param operation: sql to be executed.
+        :param statement_name: name that will be assigned to the prepare
+            statement.
+
+        :raises presto.exceptions.FailedToObtainAddedPrepareHeader: Error raised
+            when unable to find the 'X-Presto-Added-Prepare' for the PREPARE
+            statement request.
+
+        :return: string representing the value of the 'X-Presto-Added-Prepare'
+            header.
+        """
+        sql = 'PREPARE {statement_name} FROM {operation}'.format(
+            statement_name=statement_name,
+            operation=operation
+        )
+
+        # Send prepare statement. Copy the _request object to avoid poluting the
+        # one that is going to be used to execute the actual operation.
+        query = presto.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
+        result = query.execute()
+
+        # Iterate until the 'X-Presto-Added-Prepare' header is found or
+        # until there are no more results
+        for _ in result:
+            response_headers = result.response_headers
+
+            if constants.HEADER_ADDED_PREPARE in response_headers:
+                return response_headers[constants.HEADER_ADDED_PREPARE]
+
+        raise presto.exceptions.FailedToObtainAddedPrepareHeader
+
+    def _get_added_prepare_statement_presto_query(
+        self,
+        statement_name,
+        params
+    ):
+        sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(str, params))
+
+        # No need to deepcopy _request here because this is the actual request
+        # operation
+        return presto.client.PrestoQuery(self._request, sql=sql)
+
+    def _deallocate_prepare_statement(self, added_prepare_header, statement_name):
+        sql = 'DEALLOCATE PREPARE ' + statement_name
+
+        # Send deallocate statement. Copy the _request object to avoid poluting the
+        # one that is going to be used to execute the actual operation.
+        query = presto.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
+        result = query.execute(
+            additional_http_headers={
+                constants.HEADER_PREPARED_STATEMENT: added_prepare_header
+            }
+        )
+
+        # Iterate until the 'X-Presto-Deallocated-Prepare' header is found or
+        # until there are no more results
+        for _ in result:
+            response_headers = result.response_headers
+
+            if constants.HEADER_DEALLOCATED_PREPARE in response_headers:
+                return response_headers[constants.HEADER_DEALLOCATED_PREPARE]
+
+        raise presto.exceptions.FailedToObtainDeallocatedPrepareHeader
+
+    def _generate_unique_statement_name(self):
+        return 'st_' + uuid.uuid4().hex.replace('-', '')
+
+    def execute(self, operation, params=None):
+        if params:
+            assert isinstance(params, (list, tuple)), (
+                'params must be a list or tuple containing the query '
+                'parameter values'
+            )
+
+            statement_name = self._generate_unique_statement_name()
+
+            try:
+                # Send prepare statement
+                added_prepare_header = self._prepare_statement(
+                    operation, statement_name
+                )
+
+                # Send execute statement and assign the return value to `results`
+                # as it will be returned by the function
+                self._query = self._get_added_prepare_statement_presto_query(
+                    statement_name, params
+                )
+                result = self._query.execute(
+                    additional_http_headers={
+                        constants.HEADER_PREPARED_STATEMENT: added_prepare_header
+                    }
+                )
+            finally:
+                # Send deallocate statement
+                # At this point the query can be deallocated since it has already
+                # been executed
+                self._deallocate_prepare_statement(added_prepare_header, statement_name)
+
+        else:
+            self._query = presto.client.PrestoQuery(self._request, sql=operation)
+            result = self._query.execute()
         self._iterator = iter(result)
         return result
 
