@@ -41,3 +41,7 @@ HEADER_CLEAR_SESSION = "X-Presto-Clear-Session"
 
 HEADER_STARTED_TRANSACTION = "X-Presto-Started-Transaction-Id"
 HEADER_TRANSACTION = "X-Presto-Transaction-Id"
+
+HEADER_PREPARED_STATEMENT = 'X-Presto-Prepared-Statement'
+HEADER_ADDED_PREPARE = 'X-Presto-Added-Prepare'
+HEADER_DEALLOCATED_PREPARE = 'X-Presto-Deallocated-Prepare'

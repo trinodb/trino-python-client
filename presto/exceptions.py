@@ -203,3 +203,19 @@ class DataError(DatabaseError):
 
 class NotSupportedError(DatabaseError):
     pass
+
+
+class FailedToObtainAddedPrepareHeader(Error):
+    """
+    Raise this exception when unable to find the 'X-Presto-Added-Prepare'
+    header in the response of a PREPARE statement request.
+    """
+    pass
+
+
+class FailedToObtainDeallocatedPrepareHeader(Error):
+    """
+    Raise this exception when unable to find the 'X-Presto-Deallocated-Prepare'
+    header in the response of a DEALLOCATED statement request.
+    """
+    pass
