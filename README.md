@@ -150,6 +150,24 @@ When the code is ready, submit a Pull Request.
 - Prefer code that is readable over one that is "clever".
 - When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
+## Releasing
+
+- [Set up your development environment](#Getting-Started-With-Development).
+- Change version in `presto/__init__.py`.
+- Commit and create an annotated tag (`git tag -m '' current_version`)
+- Run the following:
+  ```bash
+  . .venv/bin/activate &&
+  pip install twine &&
+  rm -rf dist/ &&
+  ./setup.py sdist bdist_wheel &&
+  twine upload dist/* &&
+  open https://pypi.org/project/presto-client/ &&
+  echo "Released!"
+  ```
+- Push the branch and the tag (`git push upstream master current_version`)
+- Send release announcement.
+
 # Need Help?
 
 Feel free to create an issue as it make your request visible to other users and contributors.
