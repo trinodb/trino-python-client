@@ -83,37 +83,6 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `presto.dbapi.Connection.rollback()' will be called.
 
-# Running Tests
-
-There is a helper scripts, `run`, that provides commands to run tests.
-Type `./run tests` to run both unit and integration tests.
-
-`presto-python-client` uses [pytest](https://pytest.org/) for its tests. To run
-only unit tests, type:
-
-```
-$ pytest tests
-```
-
-Then you can pass options like `--pdb` or anything supported by `pytest --help`.
-
-To run the tests with different versions of Python in managed *virtualenvs*,
-use `tox` (see the configuration in `tox.ini`):
-
-```
-$ tox
-```
-
-To run integration tests:
-
-```
-$ pytest integration_tests
-```
-
-They pull a Docker image and then run a container with a Presto server:
-- the image is named `prestosql/presto:${PRESTO_VERSION}`
-- the container is named `presto-python-client-tests-{uuid4()[:7]}`
-
 # Development
 
 ## Getting Started With Development
@@ -149,6 +118,37 @@ When the code is ready, submit a Pull Request.
 - For Python code, adhere to PEP 8.
 - Prefer code that is readable over one that is "clever".
 - When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+
+## Running Tests
+
+There is a helper scripts, `run`, that provides commands to run tests.
+Type `./run tests` to run both unit and integration tests.
+
+`presto-python-client` uses [pytest](https://pytest.org/) for its tests. To run
+only unit tests, type:
+
+```
+$ pytest tests
+```
+
+Then you can pass options like `--pdb` or anything supported by `pytest --help`.
+
+To run the tests with different versions of Python in managed *virtualenvs*,
+use `tox` (see the configuration in `tox.ini`):
+
+```
+$ tox
+```
+
+To run integration tests:
+
+```
+$ pytest integration_tests
+```
+
+They pull a Docker image and then run a container with a Presto server:
+- the image is named `prestosql/presto:${PRESTO_VERSION}`
+- the container is named `presto-python-client-tests-{uuid4()[:7]}`
 
 ## Releasing
 
