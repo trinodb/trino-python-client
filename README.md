@@ -126,9 +126,10 @@ version with `./setup.py --version`.
 We recommend that you use `virtualenv` for development:
 
 ```
-$ virtualenv /path/to/env
-$ /path/to/env/bin/active
-$ pip install -r requirements.txt
+$ virtualenv .venv
+$ . .venv/bin/activate
+# TODO add requirements.txt: pip install -r requirements.txt
+$ pip install .
 ```
 
 For development purpose, pip can reference the code you are modifying in a
