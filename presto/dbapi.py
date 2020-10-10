@@ -37,7 +37,6 @@ from presto import constants
 import presto.exceptions
 import presto.client
 import presto.logging
-import presto.redirect
 from presto.transaction import Transaction, IsolationLevel, NO_TRANSACTION
 
 

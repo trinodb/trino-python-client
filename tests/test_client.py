@@ -30,7 +30,6 @@ from presto.client import PROXIES, PrestoQuery, PrestoRequest, PrestoResult
 from presto.auth import KerberosAuthentication
 from presto import constants
 import presto.exceptions
-import presto.redirect
 
 
 """
@@ -607,22 +606,6 @@ class FakeGatewayResponse(object):
         return http_response
 
 
-def test_gateway_redirect(monkeypatch):
-    http_resp = PrestoRequest.http.Response()
-    http_resp.status_code = 200
-
-    gateway_response = FakeGatewayResponse(http_resp, redirect_count=3)
-    monkeypatch.setattr(PrestoRequest.http.Session, "post", gateway_response)
-    monkeypatch.setattr(
-        socket, "gethostbyaddr", lambda *args: ("finalhost", ["finalhost"], "1.2.3.4")
-    )
-
-    req = PrestoRequest(host="coordinator", port=8080, user="test", redirect_handler=presto.redirect.GatewayRedirectHandler())
-    result = req.post("http://host:80/path/")
-    assert gateway_response.count == 3
-    assert result.ok
-
-
 def test_presto_result_response_headers():
     """
     Validates that the `PrestoResult.response_headers` property returns the
@@ -689,3 +672,4 @@ def test_presto_query_response_headers():
 
         # Validate the result is an instance of PrestoResult
         assert isinstance(result, PrestoResult)
+
