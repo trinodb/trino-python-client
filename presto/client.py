@@ -39,7 +39,6 @@ import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
 import presto.logging
-import presto.redirect
 import requests
 from presto import constants, exceptions
 from presto.transaction import NO_TRANSACTION
