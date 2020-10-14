@@ -325,13 +325,12 @@ class Cursor(object):
             )
 
             statement_name = self._generate_unique_statement_name()
+            # Send prepare statement
+            added_prepare_header = self._prepare_statement(
+                operation, statement_name
+            )
 
             try:
-                # Send prepare statement
-                added_prepare_header = self._prepare_statement(
-                    operation, statement_name
-                )
-
                 # Send execute statement and assign the return value to `results`
                 # as it will be returned by the function
                 self._query = self._get_added_prepare_statement_presto_query(

@@ -15,6 +15,10 @@ import fixtures
 import presto
 import pytest
 from fixtures import run_presto
+import pytest
+
+import presto
+from presto.exceptions import PrestoQueryError
 from presto.transaction import IsolationLevel
 
 
@@ -233,3 +237,16 @@ def test_transaction_multiple(presto_connection_with_transaction):
 
     assert len(rows1) == 1000
     assert len(rows2) == 1000
+
+def test_invalid_query_throws_correct_error(presto_connection):
+    """
+    tests that an invalid query raises the correct exception
+    """
+    cur = presto_connection.cursor()
+    with pytest.raises(PrestoQueryError):
+        cur.execute(
+            """
+            select * FRMO foo WHERE x = ?; 
+            """,
+            params=(3,),
+        )
