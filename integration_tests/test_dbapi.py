@@ -12,8 +12,6 @@
 from __future__ import absolute_import, division, print_function
 
 import fixtures
-import presto
-import pytest
 from fixtures import run_presto
 import pytest
 
@@ -89,12 +87,22 @@ def test_select_query_result_iteration_statement_params(presto_connection):
         params=(3,)  # expecting all the rows with id >= 3
     )
 
-    rows = cur.fetchall()
-    assert len(rows) == 3
+def test_select_query_result_string_statement_params(presto_connection):
+    """
+    Tests string parameters in prepared statements
+    """
+    cur = presto_connection.cursor()
+    # test a simple string parameter and
+    # a parameter with a quote in it
+    cur.execute(
+        "select ?",
+        params=("six'",),
+    )
 
-    for row in rows:
-        # Validate that all the ids of the returned rows are greather or equals than 3
-        assert row[0] >= 3
+    rows = cur.fetchall()
+
+    assert len(rows) == 1
+    assert rows[0][0] == "six'"
 
 
 @pytest.mark.parametrize('params', [
