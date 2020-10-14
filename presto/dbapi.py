@@ -281,16 +281,31 @@ class Cursor(object):
 
         raise presto.exceptions.FailedToObtainAddedPrepareHeader
 
+
     def _get_added_prepare_statement_presto_query(
         self,
         statement_name,
         params
     ):
-        sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(str, params))
+        sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
 
         # No need to deepcopy _request here because this is the actual request
         # operation
         return presto.client.PrestoQuery(self._request, sql=sql)
+
+    def _format_prepared_param(self, param):
+        """
+        Formats parameters to be passed in an
+        EXECUTE statement.
+        """
+        if isinstance(param, str):
+            return ("'%s'" % param.replace("'", "''"))
+        else:
+            # TODO: param could have many other types which should
+            #       be covered including unicode, maps, lists, etc.
+            #       https://github.com/prestosql/presto-python-client/issues/45
+            return str(param)
+
 
     def _deallocate_prepare_statement(self, added_prepare_header, statement_name):
         sql = 'DEALLOCATE PREPARE ' + statement_name
