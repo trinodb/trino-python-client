@@ -10,10 +10,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from __future__ import absolute_import, division, print_function
+from datetime import datetime
+import uuid
+import math
 
 import fixtures
 from fixtures import run_presto
 import pytest
+import pytz
 
 import presto
 from presto.exceptions import PrestoQueryError
@@ -87,22 +91,140 @@ def test_select_query_result_iteration_statement_params(presto_connection):
         params=(3,)  # expecting all the rows with id >= 3
     )
 
-def test_select_query_result_string_statement_params(presto_connection):
-    """
-    Tests string parameters in prepared statements
-    """
-    cur = presto_connection.cursor()
-    # test a simple string parameter and
-    # a parameter with a quote in it
-    cur.execute(
-        "select ?",
-        params=("six'",),
-    )
 
+def test_none_query_param(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute("SELECT ?", params=(None,))
     rows = cur.fetchall()
 
-    assert len(rows) == 1
+    assert rows[0][0] == None
+
+
+def test_string_query_param(presto_connection):
+    cur = presto_connection.cursor()
+
+    cur.execute("SELECT ?", params=("six'",))
+    rows = cur.fetchall()
+
     assert rows[0][0] == "six'"
+
+
+def test_datetime_query_param(presto_connection):
+    cur = presto_connection.cursor()
+
+    cur.execute(
+            "SELECT ?", 
+            params=(datetime(2020, 1, 1, 0, 0, 0),)
+            )
+    rows = cur.fetchall()
+
+    assert rows[0][0] == "2020-01-01 00:00:00.000"
+
+    cur.execute(
+            "SELECT ?", 
+            params=(datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.utc),)
+            )
+    rows = cur.fetchall()
+
+    assert rows[0][0] == "2020-01-01 00:00:00.000 UTC"
+    assert cur.description[0][1] == "timestamp with time zone"
+
+
+def test_array_query_param(presto_connection):
+    cur = presto_connection.cursor()
+
+    cur.execute("SELECT ?", params=([1, 2, 3],))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == [1, 2, 3]
+
+    cur.execute(
+            "SELECT ?", 
+            params=([[1, 2, 3],[4,5,6]],))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == [[1, 2, 3],[4,5,6]]
+
+    cur.execute("SELECT TYPEOF(?)", params=([1, 2, 3],))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == "array(integer)"
+
+
+def test_dict_query_param(presto_connection):
+    cur = presto_connection.cursor()
+
+    cur.execute("SELECT ?", params=({"foo": "bar"},))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == {"foo": "bar"}
+
+    cur.execute("SELECT TYPEOF(?)", params=({"foo": "bar"},))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == "map(varchar(3), varchar(3))"
+
+
+def test_boolean_query_param(presto_connection):
+    cur = presto_connection.cursor()
+
+    cur.execute("SELECT ?", params=(True,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == True
+
+    cur.execute("SELECT ?", params=(False,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == False
+
+
+def test_float_query_param(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute("SELECT ?", params=(1.1,))
+    rows = cur.fetchall()
+
+    assert cur.description[0][1] == "double"
+    assert rows[0][0] == 1.1
+
+
+@pytest.mark.skip(reason="Nan currently not returning the correct python type for nan")
+def test_float_nan_query_param(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute("SELECT ?", params=(float("nan"),))
+    rows = cur.fetchall()
+
+    assert cur.description[0][1] == "double"
+    assert isinstance(rows[0][0], float)
+    assert math.isnan(rows[0][0])
+
+
+@pytest.mark.skip(reason="Nan currently not returning the correct python type fon inf")
+def test_float_inf_query_param(presto_connection):
+    cur.execute("SELECT ?", params=(float("inf"),))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == float("inf")
+
+    cur.execute("SELECT ?", params=(-float("-inf"),))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == float("-inf")
+
+
+def test_int_query_param(presto_connection):
+    cur = presto_connection.cursor()
+    cur.execute("SELECT ?", params=(3,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == 3
+    assert cur.description[0][1] == "integer"
+
+    cur.execute("SELECT ?", params=(9223372036854775807,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == 9223372036854775807
+    assert cur.description[0][1] == "bigint"
 
 
 @pytest.mark.parametrize('params', [

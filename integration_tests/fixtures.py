@@ -29,7 +29,7 @@ from presto.exceptions import TimeoutError
 logger = presto.logging.get_logger(__name__)
 
 
-PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or "329"
+PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or "344"
 PRESTO_HOST = "127.0.0.1"
 PRESTO_PORT = 8080
 

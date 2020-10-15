@@ -30,8 +30,10 @@ except ImportError:
     from urllib import urlencode
 
 import copy
-import datetime
 import uuid
+import datetime
+import re
+import math
 
 from presto import constants
 import presto.exceptions
@@ -298,13 +300,52 @@ class Cursor(object):
         Formats parameters to be passed in an
         EXECUTE statement.
         """
+        if param is None:
+            return "NULL"
+
+        if isinstance(param, bool):
+            return "true" if param else "false"
+
+        if isinstance(param, int):
+            # TODO represent numbers exceeding 64-bit (BIGINT) as DECIMAL
+            return "%d" % param
+
+        if isinstance(param, float):
+            if param == float("+inf"):
+                return "infinity()"
+            if param == float("-inf"):
+                return "-infinity()"
+            if math.isnan(param):
+                return "nan()"
+            return "DOUBLE '%s'" % param
+
         if isinstance(param, str):
             return ("'%s'" % param.replace("'", "''"))
-        else:
-            # TODO: param could have many other types which should
-            #       be covered including unicode, maps, lists, etc.
-            #       https://github.com/prestosql/presto-python-client/issues/45
-            return str(param)
+
+        if isinstance(param, bytes):
+            return "X'%s'" % param.hex()
+
+        if isinstance(param, datetime.datetime):
+            datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            # strip trailing whitespace if param has no zone
+            datetime_str = datetime_str.rstrip(" ")
+            return "TIMESTAMP '%s'" % datetime_str
+
+        if isinstance(param, list):
+            return "ARRAY[%s]" % ','.join(map(self._format_prepared_param, param))
+
+        if isinstance(param, dict):
+            keys = list(param.keys())
+            values = [param[key] for key in keys]
+            return "MAP(%s, %s)" % (
+                self._format_prepared_param(keys),
+                self._format_prepared_param(values)
+            )
+
+        if isinstance(param, uuid.UUID):
+            return "UUID '%s'" % param
+
+        raise presto.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 
 
     def _deallocate_prepare_statement(self, added_prepare_header, statement_name):
