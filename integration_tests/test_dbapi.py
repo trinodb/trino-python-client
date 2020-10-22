@@ -188,7 +188,6 @@ def test_float_query_param(presto_connection):
     assert rows[0][0] == 1.1
 
 
-@pytest.mark.skip(reason="Nan currently not returning the correct python type for nan")
 def test_float_nan_query_param(presto_connection):
     cur = presto_connection.cursor()
     cur.execute("SELECT ?", params=(float("nan"),))
@@ -199,14 +198,14 @@ def test_float_nan_query_param(presto_connection):
     assert math.isnan(rows[0][0])
 
 
-@pytest.mark.skip(reason="Nan currently not returning the correct python type fon inf")
 def test_float_inf_query_param(presto_connection):
+    cur = presto_connection.cursor()
     cur.execute("SELECT ?", params=(float("inf"),))
     rows = cur.fetchall()
 
     assert rows[0][0] == float("inf")
 
-    cur.execute("SELECT ?", params=(-float("-inf"),))
+    cur.execute("SELECT ?", params=(float("-inf"),))
     rows = cur.fetchall()
 
     assert rows[0][0] == float("-inf")

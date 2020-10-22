@@ -32,7 +32,11 @@ The main interface is :class:`PrestoQuery`: ::
     >> query =  PrestoQuery(request, sql)
     >> rows = list(query.execute())
 """
-from __future__ import absolute_import, division, print_function
+from __future__ import absolute_import, division, print_function, unicode_literals
+try:
+    unicode('')
+except NameError:
+    unicode = str
 
 import copy
 import os
@@ -452,7 +456,7 @@ class PrestoResult(object):
         # Initial fetch from the first POST request
         for row in self._rows:
             self._rownumber += 1
-            yield row
+            yield self._transform_special_float_values(row)
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
@@ -461,7 +465,20 @@ class PrestoResult(object):
             for row in rows:
                 self._rownumber += 1
                 logger.debug("row {}".format(row))
-                yield row
+
+                yield self._transform_special_float_values(row)
+
+    def _transform_special_float_values(self, row):
+        for idx, column in enumerate(self._query.columns):
+            if column.get("type") == "double" and isinstance(row[idx], unicode):
+                if row[idx] == 'Infinity':
+                    row[idx] = float("inf")
+                elif row[idx] == '-Infinity':
+                    row[idx] = float("-inf")
+                elif row[idx] == 'NaN':
+                    row[idx] = float("nan")
+
+        return row
 
     @property
     def response_headers(self):
