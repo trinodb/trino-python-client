@@ -75,7 +75,9 @@ with presto.dbapi.connect(
 ) as conn:
   cur = conn.cursor()
   cur.execute('INSERT INTO sometable VALUES (1, 2, 3)')
+  cur.fetchone()
   cur.execute('INSERT INTO sometable VALUES (4, 5, 6)')
+  cur.fetchone()
 ```
 
 The transaction is created when the first SQL statement is executed.
