@@ -21,6 +21,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install libkrb5-dev
           pip install .[tests]
       - name: Run tests
