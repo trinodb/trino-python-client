@@ -27,12 +27,13 @@ class LoggingFormatError(Exception):
 
 class LogMessage:
     def __init__(self, fmt, args, kwargs):
+        # fmt is assumed to be str, performed in FormatLogger.log()
         self.fmt = fmt
         self.args = args
         self.kwargs = kwargs
 
     def __str__(self):
-        return str(self.fmt).format(*self.args, **self.kwargs)
+        return self.fmt.format(*self.args, **self.kwargs)
 
     @property
     def keywords(self):
@@ -65,6 +66,7 @@ class FormatLogger(logging.LoggerAdapter):
 
     def log(self, level, msg, *args, **kwargs):
         if self.isEnabledFor(level):
+            msg = str(msg)
             msg, kwargs = self.process(msg, kwargs)
             logger_kwargs, msg_kwargs = self.filter_kwargs(msg, kwargs)
             self.logger._log(level, LogMessage(msg, args, msg_kwargs), tuple(), **logger_kwargs)
