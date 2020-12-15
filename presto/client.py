@@ -349,9 +349,10 @@ class PrestoRequest(object):
                 location = http_response.headers["Location"]
                 url = self._redirect_handler.handle(location)
                 logger.info(
-                    "redirect {} from {} to {}".format(
-                        http_response.status_code, location, url
-                    )
+                    "redirect {} from {} to {}",
+                    http_response.status_code,
+                    location, 
+                    url
                 )
                 http_response = self._post(
                     url,
@@ -401,7 +402,9 @@ class PrestoRequest(object):
 
         http_response.encoding = "utf-8"
         response = http_response.json()
-        logger.debug("HTTP {}: {}".format(http_response.status_code, response))
+        logger.debug("HTTP {status_code}: {response}", 
+                     status_code=http_response.status_code, 
+                     response=response)
         if "error" in response:
             raise self._process_error(response["error"], response.get("id"))
 
@@ -460,7 +463,7 @@ class PrestoResult(object):
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
-                logger.debug("row {}".format(row))
+                logger.debug("row {}", row)
                 yield row
 
     @property
@@ -551,11 +554,11 @@ class PrestoQuery(object):
 
         self._cancelled = True
         url = self._request.get_url("/v1/query/{}".format(self.query_id))
-        logger.debug("cancelling query: %s", self.query_id)
+        logger.debug("cancelling query: {query_id}", query_id=self.query_id)
         response = self._request.delete(url)
         logger.info(response)
         if response.status_code == requests.codes.no_content:
-            logger.debug("query cancelled: %s", self.query_id)
+            logger.debug("query cancelled: {query_id}", query_id=self.query_id)
             return
         self._request.raise_response_error(response)
 
