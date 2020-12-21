@@ -126,7 +126,7 @@ def retry_with(handle_retry, exceptions, conditions, max_attempts):
                         handle_retry.retry(func, args, kwargs, err, attempt)
                         continue
                     break
-            logger.info("failed after {} attempts".format(attempt))
+            logger.info("failed after %s attempts", attempt)
             if error is not None:
                 raise error
             return result
