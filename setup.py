@@ -68,7 +68,7 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    install_requires=["click", "requests", "six"],
+    install_requires=["trino"],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,

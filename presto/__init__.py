@@ -9,15 +9,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from trino import auth
+from trino import dbapi
+from trino import client
+from trino import constants
+from trino import exceptions
+from trino import logging
+from trino import transaction
 
-from . import auth
-from . import dbapi
-from . import client
-from . import constants
-from . import exceptions
-from . import logging
-
-__version__ = "0.302.0"
+__version__ = "0.303.0"
