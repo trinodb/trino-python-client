@@ -164,7 +164,7 @@ They pull a Docker image and then run a container with a Presto server:
   rm -rf dist/ &&
   ./setup.py sdist bdist_wheel &&
   twine upload dist/* &&
-  open https://pypi.org/project/presto-client/ &&
+  open https://pypi.org/project/trino/ &&
   echo "Released!"
   ```
 - Push the branch and the tag (`git push upstream master current_version`)
