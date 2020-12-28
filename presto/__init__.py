@@ -9,15 +9,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
-from . import auth
-from . import dbapi
-from . import client
-from . import constants
-from . import exceptions
-from . import logging
+__version__ = "0.303.0"
 
-__version__ = "0.302.0"
+raise Exception("""
+This was a package for PrestoSQL. The package itself is no longer maintained,
+as PrestoSQL got renamed to Trino. Read more at
+https://trino.io/blog/2020/12/27/announcing-trino.html
+
+If you are using an older PrestoSQL release, you can install a previous
+version of the package with:
+
+    pip install presto-client==0.302.0
+    
+The package has been superseded with a client for Trino. You can install it
+with:
+
+    pip install trino
+    
+Apologies for the disruption and very short notice, resulting in no transition
+period.
+""")
