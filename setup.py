@@ -37,18 +37,18 @@ py27_require = ["ipaddress", "typing"]
 
 setup(
     name="presto-client",
-    author="Presto Team",
-    author_email="python-client@prestosql.io",
+    author="Trino Team",
+    author_email="python-client@trino.io",
     version=version,
-    url="https://github.com/prestosql/presto-python-client",
+    url="https://github.com/trinodb/trino-python-client",
     packages=["presto"],
     package_data={"": ["LICENSE", "README.md"]},
-    description="Client for the Presto distributed SQL Engine",
+    description="Presto Client is now Trino",
     long_description=textwrap.dedent(
         """
-    Client for Presto (https://prestosql.io), a distributed SQL engine for
-    interactive and batch big data processing. Provides a low-level client and
-    a DBAPI 2.0 implementation.
+    This package has been renamed. Use `pip install trino` instead.
+    New package https://pypi.org/project/trino
+    Read more at http://trino.io/blog/2020/12/27/announcing-trino.html
     """
     ),
     license="Apache 2.0",
