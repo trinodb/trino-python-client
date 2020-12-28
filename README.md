@@ -155,7 +155,7 @@ They pull a Docker image and then run a container with a Presto server:
 ## Releasing
 
 - [Set up your development environment](#Getting-Started-With-Development).
-- Change version in `presto/__init__.py`.
+- Change version in `trino/__init__.py`.
 - Commit and create an annotated tag (`git tag -m '' current_version`)
 - Run the following:
   ```bash
