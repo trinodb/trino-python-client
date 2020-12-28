@@ -36,17 +36,17 @@ tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "mock", "
 py27_require = ["ipaddress", "typing"]
 
 setup(
-    name="presto-client",
-    author="Presto Team",
-    author_email="python-client@prestosql.io",
+    name="trino",
+    author="Trino Team",
+    author_email="python-client@trino.io",
     version=version,
-    url="https://github.com/prestosql/presto-python-client",
-    packages=["presto"],
+    url="https://github.com/trinodb/trino-python-client",
+    packages=["presto"],  # TODO
     package_data={"": ["LICENSE", "README.md"]},
-    description="Client for the Presto distributed SQL Engine",
+    description="Client for the Trino distributed SQL Engine",
     long_description=textwrap.dedent(
         """
-    Client for Presto (https://prestosql.io), a distributed SQL engine for
+    Client for Trino (https://trino.io), a distributed SQL engine for
     interactive and batch big data processing. Provides a low-level client and
     a DBAPI 2.0 implementation.
     """
