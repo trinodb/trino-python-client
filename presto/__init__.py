@@ -20,4 +20,4 @@ from . import constants
 from . import exceptions
 from . import logging
 
-__version__ = "0.302.0"
+__version__ = "0.303.0"
