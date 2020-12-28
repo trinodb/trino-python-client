@@ -15,7 +15,6 @@
 import ast
 import re
 from setuptools import setup
-import textwrap
 
 
 _version_re = re.compile(r"__version__\s+=\s+(.*)")
@@ -26,14 +25,7 @@ with open("presto/__init__.py", "rb") as f:
         ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
     )
 
-
-kerberos_require = ["requests_kerberos"]
-
-all_require = [kerberos_require]
-
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "mock", "pytz"]
-
-py27_require = ["ipaddress", "typing"]
+tests_require = ["pytest", "pytest-runner"]
 
 setup(
     name="presto-client",
@@ -44,13 +36,24 @@ setup(
     packages=["presto"],
     package_data={"": ["LICENSE", "README.md"]},
     description="Presto Client is now Trino",
-    long_description=textwrap.dedent(
-        """
-    This package has been renamed. Use `pip install trino` instead.
-    New package https://pypi.org/project/trino
-    Read more at http://trino.io/blog/2020/12/27/announcing-trino.html
-    """
-    ),
+    long_description="""
+This was a package for PrestoSQL. The package itself is no longer maintained,
+as PrestoSQL got renamed to Trino. Read more at
+https://trino.io/blog/2020/12/27/announcing-trino.html
+
+If you are using an older PrestoSQL release, you can install a previous
+version of the package with:
+
+    pip install presto-client==0.302.0
+
+The package has been superseded with a client for Trino. You can install it
+with:
+
+    pip install trino
+
+Apologies for the disruption and very short notice, resulting in no transition
+period.
+""",
     license="Apache 2.0",
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -68,11 +71,8 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    install_requires=["click", "requests", "six"],
     extras_require={
-        "all": all_require,
-        "kerberos": kerberos_require,
+        "all": [],
         "tests": tests_require,
-        ':python_version=="2.7"': py27_require,
     },
 )
