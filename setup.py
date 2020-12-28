@@ -21,7 +21,7 @@ import textwrap
 _version_re = re.compile(r"__version__\s+=\s+(.*)")
 
 
-with open("presto/__init__.py", "rb") as f:
+with open("trino/__init__.py", "rb") as f:
     version = str(
         ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
     )
@@ -41,7 +41,7 @@ setup(
     author_email="python-client@trino.io",
     version=version,
     url="https://github.com/trinodb/trino-python-client",
-    packages=["presto"],  # TODO
+    packages=["trino"],
     package_data={"": ["LICENSE", "README.md"]},
     description="Client for the Trino distributed SQL Engine",
     long_description=textwrap.dedent(

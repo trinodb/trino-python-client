@@ -23,9 +23,9 @@ import functools
 import random
 import time
 
-import presto.logging
+import trino.logging
 
-logger = presto.logging.get_logger(__name__)
+logger = trino.logging.get_logger(__name__)
 
 
 class HttpError(Exception):

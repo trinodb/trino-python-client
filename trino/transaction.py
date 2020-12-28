@@ -13,13 +13,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from presto import constants
-import presto.client
-import presto.exceptions
-import presto.logging
+from trino import constants
+import trino.client
+import trino.exceptions
+import trino.logging
 
 
-logger = presto.logging.get_logger(__name__)
+logger = trino.logging.get_logger(__name__)
 
 
 NO_TRANSACTION = "NONE"
@@ -62,7 +62,7 @@ class Transaction(object):
     def begin(self):
         response = self._request.post(START_TRANSACTION)
         if not response.ok:
-            raise presto.exceptions.DatabaseError(
+            raise trino.exceptions.DatabaseError(
                 "failed to start transaction: {}".format(response.status_code)
             )
         transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
@@ -79,22 +79,22 @@ class Transaction(object):
         logger.info("transaction started: " + self._id)
 
     def commit(self):
-        query = presto.client.PrestoQuery(self._request, COMMIT)
+        query = trino.client.PrestoQuery(self._request, COMMIT)
         try:
             list(query.execute())
         except Exception as err:
-            raise presto.exceptions.DatabaseError(
+            raise trino.exceptions.DatabaseError(
                 "failed to commit transaction {}: {}".format(self._id, err)
             )
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
     def rollback(self):
-        query = presto.client.PrestoQuery(self._request, ROLLBACK)
+        query = trino.client.PrestoQuery(self._request, ROLLBACK)
         try:
             list(query.execute())
         except Exception as err:
-            raise presto.exceptions.DatabaseError(
+            raise trino.exceptions.DatabaseError(
                 "failed to rollback transaction {}: {}".format(self._id, err)
             )
         self._id = NO_TRANSACTION

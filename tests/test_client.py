@@ -26,10 +26,10 @@ except ImportError:
     import mock
 
 from requests_kerberos.exceptions import KerberosExchangeError
-from presto.client import PROXIES, PrestoQuery, PrestoRequest, PrestoResult
-from presto.auth import KerberosAuthentication
-from presto import constants
-import presto.exceptions
+from trino.client import PROXIES, PrestoQuery, PrestoRequest, PrestoResult
+from trino.auth import KerberosAuthentication
+from trino import constants
+import trino.exceptions
 
 
 """
@@ -41,11 +41,11 @@ To get some HTTP response, set logging level to DEBUG with
 ``presto.client.logger.setLevel(logging.DEBUG)``.
 
 ::
-    from presto import dbapi
+    from trino import dbapi
 
     >>> import logging
-    >>> import presto.client
-    >>> presto.client.logger.setLevel(logging.DEBUG)
+    >>> import trino.client
+    >>> trino.client.logger.setLevel(logging.DEBUG)
     >>> conn = dbapi.Connection('localhost', 8080, 'ggreg', 'test')
     >>> cur = conn.cursor()
     >>> res = cur.execute('select * from system.runtime.nodes')
@@ -474,7 +474,7 @@ def test_presto_fetch_error(monkeypatch):
 
     http_resp = PrestoRequest.http.Response()
     http_resp.status_code = 200
-    with pytest.raises(presto.exceptions.PrestoUserError) as exception_info:
+    with pytest.raises(trino.exceptions.PrestoUserError) as exception_info:
         req.process(http_resp)
     error = exception_info.value
     assert error.error_code == 1
@@ -495,8 +495,8 @@ def test_presto_fetch_error(monkeypatch):
 @pytest.mark.parametrize(
     "error_code, error_type, error_message",
     [
-        (503, presto.exceptions.Http503Error, "service unavailable"),
-        (404, presto.exceptions.HttpError, "error 404"),
+        (503, trino.exceptions.Http503Error, "service unavailable"),
+        (404, trino.exceptions.HttpError, "error 404"),
     ],
 )
 def test_presto_connection_error(monkeypatch, error_code, error_type, error_message):
