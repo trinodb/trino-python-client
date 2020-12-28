@@ -18,8 +18,8 @@ $ pip install presto-client
 Use the DBAPI interface to query Presto:
 
 ```python
-import presto
-conn = presto.dbapi.connect(
+import trino
+conn = trino.dbapi.connect(
     host='localhost',
     port=8080,
     user='the-user',
@@ -43,15 +43,15 @@ rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 The `BasicAuthentication` class can be used to connect to a LDAP-configured Presto
 cluster:
 ```python
-import presto
-conn = presto.dbapi.connect(
+import trino
+conn = trino.dbapi.connect(
     host='coordinator url',
     port=8443,
     user='the-user',
     catalog='the-catalog',
     schema='the-schema',
     http_scheme='https',
-    auth=presto.auth.BasicAuthentication("principal id", "password"),
+    auth=trino.auth.BasicAuthentication("principal id", "password"),
 )
 cur = conn.cursor()
 cur.execute('SELECT * FROM system.runtime.nodes')
@@ -63,9 +63,9 @@ The client runs by default in *autocommit* mode. To enable transactions, set
 *isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
 
 ```python
-import presto
-from presto import transaction
-with presto.dbapi.connect(
+import trino
+from trino import transaction
+with trino.dbapi.connect(
     host='localhost',
     port=8080,
     user='the-user',

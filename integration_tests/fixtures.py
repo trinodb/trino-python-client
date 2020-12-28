@@ -19,14 +19,14 @@ from contextlib import closing
 from uuid import uuid4
 
 import click
-import presto.logging
+import trino.logging
 import pytest
-from presto.client import PrestoQuery, PrestoRequest
-from presto.constants import DEFAULT_PORT
-from presto.exceptions import TimeoutError
+from trino.client import PrestoQuery, PrestoRequest
+from trino.constants import DEFAULT_PORT
+from trino.exceptions import TimeoutError
 
 
-logger = presto.logging.get_logger(__name__)
+logger = trino.logging.get_logger(__name__)
 
 
 PRESTO_VERSION = os.environ.get("PRESTO_VERSION") or "344"

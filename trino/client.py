@@ -38,16 +38,16 @@ import copy
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
-import presto.logging
+import trino.logging
 import requests
-from presto import constants, exceptions
-from presto.transaction import NO_TRANSACTION
+from trino import constants, exceptions
+from trino.transaction import NO_TRANSACTION
 
 
 __all__ = ["PrestoQuery", "PrestoRequest"]
 
 
-logger = presto.logging.get_logger(__name__)
+logger = trino.logging.get_logger(__name__)
 
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS

@@ -19,16 +19,16 @@ from fixtures import run_presto
 import pytest
 import pytz
 
-import presto
-from presto.exceptions import PrestoQueryError
-from presto.transaction import IsolationLevel
+import trino
+from trino.exceptions import PrestoQueryError
+from trino.transaction import IsolationLevel
 
 
 @pytest.fixture
 def presto_connection(run_presto):
     _, host, port = run_presto
 
-    yield presto.dbapi.Connection(
+    yield trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
     )
 
@@ -37,7 +37,7 @@ def presto_connection(run_presto):
 def presto_connection_with_transaction(run_presto):
     _, host, port = run_presto
 
-    yield presto.dbapi.Connection(
+    yield trino.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -289,7 +289,7 @@ def test_select_query_stats(presto_connection):
 
 def test_select_failed_query(presto_connection):
     cur = presto_connection.cursor()
-    with pytest.raises(presto.exceptions.PrestoUserError):
+    with pytest.raises(trino.exceptions.PrestoUserError):
         cur.execute("select * from catalog.schema.do_not_exist")
         cur.fetchall()
 
@@ -316,7 +316,7 @@ def test_cancel_query(presto_connection):
 def test_session_properties(run_presto):
     _, host, port = run_presto
 
-    connection = presto.dbapi.Connection(
+    connection = trino.dbapi.Connection(
         host=host,
         port=port,
         user="test",

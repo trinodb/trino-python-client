@@ -35,11 +35,11 @@ import datetime
 import re
 import math
 
-from presto import constants
-import presto.exceptions
-import presto.client
-import presto.logging
-from presto.transaction import Transaction, IsolationLevel, NO_TRANSACTION
+from trino import constants
+import trino.exceptions
+import trino.client
+import trino.logging
+from trino.transaction import Transaction, IsolationLevel, NO_TRANSACTION
 
 
 __all__ = ["connect", "Connection", "Cursor"]
@@ -49,7 +49,7 @@ apilevel = "2.0"
 threadsafety = 2
 paramstyle = "qmark"
 
-logger = presto.logging.get_logger(__name__)
+logger = trino.logging.get_logger(__name__)
 
 
 def connect(*args, **kwargs):
@@ -96,7 +96,7 @@ class Connection(object):
         self.schema = schema
         self.session_properties = session_properties
         # mypy cannot follow module import
-        self._http_session = presto.client.PrestoRequest.http.Session()
+        self._http_session = trino.client.PrestoRequest.http.Session()
         self._http_session.verify = verify
         self.http_headers = http_headers
         self.http_scheme = http_scheme
@@ -151,7 +151,7 @@ class Connection(object):
         self._transaction = None
 
     def _create_request(self):
-        return presto.client.PrestoRequest(
+        return trino.client.PrestoRequest(
             self.host,
             self.port,
             self.user,
@@ -242,10 +242,10 @@ class Cursor(object):
         return None
 
     def setinputsizes(self, sizes):
-        raise presto.exceptions.NotSupportedError
+        raise trino.exceptions.NotSupportedError
 
     def setoutputsize(self, size, column):
-        raise presto.exceptions.NotSupportedError
+        raise trino.exceptions.NotSupportedError
 
     def _prepare_statement(self, operation, statement_name):
         """
@@ -256,7 +256,7 @@ class Cursor(object):
         :param statement_name: name that will be assigned to the prepare
             statement.
 
-        :raises presto.exceptions.FailedToObtainAddedPrepareHeader: Error raised
+        :raises trino.exceptions.FailedToObtainAddedPrepareHeader: Error raised
             when unable to find the 'X-Presto-Added-Prepare' for the PREPARE
             statement request.
 
@@ -270,7 +270,7 @@ class Cursor(object):
 
         # Send prepare statement. Copy the _request object to avoid poluting the
         # one that is going to be used to execute the actual operation.
-        query = presto.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
+        query = trino.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
         result = query.execute()
 
         # Iterate until the 'X-Presto-Added-Prepare' header is found or
@@ -281,7 +281,7 @@ class Cursor(object):
             if constants.HEADER_ADDED_PREPARE in response_headers:
                 return response_headers[constants.HEADER_ADDED_PREPARE]
 
-        raise presto.exceptions.FailedToObtainAddedPrepareHeader
+        raise trino.exceptions.FailedToObtainAddedPrepareHeader
 
 
     def _get_added_prepare_statement_presto_query(
@@ -293,7 +293,7 @@ class Cursor(object):
 
         # No need to deepcopy _request here because this is the actual request
         # operation
-        return presto.client.PrestoQuery(self._request, sql=sql)
+        return trino.client.PrestoQuery(self._request, sql=sql)
 
     def _format_prepared_param(self, param):
         """
@@ -345,7 +345,7 @@ class Cursor(object):
         if isinstance(param, uuid.UUID):
             return "UUID '%s'" % param
 
-        raise presto.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
+        raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 
 
     def _deallocate_prepare_statement(self, added_prepare_header, statement_name):
@@ -353,7 +353,7 @@ class Cursor(object):
 
         # Send deallocate statement. Copy the _request object to avoid poluting the
         # one that is going to be used to execute the actual operation.
-        query = presto.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
+        query = trino.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
         result = query.execute(
             additional_http_headers={
                 constants.HEADER_PREPARED_STATEMENT: added_prepare_header
@@ -368,7 +368,7 @@ class Cursor(object):
             if constants.HEADER_DEALLOCATED_PREPARE in response_headers:
                 return response_headers[constants.HEADER_DEALLOCATED_PREPARE]
 
-        raise presto.exceptions.FailedToObtainDeallocatedPrepareHeader
+        raise trino.exceptions.FailedToObtainDeallocatedPrepareHeader
 
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
@@ -404,13 +404,13 @@ class Cursor(object):
                 self._deallocate_prepare_statement(added_prepare_header, statement_name)
 
         else:
-            self._query = presto.client.PrestoQuery(self._request, sql=operation)
+            self._query = trino.client.PrestoQuery(self._request, sql=operation)
             result = self._query.execute()
         self._iterator = iter(result)
         return result
 
     def executemany(self, operation, seq_of_params):
-        raise presto.exceptions.NotSupportedError
+        raise trino.exceptions.NotSupportedError
 
     def fetchone(self):
         # type: () -> Optional[List[Any]]
@@ -427,8 +427,8 @@ class Cursor(object):
             return next(self._iterator)
         except StopIteration:
             return None
-        except presto.exceptions.HttpError as err:
-            raise presto.exceptions.OperationalError(str(err))
+        except trino.exceptions.HttpError as err:
+            raise trino.exceptions.OperationalError(str(err))
 
     def fetchmany(self, size=None):
         # type: (Optional[int]) -> List[List[Any]]
@@ -473,7 +473,7 @@ class Cursor(object):
 
     def cancel(self):
         if self._query is None:
-            raise presto.exceptions.OperationalError(
+            raise trino.exceptions.OperationalError(
                 "Cancel query failed; no running query"
             )
         self._query.cancel()
