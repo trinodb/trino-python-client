@@ -85,7 +85,7 @@ class KerberosAuthentication(Authentication):
             delegate=self._delegate,
             service=self._service_name,
         )
-        if self._ca_bundle:
+        if self._ca_bundle is not None:
             http_session.verify = self._ca_bundle
         return http_session
 
