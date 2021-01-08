@@ -26,7 +26,7 @@ except ImportError:
     import mock
 
 from requests_kerberos.exceptions import KerberosExchangeError
-from trino.client import PROXIES, PrestoQuery, PrestoRequest, PrestoResult
+from trino.client import PROXIES, TrinoQuery, TrinoRequest, TrinoResult
 from trino.auth import KerberosAuthentication
 from trino import constants
 import trino.exceptions
@@ -34,11 +34,11 @@ import trino.exceptions
 
 """
 This is the response to the first HTTP request (a POST) from an actual
-Presto session. It is deliberately not truncated to document such response
+Trino session. It is deliberately not truncated to document such response
 and allow to use it for other tests.
 To get some HTTP response, set logging level to DEBUG with
 ``logging.basicConfig(level=logging.DEBUG)`` or
-``presto.client.logger.setLevel(logging.DEBUG)``.
+``trino.client.logger.setLevel(logging.DEBUG)``.
 
 ::
     from trino import dbapi
@@ -75,7 +75,7 @@ RESP_DATA_POST_0 = {
 
 """
 This is the response to the second HTTP request (a GET) from an actual
-Presto session. It is deliberately not truncated to document such response
+Trino session. It is deliberately not truncated to document such response
 and allow to use it for other tests. After doing the steps above, do:
 
 ::
@@ -270,10 +270,10 @@ def get_json_get_error_0(self):
     return RESP_ERROR_GET_0
 
 
-def test_presto_initial_request(monkeypatch):
-    monkeypatch.setattr(PrestoRequest.http.Response, "json", get_json_post_0)
+def test_trino_initial_request(monkeypatch):
+    monkeypatch.setattr(TrinoRequest.http.Response, "json", get_json_post_0)
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -284,7 +284,7 @@ def test_presto_initial_request(monkeypatch):
         session_properties={},
     )
 
-    http_resp = PrestoRequest.http.Response()
+    http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 200
     status = req.process(http_resp)
 
@@ -307,10 +307,10 @@ class ArgumentsRecorder(object):
 
 def test_request_headers(monkeypatch):
     post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(PrestoRequest.http.Session, "post", post_recorder)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
 
     get_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(PrestoRequest.http.Session, "get", get_recorder)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_recorder)
 
     catalog = "test_catalog"
     schema = "test_schema"
@@ -321,7 +321,7 @@ def test_request_headers(monkeypatch):
     client_info_header = constants.HEADER_CLIENT_INFO
     client_info_value = "some_client_info"
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user=user,
@@ -356,13 +356,13 @@ def test_request_headers(monkeypatch):
 
 def test_additional_request_post_headers(monkeypatch):
     """
-    Tests that the `PrestoRequest.post` function can take addtional headers
+    Tests that the `TrinoRequest.post` function can take addtional headers
     and that it combines them with the existing ones to perform the request.
     """
     post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(PrestoRequest.http.Session, "post", post_recorder)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -375,8 +375,8 @@ def test_additional_request_post_headers(monkeypatch):
 
     sql = 'select 1'
     additional_headers = {
-        'X-Presto-Fake-1': 'one',
-        'X-Presto-Fake-2': 'two',
+        'X-Trino-Fake-1': 'one',
+        'X-Trino-Fake-2': 'two',
     }
 
     combined_headers = req.http_headers
@@ -390,7 +390,7 @@ def test_additional_request_post_headers(monkeypatch):
 
 def test_request_invalid_http_headers():
     with pytest.raises(ValueError) as value_error:
-        PrestoRequest(
+        TrinoRequest(
             host="coordinator",
             port=8080,
             user="test",
@@ -416,7 +416,7 @@ def test_request_timeout():
 
     # timeout without retry
     for request_timeout in [timeout, (timeout, timeout)]:
-        req = PrestoRequest(
+        req = TrinoRequest(
             host=host,
             port=port,
             user="test",
@@ -435,10 +435,10 @@ def test_request_timeout():
     httpretty.reset()
 
 
-def test_presto_fetch_request(monkeypatch):
-    monkeypatch.setattr(PrestoRequest.http.Response, "json", get_json_get_0)
+def test_trino_fetch_request(monkeypatch):
+    monkeypatch.setattr(TrinoRequest.http.Response, "json", get_json_get_0)
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -449,7 +449,7 @@ def test_presto_fetch_request(monkeypatch):
         session_properties={},
     )
 
-    http_resp = PrestoRequest.http.Response()
+    http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 200
     status = req.process(http_resp)
 
@@ -458,10 +458,10 @@ def test_presto_fetch_request(monkeypatch):
     assert status.rows == RESP_DATA_GET_0["data"]
 
 
-def test_presto_fetch_error(monkeypatch):
-    monkeypatch.setattr(PrestoRequest.http.Response, "json", get_json_get_error_0)
+def test_trino_fetch_error(monkeypatch):
+    monkeypatch.setattr(TrinoRequest.http.Response, "json", get_json_get_error_0)
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -472,9 +472,9 @@ def test_presto_fetch_error(monkeypatch):
         session_properties={},
     )
 
-    http_resp = PrestoRequest.http.Response()
+    http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 200
-    with pytest.raises(trino.exceptions.PrestoUserError) as exception_info:
+    with pytest.raises(trino.exceptions.TrinoUserError) as exception_info:
         req.process(http_resp)
     error = exception_info.value
     assert error.error_code == 1
@@ -499,10 +499,10 @@ def test_presto_fetch_error(monkeypatch):
         (404, trino.exceptions.HttpError, "error 404"),
     ],
 )
-def test_presto_connection_error(monkeypatch, error_code, error_type, error_message):
-    monkeypatch.setattr(PrestoRequest.http.Response, "json", lambda x: {})
+def test_trino_connection_error(monkeypatch, error_code, error_type, error_message):
+    monkeypatch.setattr(TrinoRequest.http.Response, "json", lambda x: {})
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -513,7 +513,7 @@ def test_presto_connection_error(monkeypatch, error_code, error_type, error_mess
         session_properties={},
     )
 
-    http_resp = PrestoRequest.http.Response()
+    http_resp = TrinoRequest.http.Response()
     http_resp.status_code = error_code
     with pytest.raises(error_type) as error:
         req.process(http_resp)
@@ -541,14 +541,14 @@ class RetryRecorder(object):
 
 def test_authentication_fail_retry(monkeypatch):
     post_retry = RetryRecorder(error=KerberosExchangeError())
-    monkeypatch.setattr(PrestoRequest.http.Session, "post", post_retry)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
 
     get_retry = RetryRecorder(error=KerberosExchangeError())
-    monkeypatch.setattr(PrestoRequest.http.Session, "get", get_retry)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
 
     attempts = 3
     kerberos_auth = KerberosAuthentication()
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -567,17 +567,17 @@ def test_authentication_fail_retry(monkeypatch):
 
 
 def test_503_error_retry(monkeypatch):
-    http_resp = PrestoRequest.http.Response()
+    http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 503
 
     post_retry = RetryRecorder(result=http_resp)
-    monkeypatch.setattr(PrestoRequest.http.Session, "post", post_retry)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
 
     get_retry = RetryRecorder(result=http_resp)
-    monkeypatch.setattr(PrestoRequest.http.Session, "get", get_retry)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
 
     attempts = 3
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator", port=8080, user="test", max_attempts=attempts
     )
 
@@ -599,49 +599,49 @@ class FakeGatewayResponse(object):
         self.count += 1
         if self.count == self.redirect_count:
             return self.http_response
-        http_response = PrestoRequest.http.Response()
+        http_response = TrinoRequest.http.Response()
         http_response.status_code = 301
         http_response.headers["Location"] = "http://1.2.3.4:8080/new-path/"
         assert http_response.is_redirect
         return http_response
 
 
-def test_presto_result_response_headers():
+def test_trino_result_response_headers():
     """
-    Validates that the `PrestoResult.response_headers` property returns the
-    headers associated to the PrestoQuery instance provided to the `PrestoResult`
+    Validates that the `TrinoResult.response_headers` property returns the
+    headers associated to the TrinoQuery instance provided to the `TrinoResult`
     class.
     """
-    mock_presto_query = mock.Mock(respone_headers={
-        'X-Presto-Fake-1': 'one',
-        'X-Presto-Fake-2': 'two',
+    mock_trino_query = mock.Mock(respone_headers={
+        'X-Trino-Fake-1': 'one',
+        'X-Trino-Fake-2': 'two',
     })
 
-    result = PrestoResult(
-        query=mock_presto_query,
+    result = TrinoResult(
+        query=mock_trino_query,
     )
-    assert result.response_headers == mock_presto_query.response_headers
+    assert result.response_headers == mock_trino_query.response_headers
 
 
-def test_presto_query_response_headers():
+def test_trino_query_response_headers():
     """
-    Validates that the `PrestoQuery.execute` function can take addtional headers
+    Validates that the `TrinoQuery.execute` function can take addtional headers
     that are pass the the provided request instance post function call and it
-    returns a `PrestoResult` instance.
+    returns a `TrinoResult` instance.
     """
     class MockResponse(mock.Mock):
         # Fake response class
         @property
         def headers(self):
             return {
-                'X-Presto-Fake-1': 'one',
-                'X-Presto-Fake-2': 'two',
+                'X-Trino-Fake-1': 'one',
+                'X-Trino-Fake-2': 'two',
             }
 
         def json(self):
             return get_json_post_0(self)
 
-    req = PrestoRequest(
+    req = TrinoRequest(
         host="coordinator",
         port=8080,
         user="test",
@@ -661,7 +661,7 @@ def test_presto_query_response_headers():
     # validate that the function was called with the right arguments.
     with mock.patch.object(req, 'post', return_value=MockResponse()) as mock_post:
 
-        query = PrestoQuery(
+        query = TrinoQuery(
             request=req,
             sql=sql
         )
@@ -670,6 +670,6 @@ def test_presto_query_response_headers():
         # Validate the the post function was called with the right argguments
         mock_post.assert_called_once_with(sql, additional_headers)
 
-        # Validate the result is an instance of PrestoResult
-        assert isinstance(result, PrestoResult)
+        # Validate the result is an instance of TrinoResult
+        assert isinstance(result, TrinoResult)
 

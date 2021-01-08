@@ -15,18 +15,18 @@ import uuid
 import math
 
 import fixtures
-from fixtures import run_presto
+from fixtures import run_trino
 import pytest
 import pytz
 
 import trino
-from trino.exceptions import PrestoQueryError
+from trino.exceptions import TrinoQueryError
 from trino.transaction import IsolationLevel
 
 
 @pytest.fixture
-def presto_connection(run_presto):
-    _, host, port = run_presto
+def trino_connection(run_trino):
+    _, host, port = run_trino
 
     yield trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
@@ -34,8 +34,8 @@ def presto_connection(run_presto):
 
 
 @pytest.fixture
-def presto_connection_with_transaction(run_presto):
-    _, host, port = run_presto
+def trino_connection_with_transaction(run_trino):
+    _, host, port = run_trino
 
     yield trino.dbapi.Connection(
         host=host,
@@ -47,13 +47,13 @@ def presto_connection_with_transaction(run_presto):
     )
 
 
-def test_select_query(presto_connection):
-    cur = presto_connection.cursor()
+def test_select_query(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("select * from system.runtime.nodes")
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    assert row[2] == fixtures.PRESTO_VERSION
+    assert row[2] == fixtures.TRINO_VERSION
     columns = dict([desc[:2] for desc in cur.description])
     assert columns["node_id"] == "varchar"
     assert columns["http_uri"] == "varchar"
@@ -62,20 +62,20 @@ def test_select_query(presto_connection):
     assert columns["state"] == "varchar"
 
 
-def test_select_query_result_iteration(presto_connection):
-    cur0 = presto_connection.cursor()
+def test_select_query_result_iteration(trino_connection):
+    cur0 = trino_connection.cursor()
     cur0.execute("select custkey from tpch.sf1.customer LIMIT 10")
     rows0 = cur0.genall()
 
-    cur1 = presto_connection.cursor()
+    cur1 = trino_connection.cursor()
     cur1.execute("select custkey from tpch.sf1.customer LIMIT 10")
     rows1 = cur1.fetchall()
 
     assert len(list(rows0)) == len(rows1)
 
 
-def test_select_query_result_iteration_statement_params(presto_connection):
-    cur = presto_connection.cursor()
+def test_select_query_result_iteration_statement_params(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute(
         """
         select * from (
@@ -92,16 +92,16 @@ def test_select_query_result_iteration_statement_params(presto_connection):
     )
 
 
-def test_none_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_none_query_param(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(None,))
     rows = cur.fetchall()
 
     assert rows[0][0] == None
 
 
-def test_string_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_string_query_param(trino_connection):
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT ?", params=("six'",))
     rows = cur.fetchall()
@@ -109,8 +109,8 @@ def test_string_query_param(presto_connection):
     assert rows[0][0] == "six'"
 
 
-def test_datetime_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_datetime_query_param(trino_connection):
+    cur = trino_connection.cursor()
 
     cur.execute(
             "SELECT ?", 
@@ -130,8 +130,8 @@ def test_datetime_query_param(presto_connection):
     assert cur.description[0][1] == "timestamp with time zone"
 
 
-def test_array_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_array_query_param(trino_connection):
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT ?", params=([1, 2, 3],))
     rows = cur.fetchall()
@@ -151,8 +151,8 @@ def test_array_query_param(presto_connection):
     assert rows[0][0] == "array(integer)"
 
 
-def test_dict_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_dict_query_param(trino_connection):
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT ?", params=({"foo": "bar"},))
     rows = cur.fetchall()
@@ -165,8 +165,8 @@ def test_dict_query_param(presto_connection):
     assert rows[0][0] == "map(varchar(3), varchar(3))"
 
 
-def test_boolean_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_boolean_query_param(trino_connection):
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT ?", params=(True,))
     rows = cur.fetchall()
@@ -179,8 +179,8 @@ def test_boolean_query_param(presto_connection):
     assert rows[0][0] == False
 
 
-def test_float_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_float_query_param(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(1.1,))
     rows = cur.fetchall()
 
@@ -189,8 +189,8 @@ def test_float_query_param(presto_connection):
 
 
 @pytest.mark.skip(reason="Nan currently not returning the correct python type for nan")
-def test_float_nan_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_float_nan_query_param(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(float("nan"),))
     rows = cur.fetchall()
 
@@ -200,7 +200,7 @@ def test_float_nan_query_param(presto_connection):
 
 
 @pytest.mark.skip(reason="Nan currently not returning the correct python type fon inf")
-def test_float_inf_query_param(presto_connection):
+def test_float_inf_query_param(trino_connection):
     cur.execute("SELECT ?", params=(float("inf"),))
     rows = cur.fetchall()
 
@@ -212,8 +212,8 @@ def test_float_inf_query_param(presto_connection):
     assert rows[0][0] == float("-inf")
 
 
-def test_int_query_param(presto_connection):
-    cur = presto_connection.cursor()
+def test_int_query_param(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(3,))
     rows = cur.fetchall()
 
@@ -232,20 +232,20 @@ def test_int_query_param(presto_connection):
     {'invalid', 'params'},
     object,
 ])
-def test_select_query_invalid_params(presto_connection, params):
-    cur = presto_connection.cursor()
+def test_select_query_invalid_params(trino_connection, params):
+    cur = trino_connection.cursor()
     with pytest.raises(AssertionError):
         cur.execute('select ?', params=params)
 
 
-def test_select_cursor_iteration(presto_connection):
-    cur0 = presto_connection.cursor()
+def test_select_cursor_iteration(trino_connection):
+    cur0 = trino_connection.cursor()
     cur0.execute("select nationkey from tpch.sf1.nation")
     rows0 = []
     for row in cur0:
         rows0.append(row)
 
-    cur1 = presto_connection.cursor()
+    cur1 = trino_connection.cursor()
     cur1.execute("select nationkey from tpch.sf1.nation")
     rows1 = cur1.fetchall()
 
@@ -253,15 +253,15 @@ def test_select_cursor_iteration(presto_connection):
     assert sorted(rows0) == sorted(rows1)
 
 
-def test_select_query_no_result(presto_connection):
-    cur = presto_connection.cursor()
+def test_select_query_no_result(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("select * from system.runtime.nodes where false")
     rows = cur.fetchall()
     assert len(rows) == 0
 
 
-def test_select_query_stats(presto_connection):
-    cur = presto_connection.cursor()
+def test_select_query_stats(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
 
     query_id = cur.stats["queryId"]
@@ -287,34 +287,34 @@ def test_select_query_stats(presto_connection):
         wall_time_millis = cur.stats["wallTimeMillis"]
 
 
-def test_select_failed_query(presto_connection):
-    cur = presto_connection.cursor()
-    with pytest.raises(trino.exceptions.PrestoUserError):
+def test_select_failed_query(trino_connection):
+    cur = trino_connection.cursor()
+    with pytest.raises(trino.exceptions.TrinoUserError):
         cur.execute("select * from catalog.schema.do_not_exist")
         cur.fetchall()
 
 
-def test_select_tpch_1000(presto_connection):
-    cur = presto_connection.cursor()
+def test_select_tpch_1000(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
     rows = cur.fetchall()
     assert len(rows) == 1000
 
 
-def test_cancel_query(presto_connection):
-    cur = presto_connection.cursor()
+def test_cancel_query(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("select * from tpch.sf1.customer")
-    cur.fetchone()  # TODO (https://github.com/prestosql/presto/issues/2683) test with and without .fetchone
+    cur.fetchone()  # TODO (https://github.com/trinodb/trino/issues/2683) test with and without .fetchone
     cur.cancel()  # would raise an exception if cancel fails
 
-    cur = presto_connection.cursor()
+    cur = trino_connection.cursor()
     with pytest.raises(Exception) as cancel_error:
         cur.cancel()
     assert "Cancel query failed; no running query" in str(cancel_error.value)
 
 
-def test_session_properties(run_presto):
-    _, host, port = run_presto
+def test_session_properties(run_trino):
+    _, host, port = run_trino
 
     connection = trino.dbapi.Connection(
         host=host,
@@ -335,8 +335,8 @@ def test_session_properties(run_presto):
             assert value == "1"
 
 
-def test_transaction_single(presto_connection_with_transaction):
-    connection = presto_connection_with_transaction
+def test_transaction_single(trino_connection_with_transaction):
+    connection = trino_connection_with_transaction
     for _ in range(3):
         cur = connection.cursor()
         cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
@@ -345,8 +345,8 @@ def test_transaction_single(presto_connection_with_transaction):
         assert len(rows) == 1000
 
 
-def test_transaction_rollback(presto_connection_with_transaction):
-    connection = presto_connection_with_transaction
+def test_transaction_rollback(trino_connection_with_transaction):
+    connection = trino_connection_with_transaction
     for _ in range(3):
         cur = connection.cursor()
         cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
@@ -355,8 +355,8 @@ def test_transaction_rollback(presto_connection_with_transaction):
         assert len(rows) == 1000
 
 
-def test_transaction_multiple(presto_connection_with_transaction):
-    with presto_connection_with_transaction as connection:
+def test_transaction_multiple(trino_connection_with_transaction):
+    with trino_connection_with_transaction as connection:
         cur1 = connection.cursor()
         cur1.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
         rows1 = cur1.fetchall()
@@ -368,12 +368,12 @@ def test_transaction_multiple(presto_connection_with_transaction):
     assert len(rows1) == 1000
     assert len(rows2) == 1000
 
-def test_invalid_query_throws_correct_error(presto_connection):
+def test_invalid_query_throws_correct_error(trino_connection):
     """
     tests that an invalid query raises the correct exception
     """
-    cur = presto_connection.cursor()
-    with pytest.raises(PrestoQueryError):
+    cur = trino_connection.cursor()
+    with pytest.raises(TrinoQueryError):
         cur.execute(
             """
             select * FRMO foo WHERE x = ?; 

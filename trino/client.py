@@ -11,25 +11,25 @@
 # limitations under the License.
 """
 
-This module implements the Presto protocol to submit SQL statements, track
+This module implements the Trino protocol to submit SQL statements, track
 their state and retrieve their result as described in
-https://github.com/prestosql/presto/wiki/HTTP-Protocol
-and Presto source code.
+https://github.com/trinodb/trino/wiki/HTTP-Protocol
+and Trino source code.
 
 The outline of a query is:
 - Send HTTP POST to the coordinator
 - Retrieve HTTP response with ``nextUri``
 - Get status of the query execution by sending a HTTP GET to the coordinator
 
-Presto queries are managed by the ``PrestoQuery`` class. HTTP requests are
-managed by the ``PrestoRequest`` class. the status of a query is represented
-by ``PrestoStatus`` and the result by ``PrestoResult``.
+Trino queries are managed by the ``TrinoQuery`` class. HTTP requests are
+managed by the ``TrinoRequest`` class. the status of a query is represented
+by ``TrinoStatus`` and the result by ``TrinoResult``.
 
 
-The main interface is :class:`PrestoQuery`: ::
+The main interface is :class:`TrinoQuery`: ::
 
-    >> request = PrestoRequest(host='coordinator', port=8080, user='test')
-    >> query =  PrestoQuery(request, sql)
+    >> request = TrinoRequest(host='coordinator', port=8080, user='test')
+    >> query =  TrinoQuery(request, sql)
     >> rows = list(query.execute())
 """
 from __future__ import absolute_import, division, print_function
@@ -44,7 +44,7 @@ from trino import constants, exceptions
 from trino.transaction import NO_TRANSACTION
 
 
-__all__ = ["PrestoQuery", "PrestoRequest"]
+__all__ = ["TrinoQuery", "TrinoRequest"]
 
 
 logger = trino.logging.get_logger(__name__)
@@ -97,7 +97,7 @@ def get_session_property_values(headers, header):
     return [(k.strip(), v.strip()) for k, v in (kv.split("=", 1) for kv in kvs)]
 
 
-class PrestoStatus(object):
+class TrinoStatus(object):
     def __init__(self, id, stats, warnings, info_uri, next_uri, rows, columns=None):
         self.id = id
         self.stats = stats
@@ -109,7 +109,7 @@ class PrestoStatus(object):
 
     def __repr__(self):
         return (
-            "PrestoStatus("
+            "TrinoStatus("
             "id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>"
             ")".format(
                 self.id,
@@ -121,9 +121,9 @@ class PrestoStatus(object):
         )
 
 
-class PrestoRequest(object):
+class TrinoRequest(object):
     """
-    Manage the HTTP requests of a Presto query.
+    Manage the HTTP requests of a Trino query.
 
     :param host: name of the coordinator
     :param port: TCP port to connect to the coordinator
@@ -131,7 +131,7 @@ class PrestoRequest(object):
                  and query scheduling.
     :param source: associated with the query. It is useful for access
                    control and query scheduling.
-    :param catalog: to query. The *catalog* is associated with a Presto
+    :param catalog: to query. The *catalog* is associated with a Trino
                     connector. This variable sets the default catalog used
                     by SQL statements. For example, if *catalog* is set
                     to ``some_catalog``, the SQL statement
@@ -144,7 +144,7 @@ class PrestoRequest(object):
                    ``some_schema``, the SQL statement
                    ``SELECT * FROM some_table`` will actually query the
                    table ``some_catalog.some_schema.some_table``.
-    :param session_properties: set specific Presto behavior for the current
+    :param session_properties: set specific Trino behavior for the current
                                session. Please refer to the output of
                                ``SHOW SESSION`` to check the available
                                properties.
@@ -165,8 +165,8 @@ class PrestoRequest(object):
     - An URI to get more information about the execution of the query
     - Statistics about the current query execution
 
-    Please refer to :class:`PrestoStatus` to access the status returned by
-    :meth:`PrestoRequest.process`.
+    Please refer to :class:`TrinoStatus` to access the status returned by
+    :meth:`TrinoRequest.process`.
 
     When the client makes an HTTP request, it may encounter the following
     errors:
@@ -373,11 +373,11 @@ class PrestoRequest(object):
     def _process_error(self, error, query_id):
         error_type = error["errorType"]
         if error_type == "EXTERNAL":
-            raise exceptions.PrestoExternalError(error, query_id)
+            raise exceptions.TrinoExternalError(error, query_id)
         elif error_type == "USER_ERROR":
-            return exceptions.PrestoUserError(error, query_id)
+            return exceptions.TrinoUserError(error, query_id)
 
-        return exceptions.PrestoQueryError(error, query_id)
+        return exceptions.TrinoQueryError(error, query_id)
 
     def raise_response_error(self, http_response):
         if http_response.status_code == 503:
@@ -391,7 +391,7 @@ class PrestoRequest(object):
         )
 
     def process(self, http_response):
-        # type: (requests.Response) -> PrestoStatus
+        # type: (requests.Response) -> TrinoStatus
         if not http_response.ok:
             self.raise_response_error(http_response)
 
@@ -415,7 +415,7 @@ class PrestoRequest(object):
 
         self._next_uri = response.get("nextUri")
 
-        return PrestoStatus(
+        return TrinoStatus(
             id=response["id"],
             stats=response["stats"],
             warnings=response.get("warnings", []),
@@ -426,9 +426,9 @@ class PrestoRequest(object):
         )
 
 
-class PrestoResult(object):
+class TrinoResult(object):
     """
-    Represent the result of a Presto query as an iterator on rows.
+    Represent the result of a Trino query as an iterator on rows.
 
     This class implements the iterator protocol as a generator type
     https://docs.python.org/3/library/stdtypes.html#generator-types
@@ -464,12 +464,12 @@ class PrestoResult(object):
         return self._query.response_headers
 
 
-class PrestoQuery(object):
-    """Represent the execution of a SQL statement by Presto."""
+class TrinoQuery(object):
+    """Represent the execution of a SQL statement by Trino."""
 
     def __init__(
         self,
-        request,  # type: PrestoRequest
+        request,  # type: TrinoRequest
         sql,  # type: Text
     ):
         # type: (...) -> None
@@ -483,7 +483,7 @@ class PrestoQuery(object):
         self._cancelled = False
         self._request = request
         self._sql = sql
-        self._result = PrestoResult(self)
+        self._result = TrinoResult(self)
         self._response_headers = None
 
     @property
@@ -503,8 +503,8 @@ class PrestoQuery(object):
         return self._result
 
     def execute(self, additional_http_headers=None):
-        # type: () -> PrestoResult
-        """Initiate a Presto query by sending the SQL statement
+        # type: () -> TrinoResult
+        """Initiate a Trino query by sending the SQL statement
 
         This is the first HTTP request sent to the coordinator.
         It sets the query_id and returns a Result object used to
@@ -512,7 +512,7 @@ class PrestoQuery(object):
         call fetch() until is_finished is true.
         """
         if self._cancelled:
-            raise exceptions.PrestoUserError("Query has been cancelled", self.query_id)
+            raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
 
         response = self._request.post(self._sql, additional_http_headers)
         status = self._request.process(response)
@@ -522,7 +522,7 @@ class PrestoQuery(object):
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
-        self._result = PrestoResult(self, status.rows)
+        self._result = TrinoResult(self, status.rows)
         return self._result
 
     def fetch(self):

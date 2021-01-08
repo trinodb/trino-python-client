@@ -11,7 +11,7 @@
 # limitations under the License.
 """
 
-This module defines exceptions for Presto operations. It follows the structure
+This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
 

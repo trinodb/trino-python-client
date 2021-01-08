@@ -79,7 +79,7 @@ class Transaction(object):
         logger.info("transaction started: " + self._id)
 
     def commit(self):
-        query = trino.client.PrestoQuery(self._request, COMMIT)
+        query = trino.client.TrinoQuery(self._request, COMMIT)
         try:
             list(query.execute())
         except Exception as err:
@@ -90,7 +90,7 @@ class Transaction(object):
         self._request.transaction_id = self._id
 
     def rollback(self):
-        query = trino.client.PrestoQuery(self._request, ROLLBACK)
+        query = trino.client.TrinoQuery(self._request, ROLLBACK)
         try:
             list(query.execute())
         except Exception as err:
