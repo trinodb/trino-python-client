@@ -1,21 +1,21 @@
-[![Build Status](https://github.com/prestosql/presto-python-client/workflows/ci/badge.svg)](https://github.com/prestosql/presto-python-client/actions?query=workflow%3Aci+event%3Apush+branch%3Amaster)
-[![Presto Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://prestosql.io/slack.html)
+[![Build Status](https://github.com/trinodb/trino-python-client/workflows/ci/badge.svg)](https://github.com/trinodb/trino-python-client/actions?query=workflow%3Aci+event%3Apush+branch%3Amaster)
+[![Trino Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://trino.io/slack.html)
 [![Presto: The Definitive Guide book download](https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburstdata.com/oreilly-presto-guide-download/)
 
 # Introduction
 
-This package provides a client interface to query [Presto](https://prestosql.io/)
+This package provides a client interface to query [Trino](https://trino.io/)
 a distributed SQL engine. It supports Python 2.7, 3.5, 3.6, and pypy.
 
 # Installation
 
 ```
-$ pip install presto-client
+$ pip install trino
 ```
 
 # Quick Start
 
-Use the DBAPI interface to query Presto:
+Use the DBAPI interface to query Trino:
 
 ```python
 import trino
@@ -32,15 +32,15 @@ rows = cur.fetchall()
 ```
 
 This will query the `system.runtime.nodes` system tables that shows the nodes
-in the Presto cluster.
+in the Trino cluster.
 
-The DBAPI implementation in `presto.dbapi` provides methods to retrieve fewer
+The DBAPI implementation in `trino.dbapi` provides methods to retrieve fewer
 rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
-`presto.dbapi.Cursor.arraysize` accordingly.
+`trino.dbapi.Cursor.arraysize` accordingly.
 
 # Basic Authentication
-The `BasicAuthentication` class can be used to connect to a LDAP-configured Presto
+The `BasicAuthentication` class can be used to connect to a LDAP-configured Trino
 cluster:
 ```python
 import trino
@@ -81,9 +81,9 @@ with trino.dbapi.connect(
 ```
 
 The transaction is created when the first SQL statement is executed.
-`presto.dbapi.Connection.commit()` will be automatically called when the code
+`trino.dbapi.Connection.commit()` will be automatically called when the code
 exits the *with* context and the queries succeed, otherwise
-`presto.dbapi.Connection.rollback()' will be called.
+`trino.dbapi.Connection.rollback()' will be called.
 
 # Development
 
@@ -126,7 +126,7 @@ When the code is ready, submit a Pull Request.
 There is a helper scripts, `run`, that provides commands to run tests.
 Type `./run tests` to run both unit and integration tests.
 
-`presto-python-client` uses [pytest](https://pytest.org/) for its tests. To run
+`trino-python-client` uses [pytest](https://pytest.org/) for its tests. To run
 only unit tests, type:
 
 ```
@@ -148,9 +148,9 @@ To run integration tests:
 $ pytest integration_tests
 ```
 
-They pull a Docker image and then run a container with a Presto server:
-- the image is named `prestosql/presto:${PRESTO_VERSION}`
-- the container is named `presto-python-client-tests-{uuid4()[:7]}`
+They pull a Docker image and then run a container with a Trino server:
+- the image is named `trinodb/trino:${TRINO_VERSION}`
+- the container is named `trino-python-client-tests-{uuid4()[:7]}`
 
 ## Releasing
 
@@ -175,5 +175,5 @@ They pull a Docker image and then run a container with a Presto server:
 Feel free to create an issue as it make your request visible to other users and contributors.
 
 If an interactive discussion would be better or if you just want to hangout and chat about
-the Presto Python client, you can join us on the *#python-client* channel on
-[Presto Slack](https://prestosql.io/slack.html).
+the Trino Python client, you can join us on the *#python-client* channel on
+[Trino Slack](https://trino.io/slack.html).

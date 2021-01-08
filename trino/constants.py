@@ -17,7 +17,7 @@ from typing import Any, Optional, Text  # NOQA: mypy types
 
 
 DEFAULT_PORT = 8080
-DEFAULT_SOURCE = "presto-python-client"
+DEFAULT_SOURCE = "trino-python-client"
 DEFAULT_CATALOG = None  # type: Optional[Text]
 DEFAULT_SCHEMA = None  # type: Optional[Text]
 DEFAULT_AUTH = None  # type: Optional[Any]
@@ -29,19 +29,19 @@ HTTPS = "https"
 
 URL_STATEMENT_PATH = "/v1/statement"
 
-HEADER_CATALOG = "X-Presto-Catalog"
-HEADER_SCHEMA = "X-Presto-Schema"
-HEADER_SOURCE = "X-Presto-Source"
-HEADER_USER = "X-Presto-User"
-HEADER_CLIENT_INFO = "X-Presto-Client-Info"
+HEADER_CATALOG = "X-Trino-Catalog"
+HEADER_SCHEMA = "X-Trino-Schema"
+HEADER_SOURCE = "X-Trino-Source"
+HEADER_USER = "X-Trino-User"
+HEADER_CLIENT_INFO = "X-Trino-Client-Info"
 
-HEADER_SESSION = "X-Presto-Session"
-HEADER_SET_SESSION = "X-Presto-Set-Session"
-HEADER_CLEAR_SESSION = "X-Presto-Clear-Session"
+HEADER_SESSION = "X-Trino-Session"
+HEADER_SET_SESSION = "X-Trino-Set-Session"
+HEADER_CLEAR_SESSION = "X-Trino-Clear-Session"
 
-HEADER_STARTED_TRANSACTION = "X-Presto-Started-Transaction-Id"
-HEADER_TRANSACTION = "X-Presto-Transaction-Id"
+HEADER_STARTED_TRANSACTION = "X-Trino-Started-Transaction-Id"
+HEADER_TRANSACTION = "X-Trino-Transaction-Id"
 
-HEADER_PREPARED_STATEMENT = 'X-Presto-Prepared-Statement'
-HEADER_ADDED_PREPARE = 'X-Presto-Added-Prepare'
-HEADER_DEALLOCATED_PREPARE = 'X-Presto-Deallocated-Prepare'
+HEADER_PREPARED_STATEMENT = 'X-Trino-Prepared-Statement'
+HEADER_ADDED_PREPARE = 'X-Trino-Added-Prepare'
+HEADER_DEALLOCATED_PREPARE = 'X-Trino-Deallocated-Prepare'

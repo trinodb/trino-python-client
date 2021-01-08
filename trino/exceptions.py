@@ -11,7 +11,7 @@
 # limitations under the License.
 """
 
-This module defines exceptions for Presto operations. It follows the structure
+This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
 
@@ -36,7 +36,7 @@ class Http503Error(HttpError):
     pass
 
 
-class PrestoError(Exception):
+class TrinoError(Exception):
     pass
 
 
@@ -44,7 +44,7 @@ class TimeoutError(Exception):
     pass
 
 
-class PrestoQueryError(Exception):
+class TrinoQueryError(Exception):
     def __init__(self, error, query_id=None):
         self._error = error
         self._query_id = query_id
@@ -71,7 +71,7 @@ class PrestoQueryError(Exception):
 
     @property
     def message(self):
-        return self._error.get("message", "Presto did no return an error message")
+        return self._error.get("message", "Trino did no return an error message")
 
     @property
     def error_location(self):
@@ -95,15 +95,15 @@ class PrestoQueryError(Exception):
         return repr(self)
 
 
-class PrestoExternalError(PrestoQueryError):
+class TrinoExternalError(TrinoQueryError):
     pass
 
 
-class PrestoInternalError(PrestoQueryError):
+class TrinoInternalError(TrinoQueryError):
     pass
 
 
-class PrestoUserError(PrestoQueryError):
+class TrinoUserError(TrinoQueryError):
     pass
 
 
@@ -207,7 +207,7 @@ class NotSupportedError(DatabaseError):
 
 class FailedToObtainAddedPrepareHeader(Error):
     """
-    Raise this exception when unable to find the 'X-Presto-Added-Prepare'
+    Raise this exception when unable to find the 'X-Trino-Added-Prepare'
     header in the response of a PREPARE statement request.
     """
     pass
@@ -215,7 +215,7 @@ class FailedToObtainAddedPrepareHeader(Error):
 
 class FailedToObtainDeallocatedPrepareHeader(Error):
     """
-    Raise this exception when unable to find the 'X-Presto-Deallocated-Prepare'
+    Raise this exception when unable to find the 'X-Trino-Deallocated-Prepare'
     header in the response of a DEALLOCATED statement request.
     """
     pass

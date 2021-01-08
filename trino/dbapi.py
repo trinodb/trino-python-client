@@ -63,7 +63,7 @@ def connect(*args, **kwargs):
 
 
 class Connection(object):
-    """Presto supports transactions and the ability to either commit or rollback
+    """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
     statement, can also be cancelled. Transactions are not supported by this
     client implementation yet.
@@ -96,7 +96,7 @@ class Connection(object):
         self.schema = schema
         self.session_properties = session_properties
         # mypy cannot follow module import
-        self._http_session = trino.client.PrestoRequest.http.Session()
+        self._http_session = trino.client.TrinoRequest.http.Session()
         self._http_session.verify = verify
         self.http_headers = http_headers
         self.http_scheme = http_scheme
@@ -129,7 +129,7 @@ class Connection(object):
             self.close()
 
     def close(self):
-        """Presto does not have anything to close"""
+        """Trino does not have anything to close"""
         # TODO cancel outstanding queries?
         pass
 
@@ -151,7 +151,7 @@ class Connection(object):
         self._transaction = None
 
     def _create_request(self):
-        return trino.client.PrestoRequest(
+        return trino.client.TrinoRequest(
             self.host,
             self.port,
             self.user,
@@ -222,7 +222,7 @@ class Cursor(object):
     def rowcount(self):
         """Not supported.
 
-        Presto cannot reliablity determine the number of rows returned by an
+        Trino cannot reliablity determine the number of rows returned by an
         operation. For example, the result of a SELECT query is streamed and
         the number of rows is only knowns when all rows have been retrieved.
         """
@@ -257,10 +257,10 @@ class Cursor(object):
             statement.
 
         :raises trino.exceptions.FailedToObtainAddedPrepareHeader: Error raised
-            when unable to find the 'X-Presto-Added-Prepare' for the PREPARE
+            when unable to find the 'X-Trino-Added-Prepare' for the PREPARE
             statement request.
 
-        :return: string representing the value of the 'X-Presto-Added-Prepare'
+        :return: string representing the value of the 'X-Trino-Added-Prepare'
             header.
         """
         sql = 'PREPARE {statement_name} FROM {operation}'.format(
@@ -270,10 +270,10 @@ class Cursor(object):
 
         # Send prepare statement. Copy the _request object to avoid poluting the
         # one that is going to be used to execute the actual operation.
-        query = trino.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
+        query = trino.client.TrinoQuery(copy.deepcopy(self._request), sql=sql)
         result = query.execute()
 
-        # Iterate until the 'X-Presto-Added-Prepare' header is found or
+        # Iterate until the 'X-Trino-Added-Prepare' header is found or
         # until there are no more results
         for _ in result:
             response_headers = result.response_headers
@@ -284,7 +284,7 @@ class Cursor(object):
         raise trino.exceptions.FailedToObtainAddedPrepareHeader
 
 
-    def _get_added_prepare_statement_presto_query(
+    def _get_added_prepare_statement_trino_query(
         self,
         statement_name,
         params
@@ -293,7 +293,7 @@ class Cursor(object):
 
         # No need to deepcopy _request here because this is the actual request
         # operation
-        return trino.client.PrestoQuery(self._request, sql=sql)
+        return trino.client.TrinoQuery(self._request, sql=sql)
 
     def _format_prepared_param(self, param):
         """
@@ -353,14 +353,14 @@ class Cursor(object):
 
         # Send deallocate statement. Copy the _request object to avoid poluting the
         # one that is going to be used to execute the actual operation.
-        query = trino.client.PrestoQuery(copy.deepcopy(self._request), sql=sql)
+        query = trino.client.TrinoQuery(copy.deepcopy(self._request), sql=sql)
         result = query.execute(
             additional_http_headers={
                 constants.HEADER_PREPARED_STATEMENT: added_prepare_header
             }
         )
 
-        # Iterate until the 'X-Presto-Deallocated-Prepare' header is found or
+        # Iterate until the 'X-Trino-Deallocated-Prepare' header is found or
         # until there are no more results
         for _ in result:
             response_headers = result.response_headers
@@ -389,7 +389,7 @@ class Cursor(object):
             try:
                 # Send execute statement and assign the return value to `results`
                 # as it will be returned by the function
-                self._query = self._get_added_prepare_statement_presto_query(
+                self._query = self._get_added_prepare_statement_trino_query(
                     statement_name, params
                 )
                 result = self._query.execute(
@@ -404,7 +404,7 @@ class Cursor(object):
                 self._deallocate_prepare_statement(added_prepare_header, statement_name)
 
         else:
-            self._query = trino.client.PrestoQuery(self._request, sql=operation)
+            self._query = trino.client.TrinoQuery(self._request, sql=operation)
             result = self._query.execute()
         self._iterator = iter(result)
         return result
@@ -525,4 +525,4 @@ DATETIME = DBAPITypeObject(
     "INTERVAL DAY TO SECOND",
 )
 
-ROWID = DBAPITypeObject()  # nothing indicates row id in Presto
+ROWID = DBAPITypeObject()  # nothing indicates row id in Trino

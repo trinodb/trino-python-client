@@ -89,9 +89,9 @@ class KerberosAuthentication(Authentication):
             http_session.verify = self._ca_bundle
         return http_session
 
-    def setup(self, presto_client):
-        self.set_client_session(presto_client.client_session)
-        self.set_http_session(presto_client.http_session)
+    def setup(self, trino_client):
+        self.set_client_session(trino_client.client_session)
+        self.set_http_session(trino_client.http_session)
 
     def get_exceptions(self):
         try:
@@ -122,9 +122,9 @@ class BasicAuthentication(Authentication):
         http_session.auth = requests.auth.HTTPBasicAuth(self._username, self._password)
         return http_session
 
-    def setup(self, presto_client):
-        self.set_client_session(presto_client.client_session)
-        self.set_http_session(presto_client.http_session)
+    def setup(self, trino_client):
+        self.set_client_session(trino_client.client_session)
+        self.set_http_session(trino_client.http_session)
 
     def get_exceptions(self):
         return ()
