@@ -155,9 +155,20 @@ They pull a Docker image and then run a container with a Trino server:
 ## Releasing
 
 - [Set up your development environment](#Getting-Started-With-Development).
-- Change version in `trino/__init__.py`.
-- Commit and create an annotated tag (`git tag -m '' current_version`)
-- Run the following:
+- Check the local workspace is up to date and has no uncommitted changes
+  ```bash
+  git fetch -a && git status
+  ```
+- Change version in `trino/__init__.py` to a new version, e.g. `0.123.0`.
+- Commit
+  ```bash
+  git commit -a -m "Bump version to 0.123.0"
+  ```
+- Create an annotated tag
+  ```bash
+  git tag -m "" 0.123.0
+  ```
+- Create release package and upload it to PyPI
   ```bash
   . .venv/bin/activate &&
   pip install twine &&
@@ -167,7 +178,10 @@ They pull a Docker image and then run a container with a Trino server:
   open https://pypi.org/project/trino/ &&
   echo "Released!"
   ```
-- Push the branch and the tag (`git push upstream master current_version`)
+- Push the branch and the tag
+  ```bash
+  git push upstream master 0.123.0
+  ```
 - Send release announcement.
 
 # Need Help?
