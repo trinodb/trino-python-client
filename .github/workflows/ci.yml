@@ -29,3 +29,6 @@ jobs:
       - name: Run tests
         run: |
           pytest -s tests/ integration_tests/
+      - name: Run linter
+        run: |
+          flake8

@@ -34,14 +34,6 @@ TRINO_HOST = "127.0.0.1"
 TRINO_PORT = 8080
 
 
-def is_process_alive(pid):
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    return True
-
-
 def get_local_port():
     with closing(socket.socket()) as s:
         s.bind(("localhost", 0))
