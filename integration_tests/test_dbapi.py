@@ -11,11 +11,9 @@
 # limitations under the License.
 from __future__ import absolute_import, division, print_function
 from datetime import datetime
-import uuid
 import math
 
-import fixtures
-from fixtures import run_trino
+from conftest import TRINO_VERSION
 import pytest
 import pytz
 
@@ -53,7 +51,7 @@ def test_select_query(trino_connection):
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    assert row[2] == fixtures.TRINO_VERSION
+    assert row[2] == TRINO_VERSION
     columns = dict([desc[:2] for desc in cur.description])
     assert columns["node_id"] == "varchar"
     assert columns["http_uri"] == "varchar"
@@ -97,7 +95,7 @@ def test_none_query_param(trino_connection):
     cur.execute("SELECT ?", params=(None,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == None
+    assert rows[0][0] is None
 
 
 def test_string_query_param(trino_connection):
@@ -112,18 +110,13 @@ def test_string_query_param(trino_connection):
 def test_datetime_query_param(trino_connection):
     cur = trino_connection.cursor()
 
-    cur.execute(
-            "SELECT ?", 
-            params=(datetime(2020, 1, 1, 0, 0, 0),)
-            )
+    cur.execute("SELECT ?", params=(datetime(2020, 1, 1, 0, 0, 0),))
     rows = cur.fetchall()
 
     assert rows[0][0] == "2020-01-01 00:00:00.000"
 
-    cur.execute(
-            "SELECT ?", 
-            params=(datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.utc),)
-            )
+    cur.execute("SELECT ?",
+                params=(datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.utc),))
     rows = cur.fetchall()
 
     assert rows[0][0] == "2020-01-01 00:00:00.000 UTC"
@@ -138,12 +131,10 @@ def test_array_query_param(trino_connection):
 
     assert rows[0][0] == [1, 2, 3]
 
-    cur.execute(
-            "SELECT ?", 
-            params=([[1, 2, 3],[4,5,6]],))
+    cur.execute("SELECT ?", params=([[1, 2, 3], [4, 5, 6]],))
     rows = cur.fetchall()
 
-    assert rows[0][0] == [[1, 2, 3],[4,5,6]]
+    assert rows[0][0] == [[1, 2, 3], [4, 5, 6]]
 
     cur.execute("SELECT TYPEOF(?)", params=([1, 2, 3],))
     rows = cur.fetchall()
@@ -171,12 +162,12 @@ def test_boolean_query_param(trino_connection):
     cur.execute("SELECT ?", params=(True,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == True
+    assert rows[0][0] is True
 
     cur.execute("SELECT ?", params=(False,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == False
+    assert rows[0][0] is False
 
 
 def test_float_query_param(trino_connection):
@@ -201,6 +192,7 @@ def test_float_nan_query_param(trino_connection):
 
 @pytest.mark.skip(reason="Nan currently not returning the correct python type fon inf")
 def test_float_inf_query_param(trino_connection):
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(float("inf"),))
     rows = cur.fetchall()
 
@@ -368,15 +360,15 @@ def test_transaction_multiple(trino_connection_with_transaction):
     assert len(rows1) == 1000
     assert len(rows2) == 1000
 
+
 def test_invalid_query_throws_correct_error(trino_connection):
-    """
-    tests that an invalid query raises the correct exception
+    """Tests that an invalid query raises the correct exception
     """
     cur = trino_connection.cursor()
     with pytest.raises(TrinoQueryError):
         cur.execute(
             """
-            select * FRMO foo WHERE x = ?; 
+            select * FRMO foo WHERE x = ?;
             """,
             params=(3,),
         )

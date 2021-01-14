@@ -23,16 +23,9 @@ from __future__ import print_function
 
 from typing import Any, List, Optional  # NOQA for mypy types
 
-try:
-    from urllib.parse import urlencode
-except ImportError:
-    # Python 2
-    from urllib import urlencode
-
 import copy
 import uuid
 import datetime
-import re
 import math
 
 from trino import constants
@@ -283,7 +276,6 @@ class Cursor(object):
 
         raise trino.exceptions.FailedToObtainAddedPrepareHeader
 
-
     def _get_added_prepare_statement_trino_query(
         self,
         statement_name,
@@ -346,7 +338,6 @@ class Cursor(object):
             return "UUID '%s'" % param
 
         raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
-
 
     def _deallocate_prepare_statement(self, added_prepare_header, statement_name):
         sql = 'DEALLOCATE PREPARE ' + statement_name

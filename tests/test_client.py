@@ -16,7 +16,6 @@ from __future__ import print_function
 import httpretty
 import pytest
 import requests
-import socket
 import time
 
 try:
@@ -26,7 +25,7 @@ except ImportError:
     import mock
 
 from requests_kerberos.exceptions import KerberosExchangeError
-from trino.client import PROXIES, TrinoQuery, TrinoRequest, TrinoResult
+from trino.client import TrinoQuery, TrinoRequest, TrinoResult
 from trino.auth import KerberosAuthentication
 from trino import constants
 import trino.exceptions
@@ -143,7 +142,7 @@ RESP_DATA_GET_0 = {
         },
     ],
     "taskDownloadUris": [],
-    "partialCancelUri": "http://localhost:8080/v1/stage/20161116_195728_00000_xtnym.0",  # NOQA
+    "partialCancelUri": "http://localhost:8080/v1/stage/20161116_195728_00000_xtnym.0",  # NOQA: E501
     "stats": {
         "nodes": 2,
         "processedBytes": 880,
@@ -192,7 +191,7 @@ RESP_DATA_GET_0 = {
         "queuedSplits": 0,
         "wallTimeMillis": 36,
     },
-    "infoUri": "http://coordinator:8080/query.html?20161116_195728_00000_xtnym",  # NOQA
+    "infoUri": "http://coordinator:8080/query.html?20161116_195728_00000_xtnym",  # NOQA: E501
 }
 
 RESP_ERROR_GET_0 = {
@@ -214,8 +213,8 @@ RESP_ERROR_GET_0 = {
                 "com.facebook.presto.sql.tree.Table.accept(Table.java:50)",
                 "com.facebook.presto.sql.tree.AstVisitor.process(AstVisitor.java:22)",
                 "com.facebook.presto.sql.analyzer.StatementAnalyzer.analyzeFrom(StatementAnalyzer.java:1413)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuerySpecification(StatementAnalyzer.java:670)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuerySpecification(StatementAnalyzer.java:166)",
+                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuerySpecification(StatementAnalyzer.java:670)",  # NOQA: E501
+                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuerySpecification(StatementAnalyzer.java:166)",  # NOQA: E501
                 "com.facebook.presto.sql.tree.QuerySpecification.accept(QuerySpecification.java:125)",
                 "com.facebook.presto.sql.tree.AstVisitor.process(AstVisitor.java:22)",
                 "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuery(StatementAnalyzer.java:438)",
@@ -672,4 +671,3 @@ def test_trino_query_response_headers():
 
         # Validate the result is an instance of TrinoResult
         assert isinstance(result, TrinoResult)
-
