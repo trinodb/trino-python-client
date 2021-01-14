@@ -47,7 +47,7 @@ def trino_connection_with_transaction(run_trino):
 
 def test_select_query(trino_connection):
     cur = trino_connection.cursor()
-    cur.execute("select * from system.runtime.nodes")
+    cur.execute("SELECT * FROM system.runtime.nodes")
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
@@ -62,11 +62,11 @@ def test_select_query(trino_connection):
 
 def test_select_query_result_iteration(trino_connection):
     cur0 = trino_connection.cursor()
-    cur0.execute("select custkey from tpch.sf1.customer LIMIT 10")
+    cur0.execute("SELECT custkey FROM tpch.sf1.customer LIMIT 10")
     rows0 = cur0.genall()
 
     cur1 = trino_connection.cursor()
-    cur1.execute("select custkey from tpch.sf1.customer LIMIT 10")
+    cur1.execute("SELECT custkey FROM tpch.sf1.customer LIMIT 10")
     rows1 = cur1.fetchall()
 
     assert len(list(rows0)) == len(rows1)
@@ -76,7 +76,7 @@ def test_select_query_result_iteration_statement_params(trino_connection):
     cur = trino_connection.cursor()
     cur.execute(
         """
-        select * from (
+        SELECT * FROM (
             values
             (1, 'one', 'a'),
             (2, 'two', 'b'),
@@ -84,7 +84,7 @@ def test_select_query_result_iteration_statement_params(trino_connection):
             (4, 'four', 'd'),
             (5, 'five', 'e')
         ) x (id, name, letter)
-        where id >= ?
+        WHERE id >= ?
         """,
         params=(3,)  # expecting all the rows with id >= 3
     )
@@ -227,18 +227,18 @@ def test_int_query_param(trino_connection):
 def test_select_query_invalid_params(trino_connection, params):
     cur = trino_connection.cursor()
     with pytest.raises(AssertionError):
-        cur.execute('select ?', params=params)
+        cur.execute('SELECT ?', params=params)
 
 
 def test_select_cursor_iteration(trino_connection):
     cur0 = trino_connection.cursor()
-    cur0.execute("select nationkey from tpch.sf1.nation")
+    cur0.execute("SELECT nationkey FROM tpch.sf1.nation")
     rows0 = []
     for row in cur0:
         rows0.append(row)
 
     cur1 = trino_connection.cursor()
-    cur1.execute("select nationkey from tpch.sf1.nation")
+    cur1.execute("SELECT nationkey FROM tpch.sf1.nation")
     rows1 = cur1.fetchall()
 
     assert len(rows0) == len(rows1)
@@ -247,7 +247,7 @@ def test_select_cursor_iteration(trino_connection):
 
 def test_select_query_no_result(trino_connection):
     cur = trino_connection.cursor()
-    cur.execute("select * from system.runtime.nodes where false")
+    cur.execute("SELECT * FROM system.runtime.nodes WHERE false")
     rows = cur.fetchall()
     assert len(rows) == 0
 
@@ -282,7 +282,7 @@ def test_select_query_stats(trino_connection):
 def test_select_failed_query(trino_connection):
     cur = trino_connection.cursor()
     with pytest.raises(trino.exceptions.TrinoUserError):
-        cur.execute("select * from catalog.schema.do_not_exist")
+        cur.execute("SELECT * FROM catalog.schema.do_not_exist")
         cur.fetchall()
 
 
@@ -295,7 +295,7 @@ def test_select_tpch_1000(trino_connection):
 
 def test_cancel_query(trino_connection):
     cur = trino_connection.cursor()
-    cur.execute("select * from tpch.sf1.customer")
+    cur.execute("SELECT * FROM tpch.sf1.customer")
     cur.fetchone()  # TODO (https://github.com/trinodb/trino/issues/2683) test with and without .fetchone
     cur.cancel()  # would raise an exception if cancel fails
 
@@ -368,7 +368,7 @@ def test_invalid_query_throws_correct_error(trino_connection):
     with pytest.raises(TrinoQueryError):
         cur.execute(
             """
-            select * FRMO foo WHERE x = ?;
+            SELECT * FRMO foo WHERE x = ?;
             """,
             params=(3,),
         )
