@@ -31,9 +31,7 @@ kerberos_require = ["requests_kerberos"]
 
 all_require = [kerberos_require]
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "mock", "pytz", "flake8"]
-
-py27_require = ["ipaddress", "typing"]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "flake8"]
 
 setup(
     name="trino",
@@ -60,7 +58,6 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
@@ -71,11 +68,11 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    install_requires=["click", "requests", "six"],
+    python_requires='>=3.5',
+    install_requires=["click", "requests"],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
         "tests": tests_require,
-        ':python_version=="2.7"': py27_require,
     },
 )
