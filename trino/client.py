@@ -32,7 +32,6 @@ The main interface is :class:`TrinoQuery`: ::
     >> query =  TrinoQuery(request, sql)
     >> rows = list(query.execute())
 """
-from __future__ import absolute_import, division, print_function
 
 import copy
 import os
@@ -517,7 +516,7 @@ class TrinoQuery(object):
         response = self._request.post(self._sql, additional_http_headers)
         status = self._request.process(response)
         self.query_id = status.id
-        self._stats.update({u"queryId": self.query_id})
+        self._stats.update({"queryId": self.query_id})
         self._stats.update(status.stats)
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:

@@ -15,9 +15,6 @@ This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import functools
 import random

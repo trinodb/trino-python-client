@@ -17,9 +17,6 @@ https://www.python.org/dev/peps/pep-0249/ .
 Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from typing import Any, List, Optional  # NOQA for mypy types
 
@@ -329,7 +326,7 @@ class Cursor(object):
         if isinstance(param, dict):
             keys = list(param.keys())
             values = [param[key] for key in keys]
-            return "MAP(%s, %s)" % (
+            return "MAP({}, {})".format(
                 self._format_prepared_param(keys),
                 self._format_prepared_param(values)
             )

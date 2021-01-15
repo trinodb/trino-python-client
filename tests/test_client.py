@@ -9,20 +9,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import httpretty
 import pytest
 import requests
 import time
+from unittest import mock
 
-try:
-    from unittest import mock
-except ImportError:
-    # python 2
-    import mock
 
 from requests_kerberos.exceptions import KerberosExchangeError
 from trino.client import TrinoQuery, TrinoRequest, TrinoResult

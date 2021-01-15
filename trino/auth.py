@@ -9,18 +9,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import abc
 import os
 
-from six import with_metaclass
 from typing import Any, Optional, Text  # NOQA
 
 
-class Authentication(with_metaclass(abc.ABCMeta)):  # type: ignore
+class Authentication(metaclass=abc.ABCMeta):  # type: ignore
     @abc.abstractmethod
     def set_http_session(self, http_session):
         pass
