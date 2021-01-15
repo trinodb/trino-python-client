@@ -13,7 +13,6 @@
 import abc
 import os
 
-from six import with_metaclass
 from typing import Any, Optional, Text  # NOQA
 
 
