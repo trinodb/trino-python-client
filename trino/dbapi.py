@@ -30,12 +30,13 @@ import math
 
 from trino import constants
 import trino.exceptions
+from trino.exceptions import Error
 import trino.client
 import trino.logging
 from trino.transaction import Transaction, IsolationLevel, NO_TRANSACTION
 
 
-__all__ = ["connect", "Connection", "Cursor"]
+__all__ = ["connect", "Connection", "Cursor", "Error"]
 
 
 apilevel = "2.0"
@@ -202,6 +203,13 @@ class Cursor(object):
 
     @property
     def description(self):
+        rows = self._fetchwhile(lambda: self._query.columns is None
+                                and not self._query.finished
+                                and not self._query.cancelled)
+
+        new_result = trino.client.TrinoResult(self._query, rows)
+        self._iterator = iter(new_result)
+
         if self._query.columns is None:
             return None
 
@@ -366,6 +374,12 @@ class Cursor(object):
 
     def execute(self, operation, params=None):
         if params:
+            if isinstance(params, dict):
+                try:
+                    params = params['params']
+                except KeyError:
+                    raise trino.exceptions.TrinoUserError()
+
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
                 'parameter values'
@@ -455,12 +469,21 @@ class Cursor(object):
 
         return result
 
+    def _fetchwhile(self, fn):
+        result = []
+        while fn:
+            row = self.fetchone()
+            if row is None:
+                break
+            result.append(row)
+        return result
+
     def genall(self):
-        return self._query.result
+        return self._iterator
 
     def fetchall(self):
         # type: () -> List[List[Any]]
-        return list(self.genall())
+        return list(self._iterator)
 
     def cancel(self):
         if self._query is None:

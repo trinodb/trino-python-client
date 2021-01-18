@@ -452,7 +452,7 @@ class TrinoResult(object):
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
-        while not self._query.is_finished():
+        while not self._query.finished:
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
@@ -483,12 +483,23 @@ class TrinoQuery(object):
         self._cancelled = False
         self._request = request
         self._sql = sql
-        self._result = TrinoResult(self)
         self._response_headers = None
 
     @property
     def columns(self):
         return self._columns
+
+    @property
+    def cancelled(self):
+        return self._cancelled
+
+    @property
+    def finished(self):
+        return self._finished
+
+    @property
+    def response_headers(self):
+        return self._response_headers
 
     @property
     def stats(self):
@@ -498,18 +509,14 @@ class TrinoQuery(object):
     def warnings(self):
         return self._warnings
 
-    @property
-    def result(self):
-        return self._result
-
-    def execute(self, additional_http_headers=None):
+    def execute(self, additional_http_headers=None) -> TrinoResult:
         # type: () -> TrinoResult
         """Initiate a Trino query by sending the SQL statement
 
         This is the first HTTP request sent to the coordinator.
         It sets the query_id and returns a Result object used to
         track the rows returned by the query. To fetch all rows,
-        call fetch() until is_finished is true.
+        call fetch() until _finished is true.
         """
         if self._cancelled:
             raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
@@ -522,8 +529,8 @@ class TrinoQuery(object):
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
-        self._result = TrinoResult(self, status.rows)
-        return self._result
+        result = TrinoResult(self, status.rows)
+        return result
 
     def fetch(self):
         # type: () -> List[List[Any]]
@@ -542,7 +549,7 @@ class TrinoQuery(object):
     def cancel(self):
         # type: () -> None
         """Cancel the current query"""
-        if self.query_id is None or self.is_finished():
+        if self.query_id is None or self._finished:
             return
 
         self._cancelled = True
@@ -554,11 +561,3 @@ class TrinoQuery(object):
             logger.debug("query cancelled: %s", self.query_id)
             return
         self._request.raise_response_error(response)
-
-    def is_finished(self):
-        # type: () -> bool
-        return self._finished
-
-    @property
-    def response_headers(self):
-        return self._response_headers

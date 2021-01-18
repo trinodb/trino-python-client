@@ -29,7 +29,9 @@ with open("trino/__init__.py", "rb") as f:
 
 kerberos_require = ["requests_kerberos"]
 
-all_require = [kerberos_require]
+sqlalchemy_require = ["SQLAlchemy==1.3.22"]
+
+all_require = [kerberos_require, sqlalchemy_require]
 
 tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "mock", "pytz", "flake8"]
 
@@ -75,7 +77,13 @@ setup(
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
+        "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
         ':python_version=="2.7"': py27_require,
     },
+    entry_points={
+        "sqlalchemy.dialects": [
+            'trino = trino.sqlalchemy:TrinoDialect',
+        ],
+    }
 )
