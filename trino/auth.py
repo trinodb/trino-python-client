@@ -18,6 +18,7 @@ import os
 
 from six import with_metaclass
 from typing import Any, Optional, Text  # NOQA
+from requests.auth import AuthBase
 
 
 class Authentication(with_metaclass(abc.ABCMeta)):  # type: ignore
@@ -120,6 +121,41 @@ class BasicAuthentication(Authentication):
             raise RuntimeError("unable to import requests.auth")
 
         http_session.auth = requests.auth.HTTPBasicAuth(self._username, self._password)
+        return http_session
+
+    def setup(self, trino_client):
+        self.set_client_session(trino_client.client_session)
+        self.set_http_session(trino_client.http_session)
+
+    def get_exceptions(self):
+        return ()
+
+    def handle_error(self, handle_error):
+        pass
+
+
+class _BearerAuth(AuthBase):
+    """
+    Custom implementation of Authentication class for bearer token
+    """
+    def __init__(self, token):
+        self.token = token
+
+    def __call__(self, r):
+        r.headers["Authorization"] = "Bearer " + self.token
+        return r
+
+
+class JWTAuthentication(Authentication):
+
+    def __init__(self, token):
+        self.token = token
+
+    def set_client_session(self, client_session):
+        pass
+
+    def set_http_session(self, http_session):
+        http_session.auth = _BearerAuth(self.token)
         return http_session
 
     def setup(self, trino_client):
