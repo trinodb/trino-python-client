@@ -68,6 +68,7 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
+    python_requires='>=3.5',
     install_requires=["click", "requests"],
     extras_require={
         "all": all_require,
