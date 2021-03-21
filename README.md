@@ -5,7 +5,7 @@
 # Introduction
 
 This package provides a client interface to query [Trino](https://trino.io/)
-a distributed SQL engine. It supports Python 2.7, 3.5, 3.6, and pypy.
+a distributed SQL engine. It supports Python>=3.5 and pypy.
 
 # Installation
 
