@@ -9,14 +9,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from datetime import datetime
 import math
+from datetime import datetime
 
-from conftest import TRINO_VERSION
 import pytest
 import pytz
 
 import trino
+from conftest import TRINO_VERSION
 from trino.exceptions import TrinoQueryError
 from trino.transaction import IsolationLevel
 
@@ -371,3 +371,26 @@ def test_invalid_query_throws_correct_error(trino_connection):
             """,
             params=(3,),
         )
+
+
+def test_eager_loading_cursor_description(trino_connection):
+    description_expected = [
+        ('node_id', 'varchar', None, None, None, None, None),
+        ('http_uri', 'varchar', None, None, None, None, None),
+        ('node_version', 'varchar', None, None, None, None, None),
+        ('coordinator', 'boolean', None, None, None, None, None),
+        ('state', 'varchar', None, None, None, None, None),
+    ]
+    cur = trino_connection.cursor()
+    cur.execute('SELECT * FROM system.runtime.nodes')
+    description_before = cur.description
+
+    assert description_before is not None
+    assert len(description_before) == len(description_expected)
+    assert all([b == e] for b, e in zip(description_before, description_expected))
+
+    cur.fetchone()
+    description_after = cur.description
+    assert description_after is not None
+    assert len(description_after) == len(description_expected)
+    assert all([a == e] for a, e in zip(description_after, description_expected))

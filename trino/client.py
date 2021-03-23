@@ -37,17 +37,15 @@ import copy
 import os
 from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
 
-import trino.logging
 import requests
+
+import trino.logging
 from trino import constants, exceptions
 from trino.transaction import NO_TRANSACTION
 
-
 __all__ = ["TrinoQuery", "TrinoRequest"]
 
-
 logger = trino.logging.get_logger(__name__)
-
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
@@ -451,7 +449,7 @@ class TrinoResult(object):
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
-        while not self._query.is_finished():
+        while not self._query.finished:
             rows = self._query.fetch()
             for row in rows:
                 self._rownumber += 1
@@ -487,6 +485,11 @@ class TrinoQuery(object):
 
     @property
     def columns(self):
+        if self.query_id:
+            while not self._columns and not self.finished and not self.cancelled:
+                # Columns don't return immediate after query is summited.
+                # Continue fetching data until columns are available and push fetched rows into buffer.
+                self._result._rows += self.fetch()
         return self._columns
 
     @property
@@ -508,9 +511,9 @@ class TrinoQuery(object):
         This is the first HTTP request sent to the coordinator.
         It sets the query_id and returns a Result object used to
         track the rows returned by the query. To fetch all rows,
-        call fetch() until is_finished is true.
+        call fetch() until finished is true.
         """
-        if self._cancelled:
+        if self.cancelled:
             raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
 
         response = self._request.post(self._sql, additional_http_headers)
@@ -541,7 +544,7 @@ class TrinoQuery(object):
     def cancel(self):
         # type: () -> None
         """Cancel the current query"""
-        if self.query_id is None or self.is_finished():
+        if self.query_id is None or self.finished:
             return
 
         self._cancelled = True
@@ -555,8 +558,19 @@ class TrinoQuery(object):
         self._request.raise_response_error(response)
 
     def is_finished(self):
+        import warnings
+        warnings.warn("is_finished is deprecated, use finished instead", DeprecationWarning)
+        return self.finished
+
+    @property
+    def finished(self):
         # type: () -> bool
         return self._finished
+
+    @property
+    def cancelled(self):
+        # type: () -> bool
+        return self._cancelled
 
     @property
     def response_headers(self):
