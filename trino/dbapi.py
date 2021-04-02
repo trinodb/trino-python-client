@@ -29,10 +29,44 @@ from trino import constants
 import trino.exceptions
 import trino.client
 import trino.logging
-from trino.transaction import Transaction, IsolationLevel, NO_TRANSACTION
+from trino.transaction import (
+    Transaction,
+    IsolationLevel,
+    NO_TRANSACTION
+)
+from trino.exceptions import (
+    Warning,
+    Error,
+    InterfaceError,
+    DatabaseError,
+    DataError,
+    OperationalError,
+    IntegrityError,
+    InternalError,
+    ProgrammingError,
+    NotSupportedError,
+)
 
-
-__all__ = ["connect", "Connection", "Cursor"]
+__all__ = [
+    # https://www.python.org/dev/peps/pep-0249/#globals
+    "apilevel",
+    "threadsafety",
+    "paramstyle",
+    "connect",
+    "Connection",
+    "Cursor",
+    # https://www.python.org/dev/peps/pep-0249/#exceptions
+    "Warning",
+    "Error",
+    "InterfaceError",
+    "DatabaseError",
+    "DataError",
+    "OperationalError",
+    "IntegrityError",
+    "InternalError",
+    "ProgrammingError",
+    "NotSupportedError",
+]
 
 
 apilevel = "2.0"

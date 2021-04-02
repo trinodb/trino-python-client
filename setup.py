@@ -14,24 +14,23 @@
 
 import ast
 import re
-from setuptools import setup
 import textwrap
 
+from setuptools import setup
 
 _version_re = re.compile(r"__version__\s+=\s+(.*)")
-
 
 with open("trino/__init__.py", "rb") as f:
     trino_version = _version_re.search(f.read().decode("utf-8"))
     assert trino_version is not None
     version = str(ast.literal_eval(trino_version.group(1)))
 
-
 kerberos_require = ["requests_kerberos"]
+sqlalchemy_require = ["sqlalchemy~=1.3"]
 
-all_require = kerberos_require + []
+all_require = kerberos_require + sqlalchemy_require
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "click"]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "click", "assertpy"]
 
 setup(
     name="trino",
@@ -44,19 +43,17 @@ setup(
     description="Client for the Trino distributed SQL Engine",
     long_description=textwrap.dedent(
         """
-    Client for Trino (https://trino.io), a distributed SQL engine for
-    interactive and batch big data processing. Provides a low-level client and
-    a DBAPI 2.0 implementation.
-    """
+        Client for Trino (https://trino.io), a distributed SQL engine for
+        interactive and batch big data processing. Provides a low-level client and
+        a DBAPI 2.0 implementation.
+        """
     ),
     license="Apache 2.0",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: Apache Software License",
-        "Operating System :: MacOS :: MacOS X",
-        "Operating System :: POSIX",
-        "Operating System :: Microsoft :: Windows",
+        "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
@@ -66,6 +63,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
+        "Topic :: Database",
         "Topic :: Database :: Front-Ends",
     ],
     python_requires='>=3.6',
@@ -73,6 +71,12 @@ setup(
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
+        "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
+    },
+    entry_points={
+        "sqlalchemy.dialects": [
+            "trino = trino.sqlalchemy.dialect:TrinoDialect",
+        ]
     },
 )

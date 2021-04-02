@@ -36,16 +36,16 @@ class Authentication(metaclass=abc.ABCMeta):
 
 class KerberosAuthentication(Authentication):
     def __init__(
-        self,
-        config: Optional[str] = None,
-        service_name: str = None,
-        mutual_authentication: bool = False,
-        force_preemptive: bool = False,
-        hostname_override: Optional[str] = None,
-        sanitize_mutual_error_response: bool = True,
-        principal: Optional[str] = None,
-        delegate: bool = False,
-        ca_bundle: Optional[str] = None,
+            self,
+            config: Optional[str] = None,
+            service_name: str = None,
+            mutual_authentication: bool = False,
+            force_preemptive: bool = False,
+            hostname_override: Optional[str] = None,
+            sanitize_mutual_error_response: bool = True,
+            principal: Optional[str] = None,
+            delegate: bool = False,
+            ca_bundle: Optional[str] = None,
     ) -> None:
         self._config = config
         self._service_name = service_name
@@ -87,6 +87,19 @@ class KerberosAuthentication(Authentication):
         except ImportError:
             raise RuntimeError("unable to import requests_kerberos")
 
+    def __eq__(self, other):
+        if not isinstance(other, KerberosAuthentication):
+            return False
+        return (self._config == other._config
+                and self._service_name == other._service_name
+                and self._mutual_authentication == other._mutual_authentication
+                and self._force_preemptive == other._force_preemptive
+                and self._hostname_override == other._hostname_override
+                and self._sanitize_mutual_error_response == other._sanitize_mutual_error_response
+                and self._principal == other._principal
+                and self._delegate == other._delegate
+                and self._ca_bundle == other._ca_bundle)
+
 
 class BasicAuthentication(Authentication):
     def __init__(self, username, password):
@@ -105,11 +118,17 @@ class BasicAuthentication(Authentication):
     def get_exceptions(self):
         return ()
 
+    def __eq__(self, other):
+        if not isinstance(other, BasicAuthentication):
+            return False
+        return self._username == other._username and self._password == other._password
+
 
 class _BearerAuth(AuthBase):
     """
     Custom implementation of Authentication class for bearer token
     """
+
     def __init__(self, token):
         self.token = token
 
@@ -130,6 +149,11 @@ class JWTAuthentication(Authentication):
     def get_exceptions(self):
         return ()
 
+    def __eq__(self, other):
+        if not isinstance(other, JWTAuthentication):
+            return False
+        return self.token == other.token
+
 
 def handle_redirect_auth_url(auth_url):
     print("Open the following URL in browser for the external authentication:")
@@ -140,6 +164,7 @@ class _OAuth2TokenBearer(AuthBase):
     """
     Custom implementation of Trino Oauth2 based authorization to get the token
     """
+
     MAX_OAUTH_ATTEMPTS = 5
 
     class _AuthStep(Enum):
@@ -160,16 +185,16 @@ class _OAuth2TokenBearer(AuthBase):
             self._thread_local.auth_step = self._AuthStep.GET_REDIRECT_SERVER
 
         if self._thread_local.token:
-            r.headers['Authorization'] = "Bearer " + self._thread_local.token
+            r.headers['Authorization'] = f"Bearer {self._thread_local.token}"
 
         r.register_hook('response', self.__authenticate)
 
         return r
 
     def __authenticate(self, r, **kwargs):
-        if (self._thread_local.auth_step == self._AuthStep.GET_REDIRECT_SERVER):
+        if self._thread_local.auth_step == self._AuthStep.GET_REDIRECT_SERVER:
             self.__process_get_redirect_server(r)
-        elif (self._thread_local.auth_step == self._AuthStep.GET_TOKEN):
+        elif self._thread_local.auth_step == self._AuthStep.GET_TOKEN:
             self.__process_get_token(r)
         return r
 
@@ -249,3 +274,8 @@ class OAuth2Authentication(Authentication):
 
     def get_exceptions(self):
         return ()
+
+    def __eq__(self, other):
+        if not isinstance(other, OAuth2Authentication):
+            return False
+        return self._redirect_auth_url == other._redirect_auth_url

@@ -9,16 +9,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from enum import Enum, unique
 from typing import Iterable
 
-from trino import constants
 import trino.client
 import trino.exceptions
 import trino.logging
-
+from trino import constants
 
 logger = trino.logging.get_logger(__name__)
-
 
 NO_TRANSACTION = "NONE"
 START_TRANSACTION = "START TRANSACTION"
@@ -26,7 +25,8 @@ ROLLBACK = "ROLLBACK"
 COMMIT = "COMMIT"
 
 
-class IsolationLevel(object):
+@unique
+class IsolationLevel(Enum):
     AUTOCOMMIT = 0
     READ_UNCOMMITTED = 1
     READ_COMMITTED = 2
@@ -35,16 +35,16 @@ class IsolationLevel(object):
 
     @classmethod
     def levels(cls) -> Iterable[str]:
-        return {k for k, v in cls.__dict__.items() if not k.startswith("_") and isinstance(v, int)}
+        return {isolation_level.name for isolation_level in IsolationLevel}
 
     @classmethod
     def values(cls) -> Iterable[int]:
-        return {getattr(cls, level) for level in cls.levels()}
+        return {isolation_level.value for isolation_level in IsolationLevel}
 
     @classmethod
     def check(cls, level: int) -> int:
         if level not in cls.values():
-            raise ValueError("invalid isolation level {}".format(level))
+            raise ValueError(f"invalid isolation level {level}")
         return level
 
 
@@ -60,9 +60,7 @@ class Transaction(object):
     def begin(self):
         response = self._request.post(START_TRANSACTION)
         if not response.ok:
-            raise trino.exceptions.DatabaseError(
-                "failed to start transaction: {}".format(response.status_code)
-            )
+            raise trino.exceptions.DatabaseError(f"failed to start transaction: {response.status_code}")
         transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
         if transaction_id and transaction_id != NO_TRANSACTION:
             self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
@@ -74,16 +72,14 @@ class Transaction(object):
                 self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
             status = self._request.process(response)
         self._request.transaction_id = self._id
-        logger.info("transaction started: " + self._id)
+        logger.info("transaction started: %s", self._id)
 
     def commit(self):
         query = trino.client.TrinoQuery(self._request, COMMIT)
         try:
             list(query.execute())
         except Exception as err:
-            raise trino.exceptions.DatabaseError(
-                "failed to commit transaction {}: {}".format(self._id, err)
-            )
+            raise trino.exceptions.DatabaseError(f"failed to commit transaction {self._id}") from err
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
@@ -92,8 +88,6 @@ class Transaction(object):
         try:
             list(query.execute())
         except Exception as err:
-            raise trino.exceptions.DatabaseError(
-                "failed to rollback transaction {}: {}".format(self._id, err)
-            )
+            raise trino.exceptions.DatabaseError(f"failed to rollback transaction {self._id}") from err
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id

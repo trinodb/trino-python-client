@@ -9,5 +9,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from sqlalchemy.dialects import registry
 
-__version__ = "0.306.0"
+registry.register("trino", "trino.sqlalchemy.dialect", "TrinoDialect")

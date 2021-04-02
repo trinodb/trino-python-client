@@ -9,5 +9,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from trino.exceptions import TrinoQueryError  # noqa
 
-__version__ = "0.306.0"
+# ref: https://github.com/trinodb/trino/blob/master/core/trino-spi/src/main/java/io/trino/spi/StandardErrorCode.java
+NOT_FOUND = 'NOT_FOUND'
+COLUMN_NOT_FOUND = 'COLUMN_NOT_FOUND'
+TABLE_NOT_FOUND = 'TABLE_NOT_FOUND'
+SCHEMA_NOT_FOUND = 'SCHEMA_NOT_FOUND'
+CATALOG_NOT_FOUND = 'CATALOG_NOT_FOUND'
+
+MISSING_TABLE = 'MISSING_TABLE'
+MISSING_COLUMN_NAME = 'MISSING_COLUMN_NAME'
+MISSING_SCHEMA_NAME = 'MISSING_SCHEMA_NAME'
+MISSING_CATALOG_NAME = 'MISSING_CATALOG_NAME'
