@@ -35,7 +35,7 @@ The main interface is :class:`TrinoQuery`: ::
 
 import copy
 import os
-from typing import Any, Dict, List, Optional, Text, Tuple, Union  # NOQA for mypy types
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import requests
 
@@ -184,31 +184,30 @@ class TrinoRequest(object):
     http = requests
 
     HTTP_EXCEPTIONS = (
-        http.ConnectionError,  # type: ignore
-        http.Timeout,  # type: ignore
+        http.ConnectionError,
+        http.Timeout,
     )
 
     def __init__(
         self,
-        host,  # type: Text
-        port,  # type: int
-        user,  # type: Text
-        source=None,  # type: Text
-        catalog=None,  # type: Text
-        schema=None,  # type: Text
-        session_properties=None,  # type: Optional[Dict[Text, Any]]
-        http_session=None,  # type: Any
-        http_headers=None,  # type: Optional[Dict[Text, Text]]
-        transaction_id=NO_TRANSACTION,  # type: Optional[Text]
-        http_scheme=constants.HTTP,  # type: Text
-        auth=constants.DEFAULT_AUTH,  # type: Optional[Any]
-        redirect_handler=None,
-        max_attempts=MAX_ATTEMPTS,  # type: int
-        request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,  # type: Union[float, Tuple[float, float]]
+        host: str,
+        port: int,
+        user: str,
+        source: str = None,
+        catalog: str = None,
+        schema: str = None,
+        session_properties: Optional[Dict[str, Any]] = None,
+        http_session: Any = None,
+        http_headers: Optional[Dict[str, str]] = None,
+        transaction_id: Optional[str] = NO_TRANSACTION,
+        http_scheme: str = constants.HTTP,
+        auth: Optional[Any] = constants.DEFAULT_AUTH,
+        redirect_handler: Any = None,
+        max_attempts: int = MAX_ATTEMPTS,
+        request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=exceptions.RetryWithExponentialBackoff(),
-        verify=True     # type: Any
-    ):
-        # type: (...) -> None
+        verify: bool = True
+    ) -> None:
         self._client_session = ClientSession(
             catalog,
             schema,
@@ -221,13 +220,12 @@ class TrinoRequest(object):
 
         self._host = host
         self._port = port
-        self._next_uri = None  # type: Optional[Text]
+        self._next_uri: Optional[str] = None
 
         if http_session is not None:
             self._http_session = http_session
         else:
-            # mypy cannot follow module import
-            self._http_session = self.http.Session()  # type: ignore
+            self._http_session = self.http.Session()
             self._http_session.verify = verify
         self._http_session.headers.update(self.http_headers)
         self._exceptions = self.HTTP_EXCEPTIONS
@@ -253,8 +251,7 @@ class TrinoRequest(object):
         self._client_session.transaction_id = value
 
     @property
-    def http_headers(self):
-        # type: () -> Dict[Text, Text]
+    def http_headers(self) -> Dict[str, str]:
         headers = {}
 
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
@@ -280,13 +277,11 @@ class TrinoRequest(object):
         return headers
 
     @property
-    def max_attempts(self):
-        # type: () -> int
+    def max_attempts(self) -> int:
         return self._max_attempts
 
     @max_attempts.setter
-    def max_attempts(self, value):
-        # type: (int) -> None
+    def max_attempts(self, value) -> None:
         self._max_attempts = value
         if value == 1:  # No retry
             self._get = self._http_session.get
@@ -308,20 +303,17 @@ class TrinoRequest(object):
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
 
-    def get_url(self, path):
-        # type: (Text) -> Text
+    def get_url(self, path) -> str:
         return "{protocol}://{host}:{port}{path}".format(
             protocol=self._http_scheme, host=self._host, port=self._port, path=path
         )
 
     @property
-    def statement_url(self):
-        # type: () -> Text
+    def statement_url(self) -> str:
         return self.get_url(constants.URL_STATEMENT_PATH)
 
     @property
-    def next_uri(self):
-        # type: () -> Text
+    def next_uri(self) -> str:
         return self._next_uri
 
     def post(self, sql, additional_http_headers=None):
@@ -387,8 +379,7 @@ class TrinoRequest(object):
             )
         )
 
-    def process(self, http_response):
-        # type: (requests.Response) -> TrinoStatus
+    def process(self, http_response) -> TrinoStatus:
         if not http_response.ok:
             self.raise_response_error(http_response)
 
@@ -437,8 +428,7 @@ class TrinoResult(object):
         self._rownumber = 0
 
     @property
-    def rownumber(self):
-        # type: () -> int
+    def rownumber(self) -> int:
         return self._rownumber
 
     def __iter__(self):
@@ -466,16 +456,14 @@ class TrinoQuery(object):
 
     def __init__(
         self,
-        request,  # type: TrinoRequest
-        sql,  # type: Text
-    ):
-        # type: (...) -> None
-        self.query_id = None  # type: Optional[Text]
+        request: TrinoRequest,
+        sql: str,
+    ) -> None:
+        self.query_id: Optional[str] = None
 
-        self._stats = {}  # type: Dict[Any, Any]
-        self._warnings = []  # type: List[Dict[Any, Any]]
-        self._columns = None  # type: Optional[List[Text]]
-
+        self._stats: Dict[Any, Any] = {}
+        self._warnings: List[Dict[Any, Any]] = []
+        self._columns: Optional[List[str]] = None
         self._finished = False
         self._cancelled = False
         self._request = request
@@ -504,8 +492,7 @@ class TrinoQuery(object):
     def result(self):
         return self._result
 
-    def execute(self, additional_http_headers=None):
-        # type: () -> TrinoResult
+    def execute(self, additional_http_headers=None) -> TrinoResult:
         """Initiate a Trino query by sending the SQL statement
 
         This is the first HTTP request sent to the coordinator.
@@ -527,8 +514,7 @@ class TrinoQuery(object):
         self._result = TrinoResult(self, status.rows)
         return self._result
 
-    def fetch(self):
-        # type: () -> List[List[Any]]
+    def fetch(self) -> List[List[Any]]:
         """Continue fetching data for the current query_id"""
         response = self._request.get(self._request.next_uri)
         status = self._request.process(response)
@@ -541,8 +527,7 @@ class TrinoQuery(object):
             self._finished = True
         return status.rows
 
-    def cancel(self):
-        # type: () -> None
+    def cancel(self) -> None:
         """Cancel the current query"""
         if self.query_id is None or self.finished:
             return
@@ -557,19 +542,17 @@ class TrinoQuery(object):
             return
         self._request.raise_response_error(response)
 
-    def is_finished(self):
+    def is_finished(self) -> bool:
         import warnings
         warnings.warn("is_finished is deprecated, use finished instead", DeprecationWarning)
         return self.finished
 
     @property
-    def finished(self):
-        # type: () -> bool
+    def finished(self) -> bool:
         return self._finished
 
     @property
-    def cancelled(self):
-        # type: () -> bool
+    def cancelled(self) -> bool:
         return self._cancelled
 
     @property

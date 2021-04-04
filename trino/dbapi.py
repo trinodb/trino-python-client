@@ -400,8 +400,7 @@ class Cursor(object):
     def executemany(self, operation, seq_of_params):
         raise trino.exceptions.NotSupportedError
 
-    def fetchone(self):
-        # type: () -> Optional[List[Any]]
+    def fetchone(self) -> Optional[List[Any]]:
         """
 
         PEP-0249: Fetch the next row of a query result set, returning a single
@@ -418,8 +417,7 @@ class Cursor(object):
         except trino.exceptions.HttpError as err:
             raise trino.exceptions.OperationalError(str(err))
 
-    def fetchmany(self, size=None):
-        # type: (Optional[int]) -> List[List[Any]]
+    def fetchmany(self, size=None) -> List[List[Any]]:
         """
         PEP-0249: Fetch the next set of rows of a query result, returning a
         sequence of sequences (e.g. a list of tuples). An empty sequence is
@@ -455,8 +453,7 @@ class Cursor(object):
     def genall(self):
         return self._query.result
 
-    def fetchall(self):
-        # type: () -> List[List[Any]]
+    def fetchall(self) -> List[List[Any]]:
         return list(self.genall())
 
     def cancel(self):
