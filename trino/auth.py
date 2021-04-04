@@ -13,11 +13,11 @@
 import abc
 import os
 
-from typing import Any, Optional, Text  # NOQA
+from typing import Optional
 from requests.auth import AuthBase
 
 
-class Authentication(metaclass=abc.ABCMeta):  # type: ignore
+class Authentication(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def set_http_session(self, http_session):
         pass
@@ -40,17 +40,16 @@ class Authentication(metaclass=abc.ABCMeta):  # type: ignore
 class KerberosAuthentication(Authentication):
     def __init__(
         self,
-        config=None,  # type: Optional[Text]
-        service_name=None,  # type: Text
-        mutual_authentication=False,  # type: bool
-        force_preemptive=False,  # type: bool
-        hostname_override=None,  # type: Optional[Text]
-        sanitize_mutual_error_response=True,  # type: bool
-        principal=None,  # type: Optional[Text]
-        delegate=False,  # type: bool
-        ca_bundle=None,  # type: Optional[Text]
-    ):
-        # type: (...) -> None
+        config: Optional[str] = None,
+        service_name: str = None,
+        mutual_authentication: bool = False,
+        force_preemptive: bool = False,
+        hostname_override: Optional[str] = None,
+        sanitize_mutual_error_response: bool = True,
+        principal: Optional[str] = None,
+        delegate: bool = False,
+        ca_bundle: Optional[str] = None,
+    ) -> None:
         self._config = config
         self._service_name = service_name
         self._mutual_authentication = mutual_authentication

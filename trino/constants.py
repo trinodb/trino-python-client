@@ -10,16 +10,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional, Text  # NOQA: mypy types
+from typing import Any, Optional
 
 
 DEFAULT_PORT = 8080
 DEFAULT_SOURCE = "trino-python-client"
-DEFAULT_CATALOG = None  # type: Optional[Text]
-DEFAULT_SCHEMA = None  # type: Optional[Text]
-DEFAULT_AUTH = None  # type: Optional[Any]
+DEFAULT_CATALOG: Optional[str] = None
+DEFAULT_SCHEMA: Optional[str] = None
+DEFAULT_AUTH: Optional[Any] = None
 DEFAULT_MAX_ATTEMPTS = 3
-DEFAULT_REQUEST_TIMEOUT = 30.0  # type: float
+DEFAULT_REQUEST_TIMEOUT: float = 30.0
 
 HTTP = "http"
 HTTPS = "https"
