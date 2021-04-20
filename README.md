@@ -142,11 +142,9 @@ When the code is ready, submit a Pull Request.
 
 ## Running Tests
 
-There is a helper scripts, `run`, that provides commands to run tests.
-Type `./run tests` to run both unit and integration tests.
+`trino-python-client` uses [pytest](https://pytest.org/) for its tests. 
 
-`trino-python-client` uses [pytest](https://pytest.org/) for its tests. To run
-only unit tests, type:
+To run unit tests, type:
 
 ```
 $ pytest tests
@@ -161,15 +159,17 @@ use `tox` (see the configuration in `tox.ini`):
 $ tox
 ```
 
-To run integration tests:
+A Trino container is required to run integration tests, type:
+
+```
+$ docker run --rm -p 8080:8080 trinodb/trino:355
+```
+
+To run integration tests, type:
 
 ```
 $ pytest integration_tests
 ```
-
-They pull a Docker image and then run a container with a Trino server:
-- the image is named `trinodb/trino:${TRINO_VERSION}`
-- the container is named `trino-python-client-tests-{uuid4()[:7]}`
 
 ## Releasing
 

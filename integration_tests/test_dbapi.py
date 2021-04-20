@@ -12,31 +12,50 @@
 import math
 from datetime import datetime
 
+from requests.exceptions import ConnectionError
+from requests import Session
 import pytest
 import pytz
 
 import trino
-from conftest import TRINO_VERSION
 from trino.exceptions import TrinoQueryError
 from trino.transaction import IsolationLevel
 
 
-@pytest.fixture
-def trino_connection(run_trino):
-    _, host, port = run_trino
+HOST = 'localhost'
+PORT = 8080
+TRINO_VERSION = '355'  # The Trino server version used for integration tests
 
+
+@pytest.fixture(scope="session")
+def trino_start():
+    url = f'http://{HOST}:{PORT}/v1/info'
+    session = Session()
+    while True:
+        try:
+            response = session.get(url)
+            if not response.json().get('starting'):
+                break
+        except ConnectionError:
+            pass
+
+
+@pytest.fixture
+def trino_connection(trino_start):
     yield trino.dbapi.Connection(
-        host=host, port=port, user="test", source="test", max_attempts=1
+        host=HOST,
+        port=PORT,
+        user="test",
+        source="test",
+        max_attempts=1
     )
 
 
 @pytest.fixture
-def trino_connection_with_transaction(run_trino):
-    _, host, port = run_trino
-
+def trino_connection_with_transaction(trino_start):
     yield trino.dbapi.Connection(
-        host=host,
-        port=port,
+        host=HOST,
+        port=PORT,
         user="test",
         source="test",
         max_attempts=1,
@@ -304,17 +323,16 @@ def test_cancel_query(trino_connection):
     assert "Cancel query failed; no running query" in str(cancel_error.value)
 
 
-def test_session_properties(run_trino):
-    _, host, port = run_trino
-
+def test_session_properties():
     connection = trino.dbapi.Connection(
-        host=host,
-        port=port,
+        host=HOST,
+        port=PORT,
         user="test",
         source="test",
         session_properties={"query_max_run_time": "10m", "query_priority": "1"},
         max_attempts=1,
     )
+
     cur = connection.cursor()
     cur.execute("SHOW SESSION")
     rows = cur.fetchall()

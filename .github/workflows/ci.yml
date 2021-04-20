@@ -5,15 +5,19 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      trino:
+        image: trinodb/trino:355
+        ports:
+          - 8080:8080
     strategy:
       fail-fast: false
       matrix:
-        python-version: [
-          3.6,
-          3.7,
-          3.8,
-          3.9,
-        ]
+        python-version:
+          - 3.6
+          - 3.7
+          - 3.8
+          - 3.9
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
