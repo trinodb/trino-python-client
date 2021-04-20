@@ -547,14 +547,15 @@ class TrinoQuery(object):
         if self.query_id is None or self.finished:
             return
 
-        self._cancelled = True
         url = self._request.get_url("/v1/query/{}".format(self.query_id))
         logger.debug("cancelling query: %s", self.query_id)
         response = self._request.delete(url)
         logger.info(response)
         if response.status_code == requests.codes.no_content:
+            self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
             return
+
         self._request.raise_response_error(response)
 
     def is_finished(self):
