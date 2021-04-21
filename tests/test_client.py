@@ -552,6 +552,7 @@ def test_trino_fetch_error(monkeypatch):
     "error_code, error_type, error_message",
     [
         (503, trino.exceptions.Http503Error, "service unavailable"),
+        (504, trino.exceptions.Http504Error, "gateway timeout"),
         (404, trino.exceptions.HttpError, "error 404"),
     ],
 )
@@ -625,6 +626,28 @@ def test_authentication_fail_retry(monkeypatch):
 def test_503_error_retry(monkeypatch):
     http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 503
+
+    post_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
+
+    attempts = 3
+    req = TrinoRequest(
+        host="coordinator", port=8080, user="test", max_attempts=attempts
+    )
+
+    req.post("URL")
+    assert post_retry.retry_count == attempts
+
+    req.get("URL")
+    assert post_retry.retry_count == attempts
+
+
+def test_504_error_retry(monkeypatch):
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 504
 
     post_retry = RetryRecorder(result=http_resp)
     monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)

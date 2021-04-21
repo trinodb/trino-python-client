@@ -33,6 +33,10 @@ class Http503Error(HttpError):
     pass
 
 
+class Http504Error(HttpError):
+    pass
+
+
 class TrinoError(Exception):
     pass
 
