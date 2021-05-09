@@ -102,7 +102,7 @@ with trino.dbapi.connect(
 The transaction is created when the first SQL statement is executed.
 `trino.dbapi.Connection.commit()` will be automatically called when the code
 exits the *with* context and the queries succeed, otherwise
-`trino.dbapi.Connection.rollback()' will be called.
+`trino.dbapi.Connection.rollback()` will be called.
 
 # Development
 
