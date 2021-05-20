@@ -68,7 +68,7 @@ setup(
         "Topic :: Database :: Front-Ends",
     ],
     python_requires='>=3.6',
-    install_requires=["click", "requests"],
+    install_requires=["click", "requests", "requests-oauthlib"],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,

@@ -15,6 +15,8 @@ import os
 
 from typing import Optional
 from requests.auth import AuthBase
+from requests_oauthlib import OAuth2Session
+from oauthlib.oauth2 import BackendApplicationClient
 
 
 class Authentication(metaclass=abc.ABCMeta):
@@ -162,3 +164,34 @@ class JWTAuthentication(Authentication):
 
     def handle_error(self, handle_error):
         pass
+
+
+class _TokenAuth(AuthBase):
+    def __init__(self, token, token_type):
+        self.token = token
+        self.token_type = token_type
+    
+    def __call__(self, r):
+        r.headers["Authorization"] = f"{self.token_type} {self.token}"
+        return r
+
+
+class OAuth2Authentication(Authentication):
+    def __init__(self, token_endpoint, client_id, client_secret):
+        self.token_endpoint = token_endpoint
+        self.client_id = client_id
+        self.client_secret = client_secret
+    
+    def set_http_session(self, http_session):
+        client = BackendApplicationClient(client_id=self.client_id)
+        oauth = OAuth2Session(client=client)
+        token_info = oauth.fetch_token(token_url=self.token_endpoint, client_secret=self.client_secret)
+        http_session.auth = _TokenAuth(token_info['access_token'], token_info['token_type'])
+        return http_session
+
+    def set_client_session(self, client_session):
+        pass
+
+    def setup(self, trino_client) -> None:
+        self.set_client_session(trino_client.client_session)
+        self.set_http_session(trino_client.http_session)
