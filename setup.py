@@ -31,7 +31,7 @@ kerberos_require = ["requests_kerberos"]
 
 all_require = [kerberos_require]
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "flake8"]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "flake8", "click"]
 
 setup(
     name="trino",
@@ -68,7 +68,7 @@ setup(
         "Topic :: Database :: Front-Ends",
     ],
     python_requires='>=3.6',
-    install_requires=["click", "requests"],
+    install_requires=["requests"],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
