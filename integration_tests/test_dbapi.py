@@ -24,7 +24,7 @@ from trino.transaction import IsolationLevel
 
 HOST = 'localhost'
 PORT = 8080
-TRINO_VERSION = '355'  # The Trino server version used for integration tests
+TRINO_VERSION = '360'  # The Trino server version used for integration tests
 
 
 @pytest.fixture(scope="session")

@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       trino:
-        image: trinodb/trino:355
+        image: trinodb/trino:360
         ports:
           - 8080:8080
     strategy:
