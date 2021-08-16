@@ -22,16 +22,16 @@ _version_re = re.compile(r"__version__\s+=\s+(.*)")
 
 
 with open("trino/__init__.py", "rb") as f:
-    version = str(
-        ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
-    )
+    trino_version = _version_re.search(f.read().decode("utf-8"))
+    assert trino_version is not None
+    version = str(ast.literal_eval(trino_version.group(1)))
 
 
 kerberos_require = ["requests_kerberos"]
 
-all_require = [kerberos_require]
+all_require = kerberos_require + []
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "flake8", "click"]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "click"]
 
 setup(
     name="trino",

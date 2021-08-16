@@ -52,7 +52,7 @@ SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
 if SOCKS_PROXY:
     PROXIES = {"http": "socks5://" + SOCKS_PROXY, "https": "socks5://" + SOCKS_PROXY}
 else:
-    PROXIES = None
+    PROXIES = {}
 
 
 class ClientSession(object):
@@ -313,7 +313,7 @@ class TrinoRequest(object):
         return self.get_url(constants.URL_STATEMENT_PATH)
 
     @property
-    def next_uri(self) -> str:
+    def next_uri(self) -> Optional[str]:
         return self._next_uri
 
     def post(self, sql, additional_http_headers=None):
