@@ -3,6 +3,21 @@ name: ci
 on: [push, pull_request]
 
 jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout the source code"
+        uses: actions/checkout@v2
+
+      - name: "Install Python"
+        uses: actions/setup-python@v2
+
+      - name: "Install pre-commit"
+        run: pip install pre-commit
+
+      - name: "Run pre-commit checks"
+        run: pre-commit run --all-files
+
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -27,6 +42,3 @@ jobs:
       - name: Run tests
         run: |
           pytest -s tests/ integration_tests/
-      - name: Run linter
-        run: |
-          flake8
