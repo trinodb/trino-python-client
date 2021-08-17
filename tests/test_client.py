@@ -44,10 +44,10 @@ To get some HTTP response, set logging level to DEBUG with
 
 """
 RESP_DATA_POST_0 = {
-    "nextUri": "coordinator:8080/v1/statement/20161115_222658_00040_xtnym/1",
-    "id": "20161115_222658_00040_xtnym",
+    "nextUri": "coordinator:8080/v1/statement/20210817_140827_00000_arvdv/1",
+    "id": "20210817_140827_00000_arvdv",
     "taskDownloadUris": [],
-    "infoUri": "http://coordinator:8080/query.html?20161115_222658_00040_xtnym",
+    "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",
     "stats": {
         "scheduled": False,
         "runningSplits": 0,
@@ -75,8 +75,8 @@ and allow to use it for other tests. After doing the steps above, do:
 
 """
 RESP_DATA_GET_0 = {
-    "id": "20161116_195728_00000_xtnym",
-    "nextUri": "coordinator:8080/v1/statement/20161116_195728_00000_xtnym/2",
+    "id": "20210817_140827_00000_arvdv",
+    "nextUri": "coordinator:8080/v1/statement/20210817_140827_00000_arvdv/2",
     "data": [
         ["UUID-0", "http://worker0:8080", "0.157", False, "active"],
         ["UUID-1", "http://worker1:8080", "0.157", False, "active"],
@@ -135,7 +135,7 @@ RESP_DATA_GET_0 = {
         },
     ],
     "taskDownloadUris": [],
-    "partialCancelUri": "http://localhost:8080/v1/stage/20161116_195728_00000_xtnym.0",  # NOQA: E501
+    "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
     "stats": {
         "nodes": 2,
         "processedBytes": 880,
@@ -184,7 +184,7 @@ RESP_DATA_GET_0 = {
         "queuedSplits": 0,
         "wallTimeMillis": 36,
     },
-    "infoUri": "http://coordinator:8080/query.html?20161116_195728_00000_xtnym",  # NOQA: E501
+    "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
 }
 
 RESP_ERROR_GET_0 = {
@@ -198,39 +198,50 @@ RESP_ERROR_GET_0 = {
             "message": "line 1:15: Schema must be specified "
             "when session schema is not set",
             "stack": [
-                "com.facebook.presto.metadata.MetadataUtil.lambda$createQualifiedObjectName$2(MetadataUtil.java:133)",
-                "java.util.Optional.orElseThrow(Optional.java:290)",
-                "com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName(MetadataUtil.java:132)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitTable(StatementAnalyzer.java:529)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitTable(StatementAnalyzer.java:166)",
-                "com.facebook.presto.sql.tree.Table.accept(Table.java:50)",
-                "com.facebook.presto.sql.tree.AstVisitor.process(AstVisitor.java:22)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.analyzeFrom(StatementAnalyzer.java:1413)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuerySpecification(StatementAnalyzer.java:670)",  # NOQA: E501
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuerySpecification(StatementAnalyzer.java:166)",  # NOQA: E501
-                "com.facebook.presto.sql.tree.QuerySpecification.accept(QuerySpecification.java:125)",
-                "com.facebook.presto.sql.tree.AstVisitor.process(AstVisitor.java:22)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuery(StatementAnalyzer.java:438)",
-                "com.facebook.presto.sql.analyzer.StatementAnalyzer.visitQuery(StatementAnalyzer.java:166)",
-                "com.facebook.presto.sql.tree.Query.accept(Query.java:92)",
-                "com.facebook.presto.sql.tree.AstVisitor.process(AstVisitor.java:22)",
-                "com.facebook.presto.sql.analyzer.Analyzer.analyze(Analyzer.java:67)",
-                "com.facebook.presto.sql.analyzer.Analyzer.analyze(Analyzer.java:59)",
-                "com.facebook.presto.execution.SqlQueryExecution.doAnalyzeQuery(SqlQueryExecution.java:285)",
-                "com.facebook.presto.execution.SqlQueryExecution.analyzeQuery(SqlQueryExecution.java:271)",
-                "com.facebook.presto.execution.SqlQueryExecution.start(SqlQueryExecution.java:229)",
-                "com.facebook.presto.execution.QueuedExecution.lambda$start$1(QueuedExecution.java:62)",
-                "java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1142)",
-                "java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:617)",
-                "java.lang.Thread.run(Thread.java:745)",
+                "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:48)",
+                "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)",
+                "io.trino.metadata.MetadataUtil.lambda$createQualifiedObjectName$3(MetadataUtil.java:152)",
+                "java.base/java.util.Optional.orElseThrow(Optional.java:408)",
+                "io.trino.metadata.MetadataUtil.createQualifiedObjectName(MetadataUtil.java:151)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitTable(StatementAnalyzer.java:1298)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitTable(StatementAnalyzer.java:361)",
+                "io.trino.sql.tree.Table.accept(Table.java:53)",
+                "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.analyzeFrom(StatementAnalyzer.java:3182)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:1954)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:361)",
+                "io.trino.sql.tree.QuerySpecification.accept(QuerySpecification.java:155)",
+                "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:388)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuery(StatementAnalyzer.java:1168)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuery(StatementAnalyzer.java:361)",
+                "io.trino.sql.tree.Query.accept(Query.java:107)",
+                "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
+                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
+                "io.trino.sql.analyzer.StatementAnalyzer.analyze(StatementAnalyzer.java:341)",
+                "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:91)",
+                "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:83)",
+                "io.trino.execution.SqlQueryExecution.analyze(SqlQueryExecution.java:269)",
+                "io.trino.execution.SqlQueryExecution.\u003Cinit\u003E(SqlQueryExecution.java:190)",
+                "io.trino.execution.SqlQueryExecution$SqlQueryExecutionFactory.createQueryExecution(SqlQueryExecution.java:806)",  # NOQA: E501
+                "io.trino.dispatcher.LocalDispatchQueryFactory.lambda$createDispatchQuery$0(LocalDispatchQueryFactory.java:132)",  # NOQA: E501
+                "io.trino.$gen.Trino_360____20210817_140756_2.call(Unknown Source)",
+                "com.google.common.util.concurrent.TrustedListenableFutureTask$TrustedFutureInterruptibleTask.runInterruptibly(TrustedListenableFutureTask.java:125)",  # NOQA: E501
+                "com.google.common.util.concurrent.InterruptibleTask.run(InterruptibleTask.java:69)",
+                "com.google.common.util.concurrent.TrustedListenableFutureTask.run(TrustedListenableFutureTask.java:78)",  # NOQA: E501
+                "java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)",
+                "java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)",
+                "java.base/java.lang.Thread.run(Thread.java:829)",
             ],
             "suppressed": [],
-            "type": "com.facebook.presto.sql.analyzer.SemanticException",
+            "type": "io.trino.spi.TrinoException",
         },
         "message": "line 1:15: Schema must be specified when session schema is not set",
     },
-    "id": "20161116_205844_00002_xtnym",
-    "infoUri": "http://test02.presto.data.facebook.com:7777/query.html?20161116_205844_00002_xtnym",
+    "id": "20210817_140827_00000_arvdv",
+    "infoUri": "http://localhost:8080/query.html?20210817_140827_00000_arvdv",
     "stats": {
         "completedSplits": 0,
         "cpuTimeMillis": 0,
@@ -472,16 +483,16 @@ def test_trino_fetch_error(monkeypatch):
     assert error.error_code == 1
     assert error.error_name == "SYNTAX_ERROR"
     assert error.error_type == "USER_ERROR"
-    assert error.error_exception == "com.facebook.presto.sql.analyzer.SemanticException"
+    assert error.error_exception == "io.trino.spi.TrinoException"
     assert "stack" in error.failure_info
-    assert len(error.failure_info["stack"]) == 25
+    assert len(error.failure_info["stack"]) == 36
     assert "suppressed" in error.failure_info
     assert (
         error.message
         == "line 1:15: Schema must be specified when session schema is not set"
     )
     assert error.error_location == (1, 15)
-    assert error.query_id == "20161116_205844_00002_xtnym"
+    assert error.query_id == "20210817_140827_00000_arvdv"
 
 
 @pytest.mark.parametrize(
