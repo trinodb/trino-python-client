@@ -501,7 +501,7 @@ class TrinoQuery(object):
         call fetch() until finished is true.
         """
         if self.cancelled:
-            raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
+            raise exceptions.TrinoUserError({"message": "Query has been cancelled"}, self.query_id)
 
         response = self._request.post(self._sql, additional_http_headers)
         status = self._request.process(response)

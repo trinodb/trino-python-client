@@ -15,10 +15,10 @@ This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
 
-
 import functools
 import random
 import time
+import typing
 
 import trino.logging
 
@@ -42,44 +42,53 @@ class TimeoutError(Exception):
 
 
 class TrinoQueryError(Exception):
-    def __init__(self, error, query_id=None):
+
+    def __init__(
+        self,
+        error: typing.Dict[str, typing.Any],
+        query_id: typing.Optional[str] = None,
+    ):
         self._error = error
         self._query_id = query_id
 
     @property
-    def error_code(self):
+    def error_code(self) -> typing.Optional[int]:
         return self._error.get("errorCode", None)
 
     @property
-    def error_name(self):
+    def error_name(self) -> typing.Optional[str]:
         return self._error.get("errorName", None)
 
     @property
-    def error_type(self):
+    def error_type(self) -> typing.Optional[str]:
         return self._error.get("errorType", None)
 
     @property
-    def error_exception(self):
+    def error_exception(self) -> typing.Optional[str]:
         return self.failure_info.get("type", None) if self.failure_info else None
 
     @property
-    def failure_info(self):
+    def failure_info(self) -> typing.Optional[typing.Dict[str, typing.Any]]:
         return self._error.get("failureInfo", None)
 
     @property
-    def message(self):
-        return self._error.get("message", "Trino did no return an error message")
+    def message(self) -> str:
+        return self._error.get("message", "Trino did not return an error message")
 
     @property
-    def error_location(self):
-        location = self._error["errorLocation"]
-        return (location["lineNumber"], location["columnNumber"])
+    def error_location(self) -> typing.Optional[typing.Tuple[int, int]]:
+        location = self._error.get("errorLocation", None)
+
+        if location is None:
+            return None
+        else:
+            return location["lineNumber"], location["columnNumber"]
 
     @property
-    def query_id(self):
+    def query_id(self) -> typing.Optional[str]:
         return self._query_id
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '{}(type={}, name={}, message="{}", query_id={})'.format(
             self.__class__.__name__,
             self.error_type,
@@ -88,7 +97,7 @@ class TrinoQueryError(Exception):
             self.query_id,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return repr(self)
 
 

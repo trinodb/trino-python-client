@@ -16,8 +16,10 @@ defined in pep-0249.
 """
 
 
-from trino import exceptions
 import pytest
+
+from trino import exceptions
+from trino.exceptions import TrinoQueryError
 
 
 def test_delay_exponential_without_jitter():
@@ -72,3 +74,51 @@ def test_retry_with():
     with_retry(FailerUntil(2).__call__)()
     with pytest.raises(SomeException):
         with_retry(FailerUntil(3).__call__)()
+
+
+def test_trino_query_error_available():
+    error = TrinoQueryError(
+        error={
+            "errorCode": 400,
+            "errorName": "fake_name",
+            "errorType": "fake_type",
+            "failureInfo": {
+                "type": "fake_failure_type",
+            },
+            "message": "fake_message",
+            "errorLocation": {
+                "lineNumber": 24,
+                "columnNumber": 42,
+            },
+        },
+        query_id="fake_ID",
+    )
+
+    assert error.error_code == 400
+    assert error.error_exception == "fake_failure_type"
+    assert error.error_location == (24, 42)
+    assert error.error_name == "fake_name"
+    assert error.error_type == "fake_type"
+    assert error.message == "fake_message"
+    assert error.query_id == "fake_ID"
+
+    assert repr(error) == """TrinoQueryError(type=fake_type, name=fake_name, message="fake_message", query_id=fake_ID)"""  # noqa: E501
+    assert str(error) == repr(error)
+
+
+def test_trino_query_error_unavailable():
+    error = TrinoQueryError(
+        error=dict(),
+        query_id="fake_ID",
+    )
+
+    assert error.error_code is None
+    assert error.error_exception is None
+    assert error.error_location is None
+    assert error.error_name is None
+    assert error.error_type is None
+    assert error.message == "Trino did not return an error message"
+    assert error.query_id == "fake_ID"
+
+    assert repr(error) == """TrinoQueryError(type=None, name=None, message="Trino did not return an error message", query_id=fake_ID)"""  # noqa: E501
+    assert str(error) == repr(error)
