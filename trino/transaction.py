@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Iterable
 
 from trino import constants
 import trino.client
@@ -33,15 +34,15 @@ class IsolationLevel(object):
     SERIALIZABLE = 4
 
     @classmethod
-    def levels(cls):
-        return {k for k in cls.__dict__.keys() if not k.startswith("_")}
+    def levels(cls) -> Iterable[str]:
+        return {k for k, v in cls.__dict__.items() if not k.startswith("_") and isinstance(v, int)}
 
     @classmethod
-    def values(cls):
+    def values(cls) -> Iterable[int]:
         return {getattr(cls, level) for level in cls.levels()}
 
     @classmethod
-    def check(cls, level):
+    def check(cls, level: int) -> int:
         if level not in cls.values():
             raise ValueError("invalid isolation level {}".format(level))
         return level
