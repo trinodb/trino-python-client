@@ -104,6 +104,24 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
+# Fetch as json
+If you need to fetch your queryset as a list of dictionaries (with column names as keys) you can use the alternative for fetchall method on the cursor.
+
+```python
+import trino
+conn = trino.dbapi.connect(
+    host='localhost',
+    port=8080,
+    user='the-user',
+    catalog='the-catalog',
+    schema='the-schema',
+)
+cur = conn.cursor()
+cur.execute('SELECT * FROM system.runtime.nodes')
+rows = cur.fetchjson()
+```
+
+
 # Development
 
 ## Getting Started With Development
@@ -129,9 +147,21 @@ For development purpose, pip can reference the code you are modifying in a
 $ pip install -e .[tests]
 ```
 
+
 That way, you do not need to run `pip install` again to make your changes
 applied to the *virtualenv*.
 
+If you use debian or redhat linux distributions. you may need to install following to be able to install pip packages:
+
+for Debian/Ubuntu/etc:
+```
+$ sudo apt-get install gcc python-dev libkrb5-dev
+```
+
+for RHEL/CentOS/etc:
+```
+$ sudo yum install gcc python-devel krb5-devel krb5-workstation python-devel
+```
 When the code is ready, submit a Pull Request.
 
 ## Code Style
