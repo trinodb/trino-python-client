@@ -466,6 +466,11 @@ class Cursor(object):
     def close(self):
         self._connection.close()
 
+    def fetchjson(self):
+        columns = [col['name'] for col in self._query.columns]
+        rows = self.fetchall()
+        return [dict(zip(columns, item)) for item in rows]
+
 
 Date = datetime.date
 Time = datetime.time
