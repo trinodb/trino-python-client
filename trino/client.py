@@ -44,7 +44,7 @@ import trino.logging
 from trino import constants, exceptions
 from trino.transaction import NO_TRANSACTION
 
-__all__ = ["TrinoQuery", "TrinoRequest"]
+__all__ = ["TrinoQuery", "TrinoRequest", "PROXIES"]
 
 logger = trino.logging.get_logger(__name__)
 
@@ -305,8 +305,9 @@ class TrinoRequest(object):
             exceptions=self._exceptions,
             conditions=(
                 # need retry when there is no exception but the status code is 503 or 504
+                # retry 401 for OAuth
                 lambda response: getattr(response, "status_code", None)
-                in (503, 504),
+                in (401, 503, 504),
             ),
             max_attempts=self._max_attempts,
         )

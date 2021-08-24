@@ -76,6 +76,24 @@ cur = conn.cursor()
 cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
+# OAuth2 Authentication
+- It can be used for the Oauth2 enabled trino server https://trino.io/docs/current/security/oauth2.html
+- A callback to handle the redirect url can be provided via param redirect_auth_url_handler, by default it just outputs the redirect url to stdout
+```python
+import trino
+conn = trino.dbapi.connect(
+    host='coordinator-url',
+    port=8443,
+    user='the-user',
+    catalog='the-catalog',
+    schema='the-schema',
+    http_scheme='https',
+    auth=trino.auth.OAuth2Authentication(),
+)
+cur = conn.cursor()
+cur.execute('SELECT * FROM system.runtime.nodes')
+rows = cur.fetchall()
+```
 
 # Transactions
 The client runs by default in *autocommit* mode. To enable transactions, set
