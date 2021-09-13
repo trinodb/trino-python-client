@@ -200,7 +200,7 @@ class TrinoRequest(object):
         http_session: Any = None,
         http_headers: Optional[Dict[str, str]] = None,
         transaction_id: Optional[str] = NO_TRANSACTION,
-        http_scheme: str = constants.HTTP,
+        http_scheme: str = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
@@ -222,6 +222,14 @@ class TrinoRequest(object):
         self._port = port
         self._next_uri: Optional[str] = None
 
+        if http_scheme is None:
+            if self._port == constants.DEFAULT_TLS_PORT:
+                self._http_scheme = constants.HTTPS
+            else:
+                self._http_scheme = constants.HTTP
+        else:
+            self._http_scheme = http_scheme
+
         if http_session is not None:
             self._http_session = http_session
         else:
@@ -231,7 +239,7 @@ class TrinoRequest(object):
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
         if self._auth:
-            if http_scheme == constants.HTTP:
+            if self._http_scheme == constants.HTTP:
                 raise ValueError("cannot use authentication with HTTP")
             self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
@@ -240,7 +248,6 @@ class TrinoRequest(object):
         self._request_timeout = request_timeout
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
-        self._http_scheme = http_scheme
 
     @property
     def transaction_id(self):
