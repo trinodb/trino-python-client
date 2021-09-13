@@ -15,6 +15,7 @@ import pytest
 import requests
 import time
 from unittest import mock
+from urllib.parse import urlparse
 
 
 from requests_kerberos.exceptions import KerberosExchangeError
@@ -400,6 +401,58 @@ def test_request_invalid_http_headers():
             http_headers={constants.HEADER_USER: "invalid_header"},
         )
     assert str(value_error.value).startswith("cannot override reserved HTTP header")
+
+
+def test_enabling_https_automatically_when_using_port_443(monkeypatch):
+    post_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+    )
+
+    req.post("SELECT 1")
+    parsed_url = urlparse(post_recorder.args[0])
+
+    assert parsed_url.scheme == constants.HTTPS
+
+
+def test_https_scheme(monkeypatch):
+    post_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTPS,
+    )
+
+    req.post("SELECT 1")
+    parsed_url = urlparse(post_recorder.args[0])
+
+    assert parsed_url.scheme == constants.HTTPS
+    assert parsed_url.port == constants.DEFAULT_TLS_PORT
+
+
+def test_http_scheme_with_port(monkeypatch):
+    post_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTP,
+    )
+
+    req.post("SELECT 1")
+    parsed_url = urlparse(post_recorder.args[0])
+
+    assert parsed_url.scheme == constants.HTTP
+    assert parsed_url.port == constants.DEFAULT_TLS_PORT
 
 
 def test_request_timeout():
