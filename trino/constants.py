@@ -10,14 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Optional
+from typing import Optional
 
+from trino.auth import Authentication
 
 DEFAULT_PORT = 8080
 DEFAULT_SOURCE = "trino-python-client"
 DEFAULT_CATALOG: Optional[str] = None
 DEFAULT_SCHEMA: Optional[str] = None
-DEFAULT_AUTH: Optional[Any] = None
+DEFAULT_AUTH: Optional[Authentication] = None
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_REQUEST_TIMEOUT: float = 30.0
 

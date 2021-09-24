@@ -41,6 +41,7 @@ import requests
 
 import trino.logging
 from trino import constants, exceptions
+from trino.auth import Authentication
 from trino.transaction import NO_TRANSACTION
 
 __all__ = ["TrinoQuery", "TrinoRequest"]
@@ -201,7 +202,7 @@ class TrinoRequest(object):
         http_headers: Optional[Dict[str, str]] = None,
         transaction_id: Optional[str] = NO_TRANSACTION,
         http_scheme: str = constants.HTTP,
-        auth: Optional[Any] = constants.DEFAULT_AUTH,
+        auth: Optional[Authentication] = constants.DEFAULT_AUTH,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
