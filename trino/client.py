@@ -154,6 +154,10 @@ class TrinoRequest(object):
     :request_timeout: How long (in seconds) to wait for the server to send
                       data before giving up, as a float or a
                       ``(connect timeout, read timeout)`` tuple.
+    :param parametric_datetime: bool (default = False), opt-in to datetime
+                                types with variable precision, for example
+                                ``timestamp(6)``. When not set, datetime
+                                types are returned with a precision of 3
 
     The client initiates a query by sending an HTTP POST to the
     coordinator. It then gets a response back from the coordinator with:
@@ -206,7 +210,8 @@ class TrinoRequest(object):
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=exceptions.RetryWithExponentialBackoff(),
-        verify: bool = True
+        verify: bool = True,
+        parametric_datetime: bool = False
     ) -> None:
         self._client_session = ClientSession(
             catalog,
@@ -221,6 +226,8 @@ class TrinoRequest(object):
         self._host = host
         self._port = port
         self._next_uri: Optional[str] = None
+
+        self.parametric_datetime = parametric_datetime
 
         if http_scheme is None:
             if self._port == constants.DEFAULT_TLS_PORT:
@@ -280,6 +287,9 @@ class TrinoRequest(object):
 
         transaction_id = self._client_session.transaction_id
         headers[constants.HEADER_TRANSACTION] = transaction_id
+
+        if self.parametric_datetime:
+            headers[constants.HEADER_TRINO_CLIENT_CAPABILITIES] = constants.HEADER_TRINO_PARAMETRIC_DATETIME_VALUE
 
         return headers
 
