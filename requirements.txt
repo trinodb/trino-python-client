@@ -1,0 +1,7 @@
+click
+requests
+requests_kerberos
+pytz
+httpretty
+pytest
+tox
