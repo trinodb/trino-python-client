@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 
 DEFAULT_PORT = 8080
+DEFAULT_TLS_PORT = 443
 DEFAULT_SOURCE = "trino-python-client"
 DEFAULT_CATALOG: Optional[str] = None
 DEFAULT_SCHEMA: Optional[str] = None
@@ -42,3 +43,6 @@ HEADER_TRANSACTION = "X-Trino-Transaction-Id"
 HEADER_PREPARED_STATEMENT = 'X-Trino-Prepared-Statement'
 HEADER_ADDED_PREPARE = 'X-Trino-Added-Prepare'
 HEADER_DEALLOCATED_PREPARE = 'X-Trino-Deallocated-Prepare'
+
+HEADER_TRINO_CLIENT_CAPABILITIES = 'X-Trino-Client-Capabilities'
+HEADER_TRINO_PARAMETRIC_DATETIME_VALUE = 'PARAMETRIC_DATETIME'

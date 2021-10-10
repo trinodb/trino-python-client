@@ -106,22 +106,6 @@ def test_string_query_param(trino_connection):
     assert rows[0][0] == "six'"
 
 
-def test_datetime_query_param(trino_connection):
-    cur = trino_connection.cursor()
-
-    cur.execute("SELECT ?", params=(datetime(2020, 1, 1, 0, 0, 0),))
-    rows = cur.fetchall()
-
-    assert rows[0][0] == "2020-01-01 00:00:00.000"
-
-    cur.execute("SELECT ?",
-                params=(datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.utc),))
-    rows = cur.fetchall()
-
-    assert rows[0][0] == "2020-01-01 00:00:00.000 UTC"
-    assert cur.description[0][1] == "timestamp with time zone"
-
-
 def test_array_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -394,3 +378,35 @@ def test_eager_loading_cursor_description(trino_connection):
     assert description_after is not None
     assert len(description_after) == len(description_expected)
     assert all([a == e] for a, e in zip(description_after, description_expected))
+
+
+@pytest.mark.parametrize(
+    'parametric_datetime, datetime, expected_time, description',
+    (
+        (False, datetime(2020, 1, 1, 0, 0, 0, 0), "2020-01-01 00:00:00.000", "timestamp with time zone"),
+        (True, datetime(2020, 1, 1, 0, 0, 0, 100001), "2020-01-01 00:00:00.100001", "timestamp(6) with time zone"),
+    )
+)
+def test_datetime_query_param(run_trino, parametric_datetime, datetime, expected_time, description):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        source="test",
+        parametric_datetime=parametric_datetime
+    )
+
+    cur = connection.cursor()
+
+    cur.execute("SELECT ?", params=(datetime,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == expected_time
+
+    cur.execute("SELECT ?", params=(datetime.replace(tzinfo=pytz.utc),))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == f"{expected_time} UTC"
+    assert cur.description[0][1] == description
