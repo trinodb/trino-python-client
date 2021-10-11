@@ -21,6 +21,6 @@ def test_get_header_values():
 
 
 def test_get_session_property_values():
-    headers = {constants.HEADER_SET_SESSION: "a=1, b=2"}
+    headers = {constants.HEADER_SET_SESSION: "a=1, b=2, c=more%3Dv1%2Cv2"}
     values = get_session_property_values(headers, constants.HEADER_SET_SESSION)
-    assert values == [("a", "1"), ("b", "2")]
+    assert values == [("a", "1"), ("b", "2"), ("c", "more=v1,v2")]

@@ -36,6 +36,7 @@ The main interface is :class:`TrinoQuery`: ::
 import copy
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
+import urllib.parse
 
 import requests
 
@@ -91,7 +92,10 @@ def get_header_values(headers, header):
 
 def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [(k.strip(), v.strip()) for k, v in (kv.split("=", 1) for kv in kvs)]
+    return [
+        (k.strip(), urllib.parse.unquote(v.strip()))
+        for k, v in (kv.split("=", 1) for kv in kvs)
+    ]
 
 
 class TrinoStatus(object):
@@ -268,7 +272,7 @@ class TrinoRequest(object):
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, value)
+            "{}={}".format(name, urllib.parse.quote(str(value)))
             for name, value in self._client_session.properties.items()
         )
 
