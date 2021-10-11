@@ -358,6 +358,34 @@ def test_request_headers(monkeypatch):
     assert_headers(get_recorder.kwargs["headers"])
 
 
+def test_request_session_properties_headers(monkeypatch):
+    post_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+
+    get_recorder = ArgumentsRecorder()
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_recorder)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        user="test_user",
+        session_properties={
+            "a": "1",
+            "b": "2",
+            "c": "more=v1,v2"
+        }
+    )
+
+    def assert_headers(headers):
+        assert headers[constants.HEADER_SESSION] == "a=1,b=2,c=more%3Dv1%2Cv2"
+
+    req.post("URL")
+    assert_headers(post_recorder.kwargs["headers"])
+
+    req.get("URL")
+    assert_headers(get_recorder.kwargs["headers"])
+
+
 def test_additional_request_post_headers(monkeypatch):
     """
     Tests that the `TrinoRequest.post` function can take addtional headers
