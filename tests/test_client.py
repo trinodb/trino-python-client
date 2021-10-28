@@ -25,257 +25,9 @@ from trino import constants
 import trino.exceptions
 
 
-"""
-This is the response to the first HTTP request (a POST) from an actual
-Trino session. It is deliberately not truncated to document such response
-and allow to use it for other tests.
-To get some HTTP response, set logging level to DEBUG with
-``logging.basicConfig(level=logging.DEBUG)`` or
-``trino.client.logger.setLevel(logging.DEBUG)``.
-
-::
-    from trino import dbapi
-
-    >>> import logging
-    >>> import trino.client
-    >>> trino.client.logger.setLevel(logging.DEBUG)
-    >>> conn = dbapi.Connection('localhost', 8080, 'ggreg', 'test')
-    >>> cur = conn.cursor()
-    >>> res = cur.execute('select * from system.runtime.nodes')
-
-"""
-RESP_DATA_POST_0 = {
-    "nextUri": "coordinator:8080/v1/statement/20210817_140827_00000_arvdv/1",
-    "id": "20210817_140827_00000_arvdv",
-    "taskDownloadUris": [],
-    "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",
-    "stats": {
-        "scheduled": False,
-        "runningSplits": 0,
-        "processedRows": 0,
-        "queuedSplits": 0,
-        "processedBytes": 0,
-        "state": "QUEUED",
-        "completedSplits": 0,
-        "queued": True,
-        "cpuTimeMillis": 0,
-        "totalSplits": 0,
-        "nodes": 0,
-        "userTimeMillis": 0,
-        "wallTimeMillis": 0,
-    },
-}
-
-"""
-This is the response to the second HTTP request (a GET) from an actual
-Trino session. It is deliberately not truncated to document such response
-and allow to use it for other tests. After doing the steps above, do:
-
-::
-    >>> cur.fetchall()
-
-"""
-RESP_DATA_GET_0 = {
-    "id": "20210817_140827_00000_arvdv",
-    "nextUri": "coordinator:8080/v1/statement/20210817_140827_00000_arvdv/2",
-    "data": [
-        ["UUID-0", "http://worker0:8080", "0.157", False, "active"],
-        ["UUID-1", "http://worker1:8080", "0.157", False, "active"],
-        ["UUID-2", "http://worker2:8080", "0.157", False, "active"],
-    ],
-    "columns": [
-        {
-            "name": "node_id",
-            "type": "varchar",
-            "typeSignature": {
-                "typeArguments": [],
-                "arguments": [{"kind": "LONG_LITERAL", "value": 2147483647}],
-                "literalArguments": [],
-                "rawType": "varchar",
-            },
-        },
-        {
-            "name": "http_uri",
-            "type": "varchar",
-            "typeSignature": {
-                "typeArguments": [],
-                "arguments": [{"kind": "LONG_LITERAL", "value": 2147483647}],
-                "literalArguments": [],
-                "rawType": "varchar",
-            },
-        },
-        {
-            "name": "node_version",
-            "type": "varchar",
-            "typeSignature": {
-                "typeArguments": [],
-                "arguments": [{"kind": "LONG_LITERAL", "value": 2147483647}],
-                "literalArguments": [],
-                "rawType": "varchar",
-            },
-        },
-        {
-            "name": "coordinator",
-            "type": "boolean",
-            "typeSignature": {
-                "typeArguments": [],
-                "arguments": [],
-                "literalArguments": [],
-                "rawType": "boolean",
-            },
-        },
-        {
-            "name": "state",
-            "type": "varchar",
-            "typeSignature": {
-                "typeArguments": [],
-                "arguments": [{"kind": "LONG_LITERAL", "value": 2147483647}],
-                "literalArguments": [],
-                "rawType": "varchar",
-            },
-        },
-    ],
-    "taskDownloadUris": [],
-    "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
-    "stats": {
-        "nodes": 2,
-        "processedBytes": 880,
-        "scheduled": True,
-        "completedSplits": 2,
-        "userTimeMillis": 0,
-        "state": "RUNNING",
-        "rootStage": {
-            "nodes": 1,
-            "done": False,
-            "processedBytes": 1044,
-            "subStages": [
-                {
-                    "nodes": 1,
-                    "done": True,
-                    "processedBytes": 880,
-                    "subStages": [],
-                    "completedSplits": 1,
-                    "userTimeMillis": 0,
-                    "state": "FINISHED",
-                    "cpuTimeMillis": 3,
-                    "runningSplits": 0,
-                    "totalSplits": 1,
-                    "processedRows": 8,
-                    "stageId": "1",
-                    "queuedSplits": 0,
-                    "wallTimeMillis": 27,
-                }
-            ],
-            "completedSplits": 1,
-            "userTimeMillis": 0,
-            "state": "RUNNING",
-            "cpuTimeMillis": 1,
-            "runningSplits": 0,
-            "totalSplits": 1,
-            "processedRows": 8,
-            "stageId": "0",
-            "queuedSplits": 0,
-            "wallTimeMillis": 9,
-        },
-        "queued": False,
-        "cpuTimeMillis": 3,
-        "runningSplits": 0,
-        "totalSplits": 2,
-        "processedRows": 8,
-        "queuedSplits": 0,
-        "wallTimeMillis": 36,
-    },
-    "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
-}
-
-RESP_ERROR_GET_0 = {
-    "error": {
-        "errorCode": 1,
-        "errorLocation": {"columnNumber": 15, "lineNumber": 1},
-        "errorName": "SYNTAX_ERROR",
-        "errorType": "USER_ERROR",
-        "failureInfo": {
-            "errorLocation": {"columnNumber": 15, "lineNumber": 1},
-            "message": "line 1:15: Schema must be specified "
-            "when session schema is not set",
-            "stack": [
-                "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:48)",
-                "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)",
-                "io.trino.metadata.MetadataUtil.lambda$createQualifiedObjectName$3(MetadataUtil.java:152)",
-                "java.base/java.util.Optional.orElseThrow(Optional.java:408)",
-                "io.trino.metadata.MetadataUtil.createQualifiedObjectName(MetadataUtil.java:151)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitTable(StatementAnalyzer.java:1298)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitTable(StatementAnalyzer.java:361)",
-                "io.trino.sql.tree.Table.accept(Table.java:53)",
-                "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.analyzeFrom(StatementAnalyzer.java:3182)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:1954)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:361)",
-                "io.trino.sql.tree.QuerySpecification.accept(QuerySpecification.java:155)",
-                "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:388)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuery(StatementAnalyzer.java:1168)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuery(StatementAnalyzer.java:361)",
-                "io.trino.sql.tree.Query.accept(Query.java:107)",
-                "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
-                "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
-                "io.trino.sql.analyzer.StatementAnalyzer.analyze(StatementAnalyzer.java:341)",
-                "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:91)",
-                "io.trino.sql.analyzer.Analyzer.analyze(Analyzer.java:83)",
-                "io.trino.execution.SqlQueryExecution.analyze(SqlQueryExecution.java:269)",
-                "io.trino.execution.SqlQueryExecution.\u003Cinit\u003E(SqlQueryExecution.java:190)",
-                "io.trino.execution.SqlQueryExecution$SqlQueryExecutionFactory.createQueryExecution(SqlQueryExecution.java:806)",  # NOQA: E501
-                "io.trino.dispatcher.LocalDispatchQueryFactory.lambda$createDispatchQuery$0(LocalDispatchQueryFactory.java:132)",  # NOQA: E501
-                "io.trino.$gen.Trino_360____20210817_140756_2.call(Unknown Source)",
-                "com.google.common.util.concurrent.TrustedListenableFutureTask$TrustedFutureInterruptibleTask.runInterruptibly(TrustedListenableFutureTask.java:125)",  # NOQA: E501
-                "com.google.common.util.concurrent.InterruptibleTask.run(InterruptibleTask.java:69)",
-                "com.google.common.util.concurrent.TrustedListenableFutureTask.run(TrustedListenableFutureTask.java:78)",  # NOQA: E501
-                "java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1128)",
-                "java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:628)",
-                "java.base/java.lang.Thread.run(Thread.java:829)",
-            ],
-            "suppressed": [],
-            "type": "io.trino.spi.TrinoException",
-        },
-        "message": "line 1:15: Schema must be specified when session schema is not set",
-    },
-    "id": "20210817_140827_00000_arvdv",
-    "infoUri": "http://localhost:8080/query.html?20210817_140827_00000_arvdv",
-    "stats": {
-        "completedSplits": 0,
-        "cpuTimeMillis": 0,
-        "nodes": 0,
-        "processedBytes": 0,
-        "processedRows": 0,
-        "queued": False,
-        "queuedSplits": 0,
-        "runningSplits": 0,
-        "scheduled": False,
-        "state": "FAILED",
-        "totalSplits": 0,
-        "userTimeMillis": 0,
-        "wallTimeMillis": 0,
-    },
-    "taskDownloadUris": [],
-}
-
-
-def get_json_post_0(self):
-    return RESP_DATA_POST_0
-
-
-def get_json_get_0(self):
-    return RESP_DATA_GET_0
-
-
-def get_json_get_error_0(self):
-    return RESP_ERROR_GET_0
-
-
-def test_trino_initial_request(monkeypatch):
-    monkeypatch.setattr(TrinoRequest.http.Response, "json", get_json_post_0)
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trino_initial_request(mock_requests, sample_post_response_data):
+    mock_requests.Response.return_value.json.return_value = sample_post_response_data
 
     req = TrinoRequest(
         host="coordinator",
@@ -292,29 +44,12 @@ def test_trino_initial_request(monkeypatch):
     http_resp.status_code = 200
     status = req.process(http_resp)
 
-    assert status.next_uri == RESP_DATA_POST_0["nextUri"]
-    assert status.id == RESP_DATA_POST_0["id"]
+    assert status.next_uri == sample_post_response_data["nextUri"]
+    assert status.id == sample_post_response_data["id"]
 
 
-class ArgumentsRecorder(object):
-    def __init__(self):
-        # Prevent functools.wraps from complaining when it decorates the
-        # instance.
-        self.__name__ = "ArgumentsRecorder"
-        self.args = None
-        self.kwargs = None
-
-    def __call__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-
-
-def test_request_headers(monkeypatch):
-    post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
-
-    get_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_recorder)
+def test_request_headers(mock_get_and_post):
+    get, post = mock_get_and_post
 
     catalog = "test_catalog"
     schema = "test_schema"
@@ -352,18 +87,16 @@ def test_request_headers(monkeypatch):
         assert len(headers.keys()) == 8
 
     req.post("URL")
-    assert_headers(post_recorder.kwargs["headers"])
+    _, post_kwargs = post.call_args
+    assert_headers(post_kwargs["headers"])
 
     req.get("URL")
-    assert_headers(get_recorder.kwargs["headers"])
+    _, get_kwargs = get.call_args
+    assert_headers(get_kwargs["headers"])
 
 
-def test_request_session_properties_headers(monkeypatch):
-    post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
-
-    get_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_recorder)
+def test_request_session_properties_headers(mock_get_and_post):
+    get, post = mock_get_and_post
 
     req = TrinoRequest(
         host="coordinator",
@@ -380,19 +113,20 @@ def test_request_session_properties_headers(monkeypatch):
         assert headers[constants.HEADER_SESSION] == "a=1,b=2,c=more%3Dv1%2Cv2"
 
     req.post("URL")
-    assert_headers(post_recorder.kwargs["headers"])
+    _, post_kwargs = post.call_args
+    assert_headers(post_kwargs["headers"])
 
     req.get("URL")
-    assert_headers(get_recorder.kwargs["headers"])
+    _, get_kwargs = get.call_args
+    assert_headers(get_kwargs["headers"])
 
 
-def test_additional_request_post_headers(monkeypatch):
+def test_additional_request_post_headers(mock_get_and_post):
     """
     Tests that the `TrinoRequest.post` function can take addtional headers
     and that it combines them with the existing ones to perform the request.
     """
-    post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+    _, post = mock_get_and_post
 
     req = TrinoRequest(
         host="coordinator",
@@ -417,7 +151,8 @@ def test_additional_request_post_headers(monkeypatch):
     req.post(sql, additional_headers)
 
     # Validate that the post call was performed including the addtional headers
-    assert post_recorder.kwargs['headers'] == combined_headers
+    _, post_kwargs = post.call_args
+    assert post_kwargs['headers'] == combined_headers
 
 
 def test_request_invalid_http_headers():
@@ -431,9 +166,8 @@ def test_request_invalid_http_headers():
     assert str(value_error.value).startswith("cannot override reserved HTTP header")
 
 
-def test_enabling_https_automatically_when_using_port_443(monkeypatch):
-    post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
+    _, post = mock_get_and_post
 
     req = TrinoRequest(
         host="coordinator",
@@ -442,14 +176,14 @@ def test_enabling_https_automatically_when_using_port_443(monkeypatch):
     )
 
     req.post("SELECT 1")
-    parsed_url = urlparse(post_recorder.args[0])
+    post_args, _ = post.call_args
+    parsed_url = urlparse(post_args[0])
 
     assert parsed_url.scheme == constants.HTTPS
 
 
-def test_https_scheme(monkeypatch):
-    post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+def test_https_scheme(mock_get_and_post):
+    _, post = mock_get_and_post
 
     req = TrinoRequest(
         host="coordinator",
@@ -459,15 +193,15 @@ def test_https_scheme(monkeypatch):
     )
 
     req.post("SELECT 1")
-    parsed_url = urlparse(post_recorder.args[0])
+    post_args, _ = post.call_args
+    parsed_url = urlparse(post_args[0])
 
     assert parsed_url.scheme == constants.HTTPS
     assert parsed_url.port == constants.DEFAULT_TLS_PORT
 
 
-def test_http_scheme_with_port(monkeypatch):
-    post_recorder = ArgumentsRecorder()
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_recorder)
+def test_http_scheme_with_port(mock_get_and_post):
+    _, post = mock_get_and_post
 
     req = TrinoRequest(
         host="coordinator",
@@ -477,7 +211,8 @@ def test_http_scheme_with_port(monkeypatch):
     )
 
     req.post("SELECT 1")
-    parsed_url = urlparse(post_recorder.args[0])
+    post_args, _ = post.call_args
+    parsed_url = urlparse(post_args[0])
 
     assert parsed_url.scheme == constants.HTTP
     assert parsed_url.port == constants.DEFAULT_TLS_PORT
@@ -519,8 +254,9 @@ def test_request_timeout():
     httpretty.reset()
 
 
-def test_trino_fetch_request(monkeypatch):
-    monkeypatch.setattr(TrinoRequest.http.Response, "json", get_json_get_0)
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trino_fetch_request(mock_requests, sample_get_response_data):
+    mock_requests.Response.return_value.json.return_value = sample_get_response_data
 
     req = TrinoRequest(
         host="coordinator",
@@ -537,13 +273,14 @@ def test_trino_fetch_request(monkeypatch):
     http_resp.status_code = 200
     status = req.process(http_resp)
 
-    assert status.next_uri == RESP_DATA_GET_0["nextUri"]
-    assert status.id == RESP_DATA_GET_0["id"]
-    assert status.rows == RESP_DATA_GET_0["data"]
+    assert status.next_uri == sample_get_response_data["nextUri"]
+    assert status.id == sample_get_response_data["id"]
+    assert status.rows == sample_get_response_data["data"]
 
 
-def test_trino_fetch_error(monkeypatch):
-    monkeypatch.setattr(TrinoRequest.http.Response, "json", get_json_get_error_0)
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
+    mock_requests.Response.return_value.json.return_value = sample_get_error_response_data 
 
     req = TrinoRequest(
         host="coordinator",
@@ -730,7 +467,7 @@ def test_trino_result_response_headers():
     assert result.response_headers == mock_trino_query.response_headers
 
 
-def test_trino_query_response_headers():
+def test_trino_query_response_headers(sample_get_response_data):
     """
     Validates that the `TrinoQuery.execute` function can take addtional headers
     that are pass the the provided request instance post function call and it
@@ -746,7 +483,7 @@ def test_trino_query_response_headers():
             }
 
         def json(self):
-            return get_json_post_0(self)
+            return sample_get_response_data
 
     req = TrinoRequest(
         host="coordinator",
