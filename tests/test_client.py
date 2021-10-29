@@ -280,7 +280,7 @@ def test_trino_fetch_request(mock_requests, sample_get_response_data):
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
-    mock_requests.Response.return_value.json.return_value = sample_get_error_response_data 
+    mock_requests.Response.return_value.json.return_value = sample_get_error_response_data
 
     req = TrinoRequest(
         host="coordinator",
