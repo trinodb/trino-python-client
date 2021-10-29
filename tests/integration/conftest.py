@@ -153,6 +153,11 @@ def run_trino():
         stop_trino(container_id, proc)
 
 
+@pytest.fixture(scope="module")
+def trino_version():
+    yield TRINO_VERSION
+
+
 @click.group()
 def cli():
     pass
