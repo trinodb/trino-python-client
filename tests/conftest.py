@@ -13,6 +13,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
+
 @pytest.fixture(scope="session")
 def sample_post_response_data():
     """
@@ -182,6 +183,7 @@ def sample_get_response_data():
         "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
     }
 
+
 @pytest.fixture(scope="session")
 def sample_get_error_response_data():
     yield {
@@ -206,8 +208,8 @@ def sample_get_error_response_data():
                     "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
                     "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
                     "io.trino.sql.analyzer.StatementAnalyzer$Visitor.analyzeFrom(StatementAnalyzer.java:3182)",
-                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:1954)",
-                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:361)",
+                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:1954)",  # noqa: E501
+                    "io.trino.sql.analyzer.StatementAnalyzer$Visitor.visitQuerySpecification(StatementAnalyzer.java:361)",  # noqa: E501
                     "io.trino.sql.tree.QuerySpecification.accept(QuerySpecification.java:155)",
                     "io.trino.sql.tree.AstVisitor.process(AstVisitor.java:27)",
                     "io.trino.sql.analyzer.StatementAnalyzer$Visitor.process(StatementAnalyzer.java:378)",
