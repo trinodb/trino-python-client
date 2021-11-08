@@ -9,20 +9,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
+import re
+import threading
+import time
+import uuid
+from collections import namedtuple
+from unittest import mock
+from urllib.parse import urlparse
 
 import httpretty
 import pytest
 import requests
-import time
-from unittest import mock
-from urllib.parse import urlparse
-
-
+from httpretty import httprettified
 from requests_kerberos.exceptions import KerberosExchangeError
-from trino.client import TrinoQuery, TrinoRequest, TrinoResult
-from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
-from trino import constants
+
 import trino.exceptions
+from trino import constants
+from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
+from trino.client import TrinoQuery, TrinoRequest, TrinoResult
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -254,225 +259,368 @@ def test_request_timeout():
     httpretty.reset()
 
 
-OAUTH_SERVER_URL_NO_HEADER = "http://coordinator/no_header"
-OAUTH_SERVER_URL_FAIL_SERVER = "http://coordinator/fail_server"
-OAUTH_SERVER_URL_SERVER_DENIED = "http://coordinator/server_denied_accesss"
-OAUTH_SERVER_URL_SERVER_SUCCESS = "http://coordinator/statement_url_suceess"
-OAUTH_REDIRECT_SERVER = "https://coordinator/as/authorization.oauth2"
-OAUTH_SERVER_URL_LOOP = "https://coordinator/oauth2/token/loop"
-OAUTH_SERVER_URL_1 = "https://coordinator/oauth2/token/13b03a96-1311-43eb-ada1-a2a9746f7281"
-OAUTH_SERVER_URL_2 = "https://coordinator/oauth2/token/e71970b6-d1e7-447e-8d82-9325d3f6192d"
-OAUTH_SERVER_URL_FORCE_FAIL = "https://coordinator/oauth2/token/force_fail"
-OAUTH_SERVER_URL_DENY_ACCESS = "https://coordinator/oauth2/token/deny_access"
-OAUTH_DENY_ERROR_TEXT = '{"error": "OAuth server returned an error: error=access_denied, error_description=null, error_uri=null, state=EncodedState"}'  # NOQA: E501
-OAUTH_TEST_TOKEN = "FakeToken1234567890"
+SERVER_ADDRESS = "https://coordinator"
+REDIRECT_PATH = "oauth2/initiate"
+TOKEN_PATH = "oauth2/token"
+REDIRECT_RESOURCE = f"{SERVER_ADDRESS}/{REDIRECT_PATH}"
+TOKEN_RESOURCE = f"{SERVER_ADDRESS}/{TOKEN_PATH}"
 
 
-def oauth2_test_url_handler(url):
-    print(url, end='')
+class RedirectHandler:
+    def __init__(self):
+        self.redirect_server = ""
+
+    def __call__(self, url):
+        self.redirect_server += url
 
 
-class OAuthTestReq:
-    def __init__(self, method, url):
-        self.method = method
-        self.url = url
+class PostStatementCallback:
+    def __init__(self, redirect_server, token_server, tokens, sample_post_response_data):
+        self.redirect_server = redirect_server
+        self.token_server = token_server
+        self.tokens = tokens
+        self.sample_post_response_data = sample_post_response_data
 
-    def __call__(self, str, callback_func):
-        if (self.method == 'post'):
-            callback_func(self.get_statement_post_response())
-        elif (self.method == 'get'):
-            callback_func(self.get_token_url_response())
-
-    def get_statement_request(self):
-        req = mock.Mock()
-        req.url = self.url
-        req.headers = requests.structures.CaseInsensitiveDict()
-        req.register_hook = mock.Mock(side_effect=self)
-        return req
-
-    def get_token_request(self):
-        req = mock.Mock()
-        req.url = self.url
-        req.headers = requests.structures.CaseInsensitiveDict()
-        req.register_hook = mock.Mock(side_effect=self)
-        return req
-
-    def get_statement_post_response(self):
-        statement_resp = mock.Mock()
-        statement_resp.status_code = 401
-        if (self.url == OAUTH_SERVER_URL_NO_HEADER):
-            statement_resp.headers = requests.structures.CaseInsensitiveDict()
-        elif (self.url == OAUTH_SERVER_URL_FAIL_SERVER):
-            statement_resp.headers = requests.structures.CaseInsensitiveDict([
-                ('Www-Authenticate',
-                    'Bearer x_redirect_server=\"{OAUTH_REDIRECT_SERVER}\",'
-                    f'x_token_server=\"{OAUTH_SERVER_URL_FORCE_FAIL}\",'
-                    'Basic realm=\"Trino\"')])
-        elif (self.url == OAUTH_SERVER_URL_SERVER_DENIED):
-            statement_resp.headers = requests.structures.CaseInsensitiveDict([
-                ('Www-Authenticate',
-                    'Bearer x_redirect_server=\"{OAUTH_REDIRECT_SERVER}\",'
-                    f'x_token_server=\"{OAUTH_SERVER_URL_DENY_ACCESS}\",'
-                    'Basic realm=\"Trino\"')])
-        elif (self.url == OAUTH_SERVER_URL_SERVER_SUCCESS):
-            statement_resp.status_code = 200
-            statement_resp.headers = requests.structures.CaseInsensitiveDict([
-                ('Www-Authenticate',
-                    f'Bearer x_redirect_server=\"{OAUTH_REDIRECT_SERVER}\",'
-                    f'x_token_server=\"{OAUTH_SERVER_URL_1}\",'
-                    'Basic realm=\"Trino\"')])
-        else:
-            statement_resp.headers = requests.structures.CaseInsensitiveDict([
-                ('Www-Authenticate',
-                    f'Bearer x_redirect_server=\"{OAUTH_REDIRECT_SERVER}\",'
-                    f'x_token_server=\"{OAUTH_SERVER_URL_1}\",'
-                    'Basic realm=\"Trino\"')])
-
-        statement_resp.register_hook = mock.Mock(side_effect=self)
-        statement_resp.url = self.url
-        return statement_resp
-
-    def get_token_url_response(self):
-        token_resp = mock.Mock()
-        token_resp.status_code = 200
-
-        # Success cases
-        if self.url == OAUTH_SERVER_URL_1:
-            token_resp.text = f'{{"nextUri":"{OAUTH_SERVER_URL_2}"}}'
-        elif self.url == OAUTH_SERVER_URL_2:
-            token_resp.text = f'{{"token":"{OAUTH_TEST_TOKEN}"}}'
-
-        # Failure cases
-        elif self.url == OAUTH_SERVER_URL_FORCE_FAIL:
-            token_resp.status_code = 500
-        elif self.url == OAUTH_SERVER_URL_DENY_ACCESS:
-            token_resp.text = OAUTH_DENY_ERROR_TEXT
-        elif self.url == OAUTH_SERVER_URL_LOOP:
-            token_resp.text = f'{{"nextUri":"{OAUTH_SERVER_URL_LOOP}"}}'
-
-        return token_resp
+    def __call__(self, request, uri, response_headers):
+        authorization = request.headers.get("Authorization")
+        if authorization and authorization.replace("Bearer ", "") in self.tokens:
+            return [200, response_headers, json.dumps(self.sample_post_response_data)]
+        return [401, {'Www-Authenticate': f'Bearer x_redirect_server="{self.redirect_server}", '
+                                          f'x_token_server="{self.token_server}"',
+                      'Basic realm': '"Trino"'}, ""]
 
 
-def call_response_hook(str, callback_func):
-    statement_resp = mock.Mock()
-    statement_resp.headers = requests.structures.CaseInsensitiveDict([
-        ('Www-Authenticate',
-            f'Bearer x_redirect_server=\"{OAUTH_REDIRECT_SERVER}\",'
-            f'x_token_server=\"{OAUTH_SERVER_URL_1}\",'
-            'Basic realm=\"Trino\"')])
-    statement_resp.status_code = 401
-    callback_func(statement_resp)
+class GetTokenCallback:
+    def __init__(self, token_server, token, attempts=1):
+        self.token_server = token_server
+        self.token = token
+        self.attempts = attempts
+
+    def __call__(self, request, uri, response_headers):
+        self.attempts -= 1
+        if self.attempts < 0:
+            return [404, response_headers, "{}"]
+        if self.attempts == 0:
+            return [200, response_headers, f'{{"token": "{self.token}"}}']
+        return [200, response_headers, f'{{"nextUri": "{self.token_server}"}}']
 
 
-@mock.patch("requests.Session.get")
-@mock.patch("requests.Session.post")
-def test_oauth2_authentication_flow(http_session_post, http_session_get, capsys):
-    http_session = requests.Session()
+@pytest.mark.parametrize("attempts", [1, 3, 5])
+@httprettified
+def test_oauth2_authentication_flow(attempts, sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
 
-    # set up the patched session, with the correct response
-    oauth_test = OAuthTestReq("post", "http://coordinator/statement_url")
-    http_session_post.return_value = oauth_test.get_statement_post_response()
-    http_session_get.side_effect = oauth_test.get_token_url_response()
-    oauth = _OAuth2TokenBearer(http_session, oauth2_test_url_handler)
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
-    statement_req = oauth_test.get_statement_request()
-    oauth(statement_req)
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
 
-    oauth_test = OAuthTestReq("get", OAUTH_SERVER_URL_1)
-    token_req = oauth_test.get_token_request()
-    oauth(token_req)
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
 
-    oauth_test = OAuthTestReq("get", OAUTH_SERVER_URL_2)
-    token_req = oauth_test.get_token_request()
-    oauth(token_req)
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token, attempts)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
 
-    # Finally resend the original request, and respond back with status code 200
-    oauth_test = OAuthTestReq("post", "http://coordinator/statement_url_suceess")
-    # statement_req.register_hook = mock.Mock(side_effect=oauth_test)
-    statement_req = oauth_test.get_statement_request()
-    http_session_post.return_value = oauth_test.get_statement_post_response()
-    oauth(statement_req)
+    redirect_handler = RedirectHandler()
 
-    out, err = capsys.readouterr()
-    assert out == OAUTH_REDIRECT_SERVER
-    assert statement_req.headers['Authorization'] == "Bearer " + OAUTH_TEST_TOKEN
+    request = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTPS,
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+    response = request.post("select 1")
+
+    assert response.request.headers['Authorization'] == f"Bearer {token}"
+    assert redirect_handler.redirect_server == redirect_server
+    assert get_token_callback.attempts == 0
+    assert len(_post_statement_requests()) == 2
+    assert len(_get_token_requests(challenge_id)) == attempts
 
 
-@mock.patch("requests.Session.get")
-@mock.patch("requests.Session.post")
-def test_oauth2_exceed_max_attempts(http_session_post, http_session_get):
-    http_session = requests.Session()
+@pytest.mark.parametrize("attempts", [6, 10])
+@httprettified
+def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
 
-    # set up the patched session, with the correct response
-    oauth_test = OAuthTestReq("post", "http://coordinator/statement_url")
-    http_session_post.return_value = oauth_test.get_statement_post_response()
-    http_session_get.side_effect = oauth_test.get_token_url_response()
-    oauth = _OAuth2TokenBearer(http_session, oauth2_test_url_handler)
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
-    statement_req = oauth_test.get_statement_request()
-    oauth(statement_req)
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
 
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token, attempts)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=f"{TOKEN_RESOURCE}/{challenge_id}",
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    request = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTPS,
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
     with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
-        for i in range(0, 5):
-            oauth_test = OAuthTestReq("get", OAUTH_SERVER_URL_1)
-            token_req = oauth_test.get_token_request()
-            oauth(token_req)
+        request.post("select 1")
 
     assert str(exp.value) == "Exceeded max attempts while getting the token"
+    assert redirect_handler.redirect_server == redirect_server
+    assert get_token_callback.attempts == attempts - _OAuth2TokenBearer.MAX_OAUTH_ATTEMPTS
+    assert len(_post_statement_requests()) == 1
+    assert len(_get_token_requests(challenge_id)) == _OAuth2TokenBearer.MAX_OAUTH_ATTEMPTS
 
 
-@mock.patch("requests.Session.post")
-def test_oauth2_authentication_missing_headers(http_session_post):
-    http_session = requests.Session()
-    oauth_test = OAuthTestReq("post", OAUTH_SERVER_URL_NO_HEADER)
-    http_session_post.return_value = oauth_test.get_statement_post_response()
-    oauth = _OAuth2TokenBearer(http_session, oauth2_test_url_handler)
+@pytest.mark.parametrize("header,error", [
+    ("", "Error: header WWW-Authenticate not available in the response."),
+    ('Bearer"', 'Error: header info didn\'t have x_redirect_server'),
+    ('x_redirect_server="redirect_server", x_token_server="token_server"', 'Error: header info didn\'t match x_redirect_server="redirect_server", x_token_server="token_server"'),  # noqa: E501
+    ('Bearer x_redirect_server="redirect_server"', 'Error: header info didn\'t have x_token_server'),
+    ('Bearer x_token_server="token_server"', 'Error: header info didn\'t have x_redirect_server'),
+])
+@httprettified
+def test_oauth2_authentication_missing_headers(header, error):
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+        adding_headers={'WWW-Authenticate': header},
+        status=401)
 
-    with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
-        statement_req = oauth_test.get_statement_request()
-        oauth(statement_req)
-
-    assert str(exp.value) == "Error: header WWW-Authenticate not available in the response."
-
-
-@mock.patch("requests.Session.get")
-@mock.patch("requests.Session.post")
-def test_oauth2_authentication_fail_token_server(http_session_post, http_session_get):
-    http_session = requests.Session()
-    oauth_test = OAuthTestReq("post", OAUTH_SERVER_URL_FAIL_SERVER)
-    http_session_post.return_value = oauth_test.get_statement_post_response()
-    oauth = _OAuth2TokenBearer(http_session, oauth2_test_url_handler)
-    http_session_get.side_effect = oauth_test.get_token_url_response()
-
-    statement_req = oauth_test.get_statement_request()
-    oauth(statement_req)
-
-    with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
-        oauth_test = OAuthTestReq("get", OAUTH_SERVER_URL_FORCE_FAIL)
-        token_req = oauth_test.get_token_request()
-        oauth(token_req)
-
-    assert "Error while getting the token response status" in str(exp.value)
-
-
-@mock.patch("requests.Session.get")
-@mock.patch("requests.Session.post")
-def test_oauth2_authentication_access_denied(http_session_post, http_session_get):
-    http_session = requests.Session()
-    oauth_test = OAuthTestReq("post", OAUTH_SERVER_URL_SERVER_DENIED)
-    http_session_post.return_value = oauth_test.get_statement_post_response()
-    oauth = _OAuth2TokenBearer(http_session, oauth2_test_url_handler)
-    http_session_get.side_effect = oauth_test.get_token_url_response()
-
-    statement_req = oauth_test.get_statement_request()
-    oauth(statement_req)
+    request = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTPS,
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=RedirectHandler()))
 
     with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
-        oauth_test = OAuthTestReq("get", OAUTH_SERVER_URL_FORCE_FAIL)
-        token_req = oauth_test.get_token_request()
-        oauth(token_req)
+        request.post("select 1")
 
-    assert "Error while getting the token" in str(exp.value)
+    assert str(exp.value) == error
+
+
+@pytest.mark.parametrize("header", [
+    'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge',
+    'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge="value"',
+    'Bearer x_token_server="{token_server}", x_redirect_server="{redirect_server}"',
+])
+@httprettified
+def test_oauth2_header_parsing(header, sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    # noinspection PyUnusedLocal
+    def post_statement(request, uri, response_headers):
+        authorization = request.headers.get("Authorization")
+        if authorization and authorization.replace("Bearer ", "") in token:
+            return [200, response_headers, json.dumps(sample_post_response_data)]
+        return [401, {'Www-Authenticate': header.format(redirect_server=redirect_server, token_server=token_server),
+                      'Basic realm': '"Trino"'}, ""]
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+        body=post_statement)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    response = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTPS,
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+    ).post("select 1")
+
+    assert response.request.headers['Authorization'] == f"Bearer {token}"
+    assert redirect_handler.redirect_server == redirect_server
+    assert get_token_callback.attempts == 0
+    assert len(_post_statement_requests()) == 2
+    assert len(_get_token_requests(challenge_id)) == 1
+
+
+@pytest.mark.parametrize("http_status", [400, 401, 500])
+@httprettified
+def test_oauth2_authentication_fail_token_server(http_status, sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=f"{TOKEN_RESOURCE}/{challenge_id}",
+        status=http_status,
+        body="error")
+
+    redirect_handler = RedirectHandler()
+
+    request = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        http_scheme=constants.HTTPS,
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+
+    with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
+        request.post("select 1")
+
+    assert redirect_handler.redirect_server == redirect_server
+    assert str(exp.value) == f"Error while getting the token response status code: {http_status}, body: error"
+    assert len(_post_statement_requests()) == 1
+    assert len(_get_token_requests(challenge_id)) == 1
+
+
+class MultithreadedTokenServer:
+    Challenge = namedtuple('Challenge', ['token', 'attempts'])
+
+    def __init__(self, sample_post_response_data, attempts=1):
+        self.tokens = set()
+        self.challenges = {}
+        self.sample_post_response_data = sample_post_response_data
+        self.attempts = attempts
+
+        # bind post statement
+        httpretty.register_uri(
+            method=httpretty.POST,
+            uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+            body=self.post_statement_callback)
+
+        # bind get token
+        httpretty.register_uri(
+            method=httpretty.GET,
+            uri=re.compile(rf"{TOKEN_RESOURCE}/.*"),
+            body=self.get_token_callback)
+
+    # noinspection PyUnusedLocal
+    def post_statement_callback(self, request, uri, response_headers):
+        authorization = request.headers.get("Authorization")
+
+        if authorization and authorization.replace("Bearer ", "") in self.tokens:
+            return [200, response_headers, json.dumps(self.sample_post_response_data)]
+
+        challenge_id = str(uuid.uuid4())
+        token = str(uuid.uuid4())
+        self.tokens.add(token)
+        self.challenges[challenge_id] = MultithreadedTokenServer.Challenge(token, self.attempts)
+        redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+        token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+        return [401, {'Www-Authenticate': f'Bearer x_redirect_server="{redirect_server}", '
+                                          f'x_token_server="{token_server}"',
+                      'Basic realm': '"Trino"'}, ""]
+
+    # noinspection PyUnusedLocal
+    def get_token_callback(self, request, uri, response_headers):
+        challenge_id = uri.replace(f"{TOKEN_RESOURCE}/", "")
+        challenge = self.challenges[challenge_id]
+        challenge = challenge._replace(attempts=challenge.attempts - 1)
+        self.challenges[challenge_id] = challenge
+        if challenge.attempts < 0:
+            return [404, response_headers, "{}"]
+        if challenge.attempts == 0:
+            return [200, response_headers, f'{{"token": "{challenge.token}"}}']
+        return [200, response_headers, f'{{"nextUri": "{uri}"}}']
+
+
+@httprettified
+def test_multithreaded_oauth2_authentication_flow(sample_post_response_data):
+    redirect_handler = RedirectHandler()
+    auth = trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+
+    token_server = MultithreadedTokenServer(sample_post_response_data)
+
+    class RunningThread(threading.Thread):
+        lock = threading.Lock()
+
+        def __init__(self):
+            super().__init__()
+            self.token = None
+
+        def run(self) -> None:
+            request = TrinoRequest(
+                host="coordinator",
+                port=constants.DEFAULT_TLS_PORT,
+                user="test",
+                http_scheme=constants.HTTPS,
+                auth=auth)
+            for i in range(10):
+                # apparently HTTPretty in the current version is not thread-safe
+                # https://github.com/gabrielfalcao/HTTPretty/issues/209
+                with RunningThread.lock:
+                    response = request.post("select 1")
+                self.token = response.request.headers["Authorization"].replace("Bearer ", "")
+
+    threads = [RunningThread(), RunningThread(), RunningThread()]
+
+    # run and join all threads
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    # should issue only 3 tokens and each thread should get one
+    assert len(token_server.tokens) == 3
+    for thread in threads:
+        assert thread.token in token_server.tokens
+
+    # should start only 3 challenges and every token should be obtained
+    assert len(token_server.challenges.keys()) == 3
+    for challenge_id, challenge in token_server.challenges.items():
+        assert f"{REDIRECT_RESOURCE}/{challenge_id}" in redirect_handler.redirect_server
+        assert challenge.attempts == 0
+        assert len(_get_token_requests(challenge_id)) == 1
+    # 3 threads * (10 POST /statement each + 1 replied request by authentication)
+    assert len(_post_statement_requests()) == 33
+
+
+def _get_token_requests(challenge_id):
+    return list(filter(
+        lambda r: r.method == "GET" and r.path == f"/{TOKEN_PATH}/{challenge_id}",
+        httpretty.latest_requests()))
+
+
+def _post_statement_requests():
+    return list(filter(
+        lambda r: r.method == "POST" and r.path == constants.URL_STATEMENT_PATH,
+        httpretty.latest_requests()))
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -694,6 +842,7 @@ def test_trino_query_response_headers(sample_get_response_data):
     that are pass the the provided request instance post function call and it
     returns a `TrinoResult` instance.
     """
+
     class MockResponse(mock.Mock):
         # Fake response class
         @property
@@ -725,7 +874,6 @@ def test_trino_query_response_headers(sample_get_response_data):
     # Patch the post function to avoid making the requests, as well as to
     # validate that the function was called with the right arguments.
     with mock.patch.object(req, 'post', return_value=MockResponse()) as mock_post:
-
         query = TrinoQuery(
             request=req,
             sql=sql

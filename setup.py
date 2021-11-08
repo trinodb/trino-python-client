@@ -31,7 +31,14 @@ kerberos_require = ["requests_kerberos"]
 
 all_require = kerberos_require + []
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "click"]
+tests_require = all_require + [
+    # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
+    # https://github.com/gabrielfalcao/HTTPretty/issues/425
+    "httpretty < 1.1",
+    "pytest",
+    "pytest-runner",
+    "pytz",
+    "click"]
 
 setup(
     name="trino",

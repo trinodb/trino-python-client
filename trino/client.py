@@ -305,9 +305,8 @@ class TrinoRequest(object):
             exceptions=self._exceptions,
             conditions=(
                 # need retry when there is no exception but the status code is 503 or 504
-                # retry 401 for OAuth
                 lambda response: getattr(response, "status_code", None)
-                in (401, 503, 504),
+                in (503, 504),
             ),
             max_attempts=self._max_attempts,
         )
