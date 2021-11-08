@@ -11,16 +11,18 @@
 # limitations under the License.
 
 import abc
-import os
 import json
-import time
+import os
+import re
 import threading
-import trino.logging
-
-from enum import Enum
 from typing import Optional
-from requests.auth import AuthBase
-from trino.client import exceptions, PROXIES
+
+from requests import Request
+from requests.auth import AuthBase, extract_cookies_to_jar
+from requests.utils import parse_dict_header
+
+import trino.logging
+from trino.client import exceptions
 
 logger = trino.logging.get_logger(__name__)
 
@@ -141,102 +143,90 @@ class _OAuth2TokenBearer(AuthBase):
     Custom implementation of Trino Oauth2 based authorization to get the token
     """
     MAX_OAUTH_ATTEMPTS = 5
-
-    class _AuthStep(Enum):
-        GET_REDIRECT_SERVER = 0
-        GET_TOKEN = 1
+    _BEARER_PREFIX = re.compile(r"bearer", flags=re.IGNORECASE)
 
     def __init__(self, http_session, redirect_auth_url_handler=handle_redirect_auth_url):
         self._redirect_auth_url = redirect_auth_url_handler
-        self.http_session = http_session
         self._thread_local = threading.local()
+        http_session.hooks['response'].append(self._authenticate)
 
     def __call__(self, r):
-        if not hasattr(self._thread_local, 'init'):
-            self._thread_local.init = True
-            self._thread_local.token = None
-            self._thread_local.token_server = None
-            self._thread_local.attempts = 0
-            self._thread_local.auth_step = self._AuthStep.GET_REDIRECT_SERVER
-
-        if self._thread_local.token:
+        if hasattr(self._thread_local, 'token') and self._thread_local.token:
             r.headers['Authorization'] = "Bearer " + self._thread_local.token
 
-        r.register_hook('response', self.__authenticate)
+        r.register_hook('response', self._authenticate)
 
         return r
 
-    def __authenticate(self, r, **kwargs):
-        if (self._thread_local.auth_step == self._AuthStep.GET_REDIRECT_SERVER):
-            self.__process_get_redirect_server(r)
-        elif (self._thread_local.auth_step == self._AuthStep.GET_TOKEN):
-            self.__process_get_token(r)
-        return r
-
-    def __process_get_redirect_server(self, r):
-        if not 400 <= r.status_code < 500:
-            return r
+    def _authenticate(self, response, **kwargs):
+        if not 400 <= response.status_code < 500:
+            return response
 
         # we have to handle the authentication, may be token the token expired or it wasn't there at all
-        auth_info = r.headers.get('WWW-Authenticate')
+        auth_info = response.headers.get('WWW-Authenticate')
         if not auth_info:
             raise exceptions.TrinoAuthError("Error: header WWW-Authenticate not available in the response.")
 
-        matches = dict((s.strip().split('=', 1) for s in auth_info.split(",")))
-        if matches is None:
+        if not _OAuth2TokenBearer._BEARER_PREFIX.match(auth_info):
             raise exceptions.TrinoAuthError(f"Error: header info didn't match {auth_info}")
 
-        auth_server = matches.get('Bearer x_redirect_server')
-        if auth_server is None:
-            raise exceptions.TrinoAuthError("Error: header info didn't have Bearer x_redirect_server")
+        auth_info_headers = parse_dict_header(_OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))
 
-        token_server = matches.get('x_token_server')
+        auth_server = auth_info_headers.get('x_redirect_server')
+        if auth_server is None:
+            raise exceptions.TrinoAuthError("Error: header info didn't have x_redirect_server")
+
+        token_server = auth_info_headers.get('x_token_server')
         if token_server is None:
             raise exceptions.TrinoAuthError("Error: header info didn't have x_token_server")
 
-        self._thread_local.token_server = token_server.strip('"')
+        self._thread_local.token_server = token_server
 
         # tell app that use this url to proceed with the authentication
-        self._redirect_auth_url(auth_server.strip('"'))
+        self._redirect_auth_url(auth_server)
 
-        # go to the next step, request a token from the token server
-        self.__request_token()
+        # Consume content and release the original connection
+        # to allow our new request to reuse the same one.
+        response.content
+        response.close()
 
-        return r
+        self._thread_local.token = self._get_token(token_server, response, **kwargs)
+        return self._retry_request(response, **kwargs)
 
-    def __request_token(self):
-        self._thread_local.auth_step = self._AuthStep.GET_TOKEN
-        self._thread_local.attempts += 1
+    def _retry_request(self, response, **kwargs):
+        request = response.request.copy()
+        extract_cookies_to_jar(request._cookies, response.request, response.raw)
+        request.prepare_cookies(request._cookies)
 
-        if self._thread_local.attempts < self.MAX_OAUTH_ATTEMPTS:
-            time.sleep(1)
-            self.http_session.get(self._thread_local.token_server, proxies=PROXIES)
-        else:
-            raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
+        request.headers['Authorization'] = "Bearer " + self._thread_local.token
+        retry_response = response.connection.send(request, **kwargs)
+        retry_response.history.append(response)
+        retry_response.request = request
+        return retry_response
 
-    def __process_get_token(self, r):
-        token = None
-        if self._thread_local.attempts < self.MAX_OAUTH_ATTEMPTS:
-            response = r
-            if response.status_code == 200:
-                token_response = json.loads(response.text)
-                token = token_response.get('token')
-                if token:
-                    self._thread_local.token = token
-                    self._thread_local.attempts = 0
-                    self._thread_local.auth_step = self._AuthStep.GET_REDIRECT_SERVER
-                    return r
-                error = token_response.get('error')
-                if error:
-                    raise exceptions.TrinoAuthError(f"Error while getting the token : {error}")
+    def _get_token(self, token_server, response, **kwargs):
+        attempts = 0
+        while attempts < self.MAX_OAUTH_ATTEMPTS:
+            attempts += 1
+            with response.connection.send(Request(method='GET', url=token_server).prepare(), **kwargs) as response:
+                if response.status_code == 200:
+                    token_response = json.loads(response.text)
+                    token = token_response.get('token')
+                    if token:
+                        return token
+                    error = token_response.get('error')
+                    if error:
+                        raise exceptions.TrinoAuthError(f"Error while getting the token: {error}")
+                    else:
+                        token_server = token_response.get('nextUri')
+                        logger.debug(f"nextURi auth token server: {token_server}")
                 else:
-                    token_server = token_response.get('nextUri')
-                    logger.debug(f"nextURi auth token server {token_server}")
-                    self._thread_local.token_server = token_server
-                    self.__request_token()
-            else:
-                raise exceptions.TrinoAuthError(
-                    f"Error while getting the token response status code:{response.status_code}")
+                    raise exceptions.TrinoAuthError(
+                        f"Error while getting the token response "
+                        f"status code: {response.status_code}, "
+                        f"body: {response.text}")
+
+        raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
 
 
 class OAuth2Authentication(Authentication):
