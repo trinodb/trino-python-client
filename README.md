@@ -40,8 +40,9 @@ rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
 `trino.dbapi.Cursor.arraysize` accordingly.
 
 # Basic Authentication
-The `BasicAuthentication` class can be used to connect to a LDAP-configured Trino
-cluster:
+The `BasicAuthentication` class can be used to connect to a Trino cluster configured with
+the [Password file authentication type, LDAP authentication type or Salesforce authentication type](https://trino.io/docs/current/security/authentication-types.html):
+
 ```python
 import trino
 conn = trino.dbapi.connect(
@@ -59,7 +60,8 @@ rows = cur.fetchall()
 ```
 
 # JWT Authentication
-The `JWTAuthentication` can be used to connect to a JWT token authentication enabled Trino cluster:
+The `JWTAuthentication` class can be used to connect to a Trino cluster configured with
+the [`JWT` authentication type](https://trino.io/docs/current/security/authentication-types.html):
 ```python
 import trino
 JWT_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UifQ.DjwRE2jZhren2Wt37t5hlVru6Myq4AhpGLiiefF69u8'
@@ -77,7 +79,8 @@ cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 # OAuth2 Authentication
-- It can be used for the Oauth2 enabled trino server https://trino.io/docs/current/security/oauth2.html
+- `OAuth2Authentication` class can be used to connect to a Trino cluster configured with
+the [OAUTH2 authentication type](https://trino.io/docs/current/security/authentication-types.html):
 - A callback to handle the redirect url can be provided via param redirect_auth_url_handler, by default it just outputs the redirect url to stdout
 ```python
 import trino
