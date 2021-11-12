@@ -304,7 +304,7 @@ class TrinoRequest(object):
         self._delete = with_retry(self._http_session.delete)
 
     def get_url(self, path) -> str:
-        return "{protocol}://{host}:{port}{path}".format(
+        return "{protocol}://{host}:{port}/{path}".format(
             protocol=self._http_scheme, host=self._host, port=self._port, path=path
         )
 
@@ -470,6 +470,7 @@ class TrinoQuery(object):
         self._sql = sql
         self._result = TrinoResult(self)
         self._response_headers = None
+        self._info_uri = None
 
     @property
     def columns(self):
@@ -518,6 +519,7 @@ class TrinoQuery(object):
         """Continue fetching data for the current query_id"""
         response = self._request.get(self._request.next_uri)
         status = self._request.process(response)
+        self._info_uri = status.info_uri
         if status.columns:
             self._columns = status.columns
         self._stats.update(status.stats)
