@@ -76,6 +76,24 @@ cur = conn.cursor()
 cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
+# OAuth2 Authentication
+- It can be used for the Oauth2 enabled trino server https://trino.io/docs/current/security/oauth2.html
+- A callback to handle the redirect url can be provided via param redirect_auth_url_handler, by default it just outputs the redirect url to stdout
+```python
+import trino
+conn = trino.dbapi.connect(
+    host='coordinator-url',
+    port=8443,
+    user='the-user',
+    catalog='the-catalog',
+    schema='the-schema',
+    http_scheme='https',
+    auth=trino.auth.OAuth2Authentication(),
+)
+cur = conn.cursor()
+cur.execute('SELECT * FROM system.runtime.nodes')
+rows = cur.fetchall()
+```
 
 # Transactions
 The client runs by default in *autocommit* mode. To enable transactions, set
@@ -142,14 +160,11 @@ When the code is ready, submit a Pull Request.
 
 ## Running Tests
 
-There is a helper scripts, `run`, that provides commands to run tests.
-Type `./run tests` to run both unit and integration tests.
-
 `trino-python-client` uses [pytest](https://pytest.org/) for its tests. To run
 only unit tests, type:
 
 ```
-$ pytest tests
+$ pytest tests/unit
 ```
 
 Then you can pass options like `--pdb` or anything supported by `pytest --help`.
@@ -164,7 +179,7 @@ $ tox
 To run integration tests:
 
 ```
-$ pytest integration_tests
+$ pytest tests/integration
 ```
 
 They pull a Docker image and then run a container with a Trino server:

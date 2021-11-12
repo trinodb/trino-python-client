@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 
 DEFAULT_PORT = 8080
+DEFAULT_TLS_PORT = 443
 DEFAULT_SOURCE = "trino-python-client"
 DEFAULT_CATALOG: Optional[str] = None
 DEFAULT_SCHEMA: Optional[str] = None

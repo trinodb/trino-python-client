@@ -36,6 +36,7 @@ The main interface is :class:`TrinoQuery`: ::
 import copy
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
+import urllib.parse
 
 import requests
 
@@ -43,7 +44,7 @@ import trino.logging
 from trino import constants, exceptions
 from trino.transaction import NO_TRANSACTION
 
-__all__ = ["TrinoQuery", "TrinoRequest"]
+__all__ = ["TrinoQuery", "TrinoRequest", "PROXIES"]
 
 logger = trino.logging.get_logger(__name__)
 
@@ -91,7 +92,10 @@ def get_header_values(headers, header):
 
 def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [(k.strip(), v.strip()) for k, v in (kv.split("=", 1) for kv in kvs)]
+    return [
+        (k.strip(), urllib.parse.unquote(v.strip()))
+        for k, v in (kv.split("=", 1) for kv in kvs)
+    ]
 
 
 class TrinoStatus(object):
@@ -200,7 +204,7 @@ class TrinoRequest(object):
         http_session: Any = None,
         http_headers: Optional[Dict[str, str]] = None,
         transaction_id: Optional[str] = NO_TRANSACTION,
-        http_scheme: str = constants.HTTP,
+        http_scheme: str = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
@@ -222,6 +226,14 @@ class TrinoRequest(object):
         self._port = port
         self._next_uri: Optional[str] = None
 
+        if http_scheme is None:
+            if self._port == constants.DEFAULT_TLS_PORT:
+                self._http_scheme = constants.HTTPS
+            else:
+                self._http_scheme = constants.HTTP
+        else:
+            self._http_scheme = http_scheme
+
         if http_session is not None:
             self._http_session = http_session
         else:
@@ -231,7 +243,7 @@ class TrinoRequest(object):
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
         if self._auth:
-            if http_scheme == constants.HTTP:
+            if self._http_scheme == constants.HTTP:
                 raise ValueError("cannot use authentication with HTTP")
             self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
@@ -240,7 +252,6 @@ class TrinoRequest(object):
         self._request_timeout = request_timeout
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
-        self._http_scheme = http_scheme
 
     @property
     def transaction_id(self):
@@ -261,7 +272,7 @@ class TrinoRequest(object):
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, value)
+            "{}={}".format(name, urllib.parse.quote(str(value)))
             for name, value in self._client_session.properties.items()
         )
 
@@ -293,9 +304,10 @@ class TrinoRequest(object):
             self._handle_retry,
             exceptions=self._exceptions,
             conditions=(
-                # need retry when there is no exception but the status code is 503
+                # need retry when there is no exception but the status code is 503 or 504
+                # retry 401 for OAuth
                 lambda response: getattr(response, "status_code", None)
-                == 503,
+                in (401, 503, 504),
             ),
             max_attempts=self._max_attempts,
         )
@@ -371,6 +383,9 @@ class TrinoRequest(object):
     def raise_response_error(self, http_response):
         if http_response.status_code == 503:
             raise exceptions.Http503Error("error 503: service unavailable")
+
+        if http_response.status_code == 504:
+            raise exceptions.Http504Error("error 504: gateway timeout")
 
         raise exceptions.HttpError(
             "error {}{}".format(
@@ -508,12 +523,17 @@ class TrinoQuery(object):
         status = self._request.process(response)
         self.query_id = status.id
         self._stats.update({"queryId": self.query_id})
-        self._stats.update(status.stats)
+        self._update_state(status)
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
         self._result = TrinoResult(self, status.rows)
         return self._result
+
+    def _update_state(self, status):
+        self._stats.update(status.stats)
+        if status.columns:
+            self._columns = status.columns
 
     def fetch(self) -> List[List[Any]]:
         """Continue fetching data for the current query_id"""
@@ -522,7 +542,7 @@ class TrinoQuery(object):
         self._info_uri = status.info_uri
         if status.columns:
             self._columns = status.columns
-        self._stats.update(status.stats)
+        self._update_state(status)
         logger.debug(status)
         self._response_headers = response.headers
         if status.next_uri is None:

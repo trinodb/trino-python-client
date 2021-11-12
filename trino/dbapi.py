@@ -76,7 +76,8 @@ class Connection(object):
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
-        verify=True
+        verify=True,
+        http_session=None
     ):
         self.host = host
         self.port = port
@@ -86,8 +87,11 @@ class Connection(object):
         self.schema = schema
         self.session_properties = session_properties
         # mypy cannot follow module import
-        self._http_session = trino.client.TrinoRequest.http.Session()
-        self._http_session.verify = verify
+        if http_session is None:
+            self._http_session = trino.client.TrinoRequest.http.Session()
+            self._http_session.verify = verify
+        else:
+            self._http_session = http_session
         self.http_headers = http_headers
         self.http_scheme = http_scheme
         self.auth = auth
