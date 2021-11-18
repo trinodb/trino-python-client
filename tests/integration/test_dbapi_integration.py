@@ -393,3 +393,14 @@ def test_eager_loading_cursor_description(trino_connection):
     assert description_after is not None
     assert len(description_after) == len(description_expected)
     assert all([a == e] for a, e in zip(description_after, description_expected))
+
+
+def test_info_uri(trino_connection):
+    cur = trino_connection.cursor()
+    assert cur.info_uri is None
+    cur.execute('SELECT * FROM system.runtime.nodes')
+    assert cur.info_uri is not None
+    assert cur._query.query_id in cur.info_uri
+    cur.fetchall()
+    assert cur.info_uri is not None
+    assert cur._query.query_id in cur.info_uri
