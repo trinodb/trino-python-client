@@ -202,6 +202,12 @@ class Cursor(object):
         return self._connection
 
     @property
+    def info_uri(self):
+        if self._query is not None:
+            return self._query.info_uri
+        return None
+
+    @property
     def description(self):
         if self._query.columns is None:
             return None

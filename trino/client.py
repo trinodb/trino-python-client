@@ -477,6 +477,7 @@ class TrinoQuery(object):
         self.query_id: Optional[str] = None
 
         self._stats: Dict[Any, Any] = {}
+        self._info_uri: Optional[str] = None
         self._warnings: List[Dict[Any, Any]] = []
         self._columns: Optional[List[str]] = None
         self._finished = False
@@ -507,6 +508,10 @@ class TrinoQuery(object):
     def result(self):
         return self._result
 
+    @property
+    def info_uri(self):
+        return self._info_uri
+
     def execute(self, additional_http_headers=None) -> TrinoResult:
         """Initiate a Trino query by sending the SQL statement
 
@@ -520,6 +525,7 @@ class TrinoQuery(object):
 
         response = self._request.post(self._sql, additional_http_headers)
         status = self._request.process(response)
+        self._info_uri = status.info_uri
         self.query_id = status.id
         self._stats.update({"queryId": self.query_id})
         self._update_state(status)
