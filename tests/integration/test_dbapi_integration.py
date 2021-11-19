@@ -49,7 +49,10 @@ def test_select_query(trino_connection, trino_version):
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    assert row[2] == trino_version
+    if trino_version == "latest":
+        assert row[2] is not None
+    else:
+        assert row[2] == trino_version
     columns = dict([desc[:2] for desc in cur.description])
     assert columns["node_id"] == "varchar"
     assert columns["http_uri"] == "varchar"
