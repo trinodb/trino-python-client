@@ -28,7 +28,7 @@ from trino.exceptions import TimeoutError
 logger = trino.logging.get_logger(__name__)
 
 
-TRINO_VERSION = os.environ.get("TRINO_VERSION") or "351"
+TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"
 TRINO_HOST = "127.0.0.1"
 TRINO_PORT = 8080
 
