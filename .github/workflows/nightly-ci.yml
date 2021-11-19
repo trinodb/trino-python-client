@@ -1,0 +1,15 @@
+name: nightly-ci
+
+on:
+  schedule:
+    # test once a week
+    - cron: "0 0 * * 1"
+  workflow_dispatch: # Allows to trigger workflow manually or via API
+
+jobs:
+  trino-default:
+    uses: "trinodb/trino-python-client/.github/workflows/ci.yml@master"
+  trino-latest:
+    uses: "trinodb/trino-python-client/.github/workflows/ci.yml@master"
+    with:
+      trino-version: "latest"

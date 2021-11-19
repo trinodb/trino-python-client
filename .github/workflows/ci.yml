@@ -5,6 +5,13 @@ on:
     branches:
       - "master"
   pull_request:
+  workflow_call:
+    inputs:
+      trino-version:
+        description: 'Trino docker image version to test with'
+        default: '351' # first Trino release
+        required: false
+        type: string
 
 jobs:
   checks:
@@ -36,6 +43,11 @@ jobs:
           "pypy-3.6",
           "pypy-3.7",
         ]
+        trino-version: [
+          "${{ inputs.trino-version }}",
+        ]
+    env:
+      TRINO_VERSION: ${{ matrix.trino-version }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
