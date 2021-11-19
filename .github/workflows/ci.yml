@@ -36,6 +36,12 @@ jobs:
           "pypy-3.6",
           "pypy-3.7",
         ]
+        trino-version: [
+          "351",    # first Trino version
+          "latest",
+        ]
+    env:
+      TRINO_VERSION: "${{ matrix.trino-version }}"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
