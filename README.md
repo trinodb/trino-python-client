@@ -134,24 +134,25 @@ Start by forking the repository and then modify the code in your fork.
 Clone the repository and go inside the code directory. Then you can get the
 version with `./setup.py --version`.
 
-We recommend that you use `virtualenv` for development:
+We recommend that you use Python3's `venv` for development:
 
 ```
-$ virtualenv .venv
+$ python3 -m venv .venv
 $ . .venv/bin/activate
-# TODO add requirements.txt: pip install -r requirements.txt
 $ pip install .
 ```
 
 For development purpose, pip can reference the code you are modifying in a
-*virtualenv*:
+*virtual env*:
 
 ```
-$ pip install -e .[tests]
+$ pip install -e .
+# To additionally install all dependencies for development run below command
+$ pip install -e '.[tests]'
 ```
 
 That way, you do not need to run `pip install` again to make your changes
-applied to the *virtualenv*.
+applied to the *virtual env*.
 
 When the code is ready, submit a Pull Request.
 
@@ -172,7 +173,7 @@ $ pytest tests/unit
 
 Then you can pass options like `--pdb` or anything supported by `pytest --help`.
 
-To run the tests with different versions of Python in managed *virtualenvs*,
+To run the tests with different versions of Python in managed *virtual envs*,
 use `tox` (see the configuration in `tox.ini`):
 
 ```
