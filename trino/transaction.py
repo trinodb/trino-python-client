@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from enum import Enum, unique
 from typing import Iterable
 
 from trino import constants
@@ -26,7 +27,8 @@ ROLLBACK = "ROLLBACK"
 COMMIT = "COMMIT"
 
 
-class IsolationLevel(object):
+@unique
+class IsolationLevel(Enum):
     AUTOCOMMIT = 0
     READ_UNCOMMITTED = 1
     READ_COMMITTED = 2
@@ -35,11 +37,11 @@ class IsolationLevel(object):
 
     @classmethod
     def levels(cls) -> Iterable[str]:
-        return {k for k, v in cls.__dict__.items() if not k.startswith("_") and isinstance(v, int)}
+        return {isolation_level.name for isolation_level in IsolationLevel}
 
     @classmethod
     def values(cls) -> Iterable[int]:
-        return {getattr(cls, level) for level in cls.levels()}
+        return {isolation_level.value for isolation_level in IsolationLevel}
 
     @classmethod
     def check(cls, level: int) -> int:

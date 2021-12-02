@@ -28,8 +28,9 @@ with open("trino/__init__.py", "rb") as f:
 
 
 kerberos_require = ["requests_kerberos"]
+sqlalchemy_require = ["sqlalchemy~=1.3"]
 
-all_require = kerberos_require + []
+all_require = kerberos_require + sqlalchemy_require
 
 tests_require = all_require + [
     # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
@@ -38,7 +39,9 @@ tests_require = all_require + [
     "pytest",
     "pytest-runner",
     "pytz",
-    "click"]
+    "click",
+    "assertpy",
+]
 
 setup(
     name="trino",
@@ -80,6 +83,12 @@ setup(
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
+        "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
+    },
+    entry_points={
+        "sqlalchemy.dialects": [
+            "trino = trino.sqlalchemy.dialect:TrinoDialect",
+        ]
     },
 )
