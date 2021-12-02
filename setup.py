@@ -26,10 +26,10 @@ with open("trino/__init__.py", "rb") as f:
     assert trino_version is not None
     version = str(ast.literal_eval(trino_version.group(1)))
 
-
 kerberos_require = ["requests_kerberos"]
+sqlalchemy_require = ["sqlalchemy~=1.3"]
 
-all_require = kerberos_require + []
+all_require = kerberos_require + sqlalchemy_require
 
 tests_require = all_require + [
     # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
@@ -80,6 +80,12 @@ setup(
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
+        "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
+    },
+    entry_points={
+        "sqlalchemy.dialects": [
+            "trino = trino.sqlalchemy.dialect:TrinoDialect",
+        ]
     },
 )
