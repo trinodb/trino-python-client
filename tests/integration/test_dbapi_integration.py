@@ -15,7 +15,7 @@ from datetime import datetime
 import pytest
 import pytz
 
-import trino.dbapi
+import trino
 from trino.exceptions import TrinoQueryError
 from trino.transaction import IsolationLevel
 
