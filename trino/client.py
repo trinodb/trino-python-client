@@ -35,6 +35,7 @@ The main interface is :class:`TrinoQuery`: ::
 
 import copy
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 import urllib.parse
 
@@ -55,6 +56,8 @@ if SOCKS_PROXY:
 else:
     PROXIES = {}
 
+_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
+
 
 class ClientSession(object):
     def __init__(
@@ -66,6 +69,7 @@ class ClientSession(object):
         properties=None,
         headers=None,
         transaction_id=None,
+        extra_credential=None,
     ):
         self.catalog = catalog
         self.schema = schema
@@ -76,6 +80,7 @@ class ClientSession(object):
         self._properties = properties
         self._headers = headers or {}
         self.transaction_id = transaction_id
+        self.extra_credential = extra_credential
 
     @property
     def properties(self):
@@ -153,6 +158,8 @@ class TrinoRequest(object):
     :param http_scheme: "http" or "https"
     :param auth: class that manages user authentication. ``None`` means no
                  authentication.
+    :param extra_credential: extra credentials. as list of ``(key, value)``
+                             tuples.
     :max_attempts: maximum number of attempts when sending HTTP requests. An
                    attempt is an HTTP request. 5 attempts means 4 retries.
     :request_timeout: How long (in seconds) to wait for the server to send
@@ -206,6 +213,7 @@ class TrinoRequest(object):
         transaction_id: Optional[str] = NO_TRANSACTION,
         http_scheme: str = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
+        extra_credential: Optional[List[Tuple[str, str]]] = None,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
@@ -220,6 +228,7 @@ class TrinoRequest(object):
             session_properties,
             http_headers,
             transaction_id,
+            extra_credential,
         )
 
         self._host = host
@@ -284,6 +293,19 @@ class TrinoRequest(object):
 
         transaction_id = self._client_session.transaction_id
         headers[constants.HEADER_TRANSACTION] = transaction_id
+
+        if self._client_session.extra_credential is not None and \
+                len(self._client_session.extra_credential) > 0:
+
+            for tup in self._client_session.extra_credential:
+                self._verify_extra_credential(tup)
+
+            # HTTP 1.1 section 4.2 combine multiple extra credentials into a
+            # comma-separated value
+            # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
+            headers[constants.HEADER_EXTRA_CREDENTIAL] = \
+                ", ".join(
+                    [f"{tup[0]}={urllib.parse.quote_plus(tup[1])}" for tup in self._client_session.extra_credential])
 
         return headers
 
@@ -426,6 +448,20 @@ class TrinoRequest(object):
             rows=response.get("data", []),
             columns=response.get("columns"),
         )
+
+    def _verify_extra_credential(self, header):
+        """
+        Verifies that key has ASCII only and non-whitespace characters.
+        """
+        key = header[0]
+
+        if not _HEADER_EXTRA_CREDENTIAL_KEY_REGEX.match(key):
+            raise ValueError(f"whitespace or '=' are disallowed in extra credential '{key}'")
+
+        try:
+            key.encode().decode('ascii')
+        except UnicodeDecodeError:
+            raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
 
 class TrinoResult(object):
