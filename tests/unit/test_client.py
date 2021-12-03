@@ -713,6 +713,64 @@ def test_trino_connection_error(monkeypatch, error_code, error_type, error_messa
     assert error_message in str(error)
 
 
+def test_extra_credential(mock_get_and_post):
+    _, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        extra_credential=[("a.username", "foo"), ("b.password", "bar")],
+    )
+
+    req.post("SELECT 1")
+    _, post_kwargs = post.call_args
+    headers = post_kwargs["headers"]
+    assert constants.HEADER_EXTRA_CREDENTIAL in headers
+    assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "a.username=foo, b.password=bar"
+
+
+def test_extra_credential_key_with_illegal_chars():
+    with pytest.raises(ValueError) as e_info:
+        TrinoRequest(
+            host="coordinator",
+            port=constants.DEFAULT_TLS_PORT,
+            user="test",
+            extra_credential=[("a=b", "")],
+        )
+
+    assert str(e_info.value) == "whitespace or '=' are disallowed in extra credential 'a=b'"
+
+
+def test_extra_credential_key_non_ascii():
+    with pytest.raises(ValueError) as e_info:
+        TrinoRequest(
+            host="coordinator",
+            port=constants.DEFAULT_TLS_PORT,
+            user="test",
+            extra_credential=[("的", "")],
+        )
+
+    assert str(e_info.value) == "only ASCII characters are allowed in extra credential '的'"
+
+
+def test_extra_credential_value_encoding(mock_get_and_post):
+    _, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        user="test",
+        extra_credential=[("foo", "bar 的")],
+    )
+
+    req.post("SELECT 1")
+    _, post_kwargs = post.call_args
+    headers = post_kwargs["headers"]
+    assert constants.HEADER_EXTRA_CREDENTIAL in headers
+    assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "foo=bar+%E7%9A%84"
+
+
 class RetryRecorder(object):
     def __init__(self, error=None, result=None):
         self.__name__ = "RetryRecorder"
