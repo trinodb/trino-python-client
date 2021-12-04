@@ -14,12 +14,11 @@
 
 import ast
 import re
-from setuptools import setup
 import textwrap
 
+from setuptools import setup, find_packages
 
 _version_re = re.compile(r"__version__\s+=\s+(.*)")
-
 
 with open("trino/__init__.py", "rb") as f:
     trino_version = _version_re.search(f.read().decode("utf-8"))
@@ -38,7 +37,8 @@ tests_require = all_require + [
     "pytest",
     "pytest-runner",
     "pytz",
-    "click"]
+    "click",
+]
 
 setup(
     name="trino",
@@ -46,7 +46,7 @@ setup(
     author_email="python-client@trino.io",
     version=version,
     url="https://github.com/trinodb/trino-python-client",
-    packages=["trino"],
+    packages=find_packages(include=["trino", "trino.*"]),
     package_data={"": ["LICENSE", "README.md"]},
     description="Client for the Trino distributed SQL Engine",
     long_description=textwrap.dedent(
