@@ -35,7 +35,7 @@ This will query the `system.runtime.nodes` system tables that shows the nodes
 in the Trino cluster.
 
 The DBAPI implementation in `trino.dbapi` provides methods to retrieve fewer
-rows for example `Cursorfetchone()` or `Cursor.fetchmany()`. By default
+rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
 `trino.dbapi.Cursor.arraysize` accordingly.
 
