@@ -1,33 +1,38 @@
+Trino Python client
+===================
+A [Trino](https://trino.io/) client for the [Python](https://www.python.org/) programming language.
+It supports Python>=3.7 and pypy.
+
 [![Build Status](https://github.com/trinodb/trino-python-client/workflows/ci/badge.svg)](https://github.com/trinodb/trino-python-client/actions?query=workflow%3Aci+event%3Apush+branch%3Amaster)
 [![Trino Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://trino.io/slack.html)
 [![Trino: The Definitive Guide book download](https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburst.io/info/oreilly-trino-guide/)
 
-# Introduction
+## Usage
 
-This package provides a client interface to query [Trino](https://trino.io/)
-a distributed SQL engine. It supports Python>=3.7 and pypy.
+### The Python Database API (DBAPI)
 
-# Installation
+**Installation**
 
 ```
 $ pip install trino
 ```
 
-# Quick Start
+**Quick Start**
 
 Use the DBAPI interface to query Trino:
 
 ```python
-import trino
-conn = trino.dbapi.connect(
-    host='localhost',
-    port=8080,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
+from trino.dbapi import connect
+
+conn = connect(
+    host="<host>",
+    port=<port>,
+    user="<username>",
+    catalog="<catalog>",
+    schema="<schema>",
 )
 cur = conn.cursor()
-cur.execute('SELECT * FROM system.runtime.nodes')
+cur.execute("SELECT * FROM system.runtime.nodes")
 rows = cur.fetchall()
 ```
 
@@ -39,111 +44,234 @@ rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
 `trino.dbapi.Cursor.arraysize` accordingly.
 
-# Basic Authentication
+### SQLAlchemy
+
+**Prerequisite**
+
+- SQLAlchemy >= 1.3
+- Trino server >= 351
+
+**Installation**
+
+```
+$ pip install trino[sqlalchemy]
+```
+
+**Usage**
+
+To connect to Trino using SQLAlchemy, use a connection string (URL) following this pattern:
+
+```
+trino://<username>:<password>@<host>:<port>/<catalog>/<schema>
+```
+
+NOTE: `password` and `schema` are optional
+
+**Examples**:
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.schema import Table, MetaData
+from sqlalchemy.sql.expression import select, text
+
+engine = create_engine('trino://user@localhost:8080/system')
+connection = engine.connect()
+
+rows = connection.execute(text("SELECT * FROM runtime.nodes")).fetchall()
+
+# or using SQLAlchemy schema
+nodes = Table(
+    'nodes',
+    MetaData(schema='runtime'),
+    autoload=True,
+    autoload_with=engine
+)
+rows = connection.execute(select(nodes)).fetchall()
+```
+
+## Authentications
+
+### Basic Authentication
+
 The `BasicAuthentication` class can be used to connect to a Trino cluster configured with
 the [Password file authentication type, LDAP authentication type or Salesforce authentication type](https://trino.io/docs/current/security/authentication-types.html):
 
-```python
-import trino
-conn = trino.dbapi.connect(
-    host='coordinator url',
-    port=8443,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
-    http_scheme='https',
-    auth=trino.auth.BasicAuthentication("principal id", "password"),
-)
-cur = conn.cursor()
-cur.execute('SELECT * FROM system.runtime.nodes')
-rows = cur.fetchall()
-```
+- DBAPI
 
-# JWT Authentication
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import BasicAuthentication
+
+    conn = connect(
+        user="<username>",
+        auth=BasicAuthentication("<username>", "<password>"),
+        http_scheme="https",
+        ...
+    )
+    ```
+
+- SQLAlchemy
+
+    ```python
+    from sqlalchemy import create_engine
+    
+    engine = create_engine("trino://<username>:<password>@<host>:<port>/<catalog>")
+    
+    # or
+    from trino.auth import BasicAuthentication
+    engine = create_engine(
+        "trino://<username>@<host>:<port>/<catalog>",
+        connect_args={
+            "auth": BasicAuthentication("<username>", "<password>"),
+            "http_scheme": "https",
+        }
+    )
+    ```
+
+### JWT Authentication
+
 The `JWTAuthentication` class can be used to connect to a Trino cluster configured with
-the [`JWT` authentication type](https://trino.io/docs/current/security/authentication-types.html):
-```python
-import trino
-JWT_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiSm9obiBEb2UifQ.DjwRE2jZhren2Wt37t5hlVru6Myq4AhpGLiiefF69u8'
-conn = trino.dbapi.connect(
-    host='coordinator-url',
-    port=8443,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
-    http_scheme='https',
-    auth=trino.auth.JWTAuthentication(JWT_TOKEN),
-)
-cur = conn.cursor()
-cur.execute('SELECT * FROM system.runtime.nodes')
-rows = cur.fetchall()
-```
-# OAuth2 Authentication
+the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html):
+
+- DBAPI
+
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import JWTAuthentication
+    
+    conn = connect(
+        user="<username>",
+        auth=JWTAuthentication("<jwt_token>"),
+        http_scheme="https",
+        ...
+    )
+    ```
+
+- SQLAlchemy
+
+    ```python
+    from sqlalchemy import create_engine
+    from trino.auth import JWTAuthentication
+    
+    engine = create_engine(
+        "trino://<username>@<host>:<port>/<catalog>",
+        connect_args={
+            "auth": JWTAuthentication("<jwt_token>"),
+            "http_scheme": "https",
+        }
+    )
+    ```
+
+### OAuth2 Authentication
+
 - `OAuth2Authentication` class can be used to connect to a Trino cluster configured with
-the [OAUTH2 authentication type](https://trino.io/docs/current/security/authentication-types.html):
-- A callback to handle the redirect url can be provided via param redirect_auth_url_handler, by default it just outputs the redirect url to stdout
-```python
-import trino
-conn = trino.dbapi.connect(
-    host='coordinator-url',
-    port=8443,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
-    http_scheme='https',
-    auth=trino.auth.OAuth2Authentication(),
-)
-cur = conn.cursor()
-cur.execute('SELECT * FROM system.runtime.nodes')
-rows = cur.fetchall()
-```
+the [OAuth2 authentication type](https://trino.io/docs/current/security/oauth2.html).
+- A callback to handle the redirect url can be provided via param `redirect_auth_url_handler`, by default it just outputs the redirect url to stdout.
 
-# Certificate Authentication
-- `CertificateAuthentication` class can be used to connect to Trino cluster configured with [certificate based authentication](https://trino.io/docs/current/security/certificate.html). `CertificateAuthentication` requires paths to a valid client certificate and private key.
-```python
-import trino
-conn = trino.dbapi.connect(
-    host='coordinator-url',
-    port=8443,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
-    http_scheme='https',
-    auth=trino.auth.CertificateAuthentication("/path/to/cert", "/path/to/key"),
-)
-cur = conn.cursor()
-cur.execute('SELECT * FROM system.runtime.nodes')
-rows = cur.fetchall()
-```
+* DBAPI
 
-# Transactions
-The client runs by default in *autocommit* mode. To enable transactions, set
-*isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import OAuth2Authentication
 
-```python
-import trino
-from trino import transaction
-with trino.dbapi.connect(
-    host='localhost',
-    port=8080,
-    user='the-user',
-    catalog='the-catalog',
-    schema='the-schema',
-    isolation_level=transaction.IsolationLevel.REPEATABLE_READ,
-) as conn:
-  cur = conn.cursor()
-  cur.execute('INSERT INTO sometable VALUES (1, 2, 3)')
-  cur.fetchall()
-  cur.execute('INSERT INTO sometable VALUES (4, 5, 6)')
-  cur.fetchall()
-```
+    conn = connect(
+        user="<username>",
+        auth=OAuth2Authentication(),
+        http_scheme="https",
+        ...
+    )
+    ```
 
-The transaction is created when the first SQL statement is executed.
-`trino.dbapi.Connection.commit()` will be automatically called when the code
-exits the *with* context and the queries succeed, otherwise
-`trino.dbapi.Connection.rollback()` will be called.
+* SQLAlchemy
 
-# Extra Credential
+    ```python
+    from sqlalchemy import create_engine
+    from trino.auth import OAuth2Authentication
+
+    engine = create_engine(
+    "trino://<username>@<host>:<port>/<catalog>",
+        connect_args={
+            "auth": OAuth2Authentication(),
+            "http_scheme": "https",
+        }
+    )
+    ```
+
+### Certificate Authentication
+
+`CertificateAuthentication` class can be used to connect to Trino cluster configured with [certificate based authentication](https://trino.io/docs/current/security/certificate.html). `CertificateAuthentication` requires paths to a valid client certificate and private key.
+
+- DBAPI
+
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import CertificateAuthentication
+
+    conn = connect(
+        user="<username>",
+        auth=CertificateAuthentication("/path/to/cert.pem", "/path/to/key.pem"),
+        http_scheme="https",
+        ...
+    )
+    ```
+
+- SQLAlchemy
+
+    ```python
+    from sqlalchemy import create_engine
+    from trino.auth import CertificateAuthentication
+
+    engine = create_engine(
+    "trino://<username>@<host>:<port>/<catalog>",
+        connect_args={
+            "auth": CertificateAuthentication("/path/to/cert.pem", "/path/to/key.pem"),
+            "http_scheme": "https",
+        }
+    )
+    ```
+
+### Kerberos Authentication
+
+The `KerberosAuthentication` class can be used to connect to a Trino cluster configured with
+the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerberos.html):
+
+- DBAPI
+
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import KerberosAuthentication
+    
+    conn = connect(
+        user="<username>",
+        auth=KerberosAuthentication(...),
+        http_scheme="https",
+        ...
+    )
+    ```
+
+- SQLAlchemy
+
+    ```python
+    from sqlalchemy import create_engine
+    from trino.auth import KerberosAuthentication
+
+    engine = create_engine(
+        "trino://<username>@<host>:<port>/<catalog>",
+        connect_args={
+            "auth": KerberosAuthentication(...),
+            "http_scheme": "https",
+        }
+    )
+    ```
+
+### User impersonation
+
+In the case of user who submit the query is not the same as user who authenticate to Trino server (e.g in Superset),
+you can set `username` to different from `principal_id`. Note that `principal_id` is extracted from `auth`,
+for example `username` in BasicAuthentication, `sub` in JWT token or `service-name` in KerberosAuthentication and
+please make sure that [`principal_id` has permission to impersonate `username`](https://trino.io/docs/current/security/file-system-access-control.html#impersonation-rules).
+
+### Extra Credential
 
 Send [`extra credentials`](https://trino.io/docs/current/develop/client-protocol.html#client-request-headers):
 
@@ -161,9 +289,34 @@ cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 
-# Development
+## Transactions
 
-## Getting Started With Development
+The client runs by default in *autocommit* mode. To enable transactions, set
+*isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
+
+```python
+from trino.dbapi import connect
+from trino.transaction import IsolationLevel
+
+with connect(
+        isolation_level=IsolationLevel.REPEATABLE_READ,
+        ...
+) as conn:
+    cur = conn.cursor()
+    cur.execute('INSERT INTO sometable VALUES (1, 2, 3)')
+    cur.fetchall()
+    cur.execute('INSERT INTO sometable VALUES (4, 5, 6)')
+    cur.fetchall()
+```
+
+The transaction is created when the first SQL statement is executed.
+`trino.dbapi.Connection.commit()` will be automatically called when the code
+exits the *with* context and the queries succeed, otherwise
+`trino.dbapi.Connection.rollback()` will be called.
+
+## Development
+
+### Getting Started With Development
 
 Start by forking the repository and then modify the code in your fork.
 
@@ -192,13 +345,13 @@ applied to the *virtual env*.
 
 When the code is ready, submit a Pull Request.
 
-## Code Style
+### Code Style
 
 - For Python code, adhere to PEP 8.
 - Prefer code that is readable over one that is "clever".
 - When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
-## Running Tests
+### Running Tests
 
 `trino-python-client` uses [pytest](https://pytest.org/) for its tests. To run
 only unit tests, type:
@@ -226,7 +379,7 @@ They pull a Docker image and then run a container with a Trino server:
 - the image is named `trinodb/trino:${TRINO_VERSION}`
 - the container is named `trino-python-client-tests-{uuid4()[:7]}`
 
-## Releasing
+### Releasing
 
 - [Set up your development environment](#Getting-Started-With-Development).
 - Check the local workspace is up to date and has no uncommitted changes
@@ -258,7 +411,7 @@ They pull a Docker image and then run a container with a Trino server:
   ```
 - Send release announcement.
 
-# Need Help?
+## Need Help?
 
 Feel free to create an issue as it make your request visible to other users and contributors.
 
