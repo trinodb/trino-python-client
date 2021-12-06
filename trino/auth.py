@@ -190,7 +190,7 @@ class _OAuth2TokenBearer(AuthBase):
         if not auth_info:
             raise exceptions.TrinoAuthError("Error: header WWW-Authenticate not available in the response.")
 
-        if not _OAuth2TokenBearer._BEARER_PREFIX.match(auth_info):
+        if not _OAuth2TokenBearer._BEARER_PREFIX.search(auth_info):
             raise exceptions.TrinoAuthError(f"Error: header info didn't match {auth_info}")
 
         auth_info_headers = parse_dict_header(_OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))
