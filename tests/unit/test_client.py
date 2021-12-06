@@ -421,6 +421,8 @@ def test_oauth2_authentication_missing_headers(header, error):
     'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge',
     'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge="value"',
     'Bearer x_token_server="{token_server}", x_redirect_server="{redirect_server}"',
+    'Basic realm="Trino", Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}"',
+    'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", Basic realm="Trino"',
 ])
 @httprettified
 def test_oauth2_header_parsing(header, sample_post_response_data):
