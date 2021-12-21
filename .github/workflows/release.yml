@@ -1,0 +1,57 @@
+name: trino-python-client release
+
+on:
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: "3.9.5"
+
+jobs:
+  release:
+    name: trino-python-client release
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{env.PYTHON_VERSION}}
+
+      - name: Configure Git user
+        run: |
+          git config user.email "releases@trinodb.io"
+          git config user.name "Trino release automation"
+
+      - name: Set release version
+        run: |
+          echo "VERSION_NUMBER=$(./setup.py --version)" >> $GITHUB_ENV
+          echo "NEXT_VERSION_NUMBER=$(echo ${{ env.VERSION_NUMBER }} | awk -F. -v OFS=. '{$2 += 1 ; print}')" >> $GITHUB_ENV
+          echo Next version number: ${{ env.NEXT_VERSION_NUMBER }}
+          sed -i 's/${{ env.VERSION_NUMBER }}/${{ env.NEXT_VERSION_NUMBER }}/' trino/__init__.py
+
+      - name: Prepare release
+        run: |
+          git diff
+          git commit -am "Bump version to ${{ env.NEXT_VERSION_NUMBER }}"
+          git tag -m "" "${{ env.NEXT_VERSION_NUMBER }}"
+
+      - name: Test release
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install twine wheel setuptools
+          ./setup.py sdist bdist_wheel
+          pip install dist/trino-${{env.NEXT_VERSION_NUMBER}}.tar.gz
+          pip install dist/trino-${{env.NEXT_VERSION_NUMBER}}-py3-none-any.whl
+          twine check dist/trino-${{env.NEXT_VERSION_NUMBER}}-py3-none-any.whl dist/trino-${{env.NEXT_VERSION_NUMBER}}.tar.gz
+
+      - name: Release to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          twine upload --non-interactive dist/trino-${{env.NEXT_VERSION_NUMBER}}-py3-none-any.whl dist/trino-${{env.NEXT_VERSION_NUMBER}}.tar.gz
+
+      - name: Finalize release
+        run: |  
+          git push origin master "${{ env.NEXT_VERSION_NUMBER }}""
