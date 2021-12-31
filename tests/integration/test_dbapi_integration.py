@@ -16,7 +16,8 @@ import pytest
 import pytz
 
 import trino
-from trino.exceptions import TrinoQueryError
+from tests.integration.conftest import trino_version
+from trino.exceptions import TrinoQueryError, TrinoUserError
 from trino.transaction import IsolationLevel
 
 
@@ -43,16 +44,30 @@ def trino_connection_with_transaction(run_trino):
     )
 
 
-def test_select_query(trino_connection, trino_version):
+@pytest.fixture
+def trino_connection_in_autocommit(run_trino):
+    _, host, port = run_trino
+
+    yield trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        source="test",
+        max_attempts=1,
+        isolation_level=IsolationLevel.AUTOCOMMIT,
+    )
+
+
+def test_select_query(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT * FROM system.runtime.nodes")
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    if trino_version == "latest":
+    if trino_version() == "latest":
         assert row[2] is not None
     else:
-        assert row[2] == trino_version
+        assert row[2] == trino_version()
     columns = dict([desc[:2] for desc in cur.description])
     assert columns["node_id"] == "varchar"
     assert columns["http_uri"] == "varchar"
@@ -360,6 +375,24 @@ def test_transaction_multiple(trino_connection_with_transaction):
 
     assert len(rows1) == 1000
     assert len(rows2) == 1000
+
+
+@pytest.mark.skipif(trino_version() == '351', reason="Autocommit behaves "
+                                                     "differently in older Trino versions")
+def test_transaction_autocommit(trino_connection_in_autocommit):
+    with trino_connection_in_autocommit as connection:
+        connection.start_transaction()
+        cur = connection.cursor()
+        cur.execute(
+            """
+            CREATE TABLE memory.default.nation
+            AS SELECT * from tpch.tiny.nation
+            """)
+
+        with pytest.raises(TrinoUserError) as transaction_error:
+            cur.fetchall()
+        assert "Catalog only supports writes using autocommit: memory" \
+               in str(transaction_error.value)
 
 
 def test_invalid_query_throws_correct_error(trino_connection):

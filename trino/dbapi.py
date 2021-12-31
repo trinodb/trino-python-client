@@ -202,6 +202,8 @@ class Connection(object):
             if self.transaction is None:
                 self.start_transaction()
             request = self.transaction._request
+        elif self.transaction is not None:
+            request = self.transaction._request
         else:
             request = self._create_request()
         return Cursor(self, request)
