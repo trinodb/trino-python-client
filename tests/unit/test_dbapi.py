@@ -13,6 +13,7 @@
 from requests import Session
 from unittest.mock import patch
 from trino.dbapi import connect
+from trino import constants
 
 
 @patch("trino.dbapi.trino.client")
@@ -39,3 +40,14 @@ def test_http_session_is_defaulted_when_not_specified(mock_client):
     # THEN
     request_args, _ = mock_client.TrinoRequest.call_args
     assert mock_client.TrinoRequest.http.Session.return_value in request_args
+
+
+@patch("trino.dbapi.trino.client")
+def test_tags_are_set_when_specified(mock_client):
+    # WHEN
+    with connect("sample_trino_cluster:443") as conn:
+        conn.cursor().execute("SOME FAKE QUERY", tags=["TAG1", "TAG2"])
+
+    # THEN
+    _, request_kwargs = mock_client.TrinoQuery.return_value.execute.call_args
+    assert request_kwargs["additional_http_headers"] == {constants.HEADER_CLIENT_TAGS: "TAG1,TAG2"}

@@ -401,7 +401,11 @@ class Cursor(object):
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation, params=None):
+    def execute(self, operation, params=None, *, tags=None):
+        additional_http_headers = {}
+        if tags:
+            additional_http_headers[constants.HEADER_CLIENT_TAGS] = ",".join(tags)
+
         if params:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
@@ -413,6 +417,7 @@ class Cursor(object):
             added_prepare_header = self._prepare_statement(
                 operation, statement_name
             )
+            additional_http_headers[constants.HEADER_PREPARED_STATEMENT] = added_prepare_header
 
             try:
                 # Send execute statement and assign the return value to `results`
@@ -421,9 +426,7 @@ class Cursor(object):
                     statement_name, params
                 )
                 result = self._query.execute(
-                    additional_http_headers={
-                        constants.HEADER_PREPARED_STATEMENT: added_prepare_header
-                    }
+                    additional_http_headers=additional_http_headers
                 )
             finally:
                 # Send deallocate statement
@@ -433,7 +436,7 @@ class Cursor(object):
 
         else:
             self._query = trino.client.TrinoQuery(self._request, sql=operation)
-            result = self._query.execute()
+            result = self._query.execute(additional_http_headers=additional_http_headers)
         self._iterator = iter(result)
         return result
 

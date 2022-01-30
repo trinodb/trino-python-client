@@ -32,6 +32,7 @@ HEADER_SCHEMA = "X-Trino-Schema"
 HEADER_SOURCE = "X-Trino-Source"
 HEADER_USER = "X-Trino-User"
 HEADER_CLIENT_INFO = "X-Trino-Client-Info"
+HEADER_CLIENT_TAGS = "X-Trino-Client-Tags"
 
 HEADER_SESSION = "X-Trino-Session"
 HEADER_SET_SESSION = "X-Trino-Set-Session"
