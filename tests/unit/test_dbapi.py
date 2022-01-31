@@ -45,8 +45,8 @@ def test_http_session_is_defaulted_when_not_specified(mock_client):
 @patch("trino.dbapi.trino.client")
 def test_tags_are_set_when_specified(mock_client):
     # WHEN
-    with connect("sample_trino_cluster:443") as conn:
-        conn.cursor().execute("SOME FAKE QUERY", tags=["TAG1", "TAG2"])
+    with connect("sample_trino_cluster:443", client_tags=["TAG1", "TAG2"]) as conn:
+        conn.cursor().execute("SOME FAKE QUERY")
 
     # THEN
     _, request_kwargs = mock_client.TrinoQuery.return_value.execute.call_args

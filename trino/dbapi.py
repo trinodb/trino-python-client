@@ -107,7 +107,8 @@ class Connection(object):
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
         verify=True,
-        http_session=None
+        http_session=None,
+        client_tags=None
     ):
         self.host = host
         self.port = port
@@ -128,6 +129,7 @@ class Connection(object):
         self.redirect_handler = redirect_handler
         self.max_attempts = max_attempts
         self.request_timeout = request_timeout
+        self.client_tags = client_tags
 
         self._isolation_level = isolation_level
         self._request = None
@@ -401,10 +403,10 @@ class Cursor(object):
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation, params=None, *, tags=None):
+    def execute(self, operation, params=None):
         additional_http_headers = {}
-        if tags:
-            additional_http_headers[constants.HEADER_CLIENT_TAGS] = ",".join(tags)
+        if self._connection.client_tags:
+            additional_http_headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._connection.client_tags)
 
         if params:
             assert isinstance(params, (list, tuple)), (
