@@ -267,3 +267,21 @@ class OAuth2Authentication(Authentication):
         if not isinstance(other, OAuth2Authentication):
             return False
         return self._redirect_auth_url == other._redirect_auth_url
+
+
+class CertificateAuthentication(Authentication):
+    def __init__(self, cert, key):
+        self._cert = cert
+        self._key = key
+
+    def set_http_session(self, http_session):
+        http_session.cert = (self._cert, self._key)
+        return http_session
+
+    def get_exceptions(self):
+        return ()
+
+    def __eq__(self, other):
+        if not isinstance(other, CertificateAuthentication):
+            return False
+        return self._cert == other._cert and self._key == other._key
