@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [
+        python: [
           "3.7",
           "3.8",
           "3.9",
@@ -42,17 +42,19 @@ jobs:
           "pypy-3.7",
           "pypy-3.8",
         ]
-        trino-version: [
-          "351",    # first Trino version
+        trino: [
           "latest",
         ]
+        include:
+          # Test with older Trino versions for backward compatibility
+          - { python: "3.10", trino: "351" }  # first Trino version
     env:
-      TRINO_VERSION: "${{ matrix.trino-version }}"
+      TRINO_VERSION: "${{ matrix.trino }}"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python }}
       - name: Install dependencies
         run: |
           sudo apt-get update
