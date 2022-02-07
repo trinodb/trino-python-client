@@ -17,10 +17,13 @@ from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
 
-from trino import dbapi as trino_dbapi
+from trino import dbapi as trino_dbapi, logging
 from trino.auth import BasicAuthentication
 from trino.dbapi import Cursor
+from trino.exceptions import TrinoUserError
 from trino.sqlalchemy import compiler, datatype, error
+
+logger = logging.get_logger(__name__)
 
 
 class TrinoDialect(DefaultDialect):
@@ -266,11 +269,15 @@ class TrinoDialect(DefaultDialect):
         """Trino has no support for sequence. Returns False indicate that given sequence does not exists."""
         return False
 
-    def _get_server_version_info(self, connection: Connection) -> Tuple[int, ...]:
+    def _get_server_version_info(self, connection: Connection) -> Any:
         query = "SELECT version()"
-        res = connection.execute(sql.text(query))
-        version = res.scalar()
-        return tuple([version])
+        try:
+            res = connection.execute(sql.text(query))
+            version = res.scalar()
+            return tuple([version])
+        except TrinoUserError as e:
+            logger.debug(f"Failed to get server version: {e.message}")
+            return None
 
     def _get_default_schema_name(self, connection: Connection) -> Optional[str]:
         dbapi_connection: trino_dbapi.Connection = connection.connection
