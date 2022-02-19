@@ -151,8 +151,11 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
 
     ```python
     from sqlalchemy import create_engine
-    from trino.auth import JWTAuthentication
     
+    engine = create_engine("trino://<username>@<host>:<port>/<catalog>/<schema>?access_token=<jwt_token>")
+  
+    # or
+    from trino.auth import JWTAuthentication
     engine = create_engine(
         "trino://<username>@<host>:<port>/<catalog>",
         connect_args={
