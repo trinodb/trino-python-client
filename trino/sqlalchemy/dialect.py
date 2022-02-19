@@ -18,7 +18,7 @@ from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
 
 from trino import dbapi as trino_dbapi, logging
-from trino.auth import BasicAuthentication
+from trino.auth import BasicAuthentication, JWTAuthentication
 from trino.dbapi import Cursor
 from trino.exceptions import TrinoUserError
 from trino.sqlalchemy import compiler, datatype, error
@@ -86,6 +86,10 @@ class TrinoDialect(DefaultDialect):
                 raise ValueError("Username is required when specify password in connection URL")
             kwargs["http_scheme"] = "https"
             kwargs["auth"] = BasicAuthentication(url.username, url.password)
+
+        if "access_token" in url.query:
+            kwargs["http_scheme"] = "https"
+            kwargs["auth"] = JWTAuthentication(url.query["access_token"])
 
         return args, kwargs
 
