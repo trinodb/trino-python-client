@@ -49,6 +49,10 @@ class TrinoAuthError(Exception):
     pass
 
 
+class TrinoDataError(Exception):
+    pass
+
+
 class TrinoQueryError(Exception):
     def __init__(self, error, query_id=None):
         self._error = error

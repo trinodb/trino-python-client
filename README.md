@@ -317,9 +317,39 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
-## Development
+# Improved Python types
 
-### Getting Started With Development
+If you enable the flag `experimental_python_types`, the client will convert the results of the query to the 
+corresponding Python types. For example, if the query returns a `DECIMAL` column, the result will be a `Decimal` object.
+
+Limitations of the Python types are described in the 
+[Python types documentation](https://docs.python.org/3/library/datatypes.html). These limitations will generate an 
+exception `trino.exceptions.DataError` if the query returns a value that cannot be converted to the corresponding Python 
+type.
+
+```python
+import trino
+import pytz
+from datetime import datetime
+
+conn = trino.dbapi.connect(
+    ...
+)
+
+cur = conn.cursor(experimental_python_types=True)
+
+params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
+
+cur.execute("SELECT ?", params=(params,))
+rows = cur.fetchall()
+
+assert rows[0][0] == params
+assert cur.description[0][1] == "timestamp with time zone"
+```
+
+# Development
+
+## Getting Started With Development
 
 Start by forking the repository and then modify the code in your fork.
 
