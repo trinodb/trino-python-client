@@ -229,16 +229,23 @@ class TrinoDialect(DefaultDialect):
         return []
 
     def get_table_comment(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
-        properties_table = self._get_full_table(f"{table_name}$properties", schema)
-        query = f'SELECT "comment" FROM {properties_table}'
+        schema = schema or self._get_default_schema_name(connection)
+        if schema is None:
+            raise exc.NoSuchTableError("schema is required")
+        query = dedent(
+            """
+            SELECT "comment"
+            FROM "system"."metadata"."table_comments"
+            WHERE "schema_name" = :schema
+            AND "table_name" = :table_name
+        """
+        ).strip()
         try:
-            res = connection.execute(sql.text(query))
+            res = connection.execute(sql.text(query), schema=schema, table_name=table_name)
             return dict(text=res.scalar())
         except error.TrinoQueryError as e:
             if e.error_name in (
-                error.NOT_FOUND,
-                error.COLUMN_NOT_FOUND,
-                error.TABLE_NOT_FOUND,
+                error.PERMISSION_DENIED,
             ):
                 return dict(text=None)
             raise
