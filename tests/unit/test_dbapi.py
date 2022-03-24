@@ -9,9 +9,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from requests import Session
+import threading
+import uuid
 from unittest.mock import patch
+
+import httpretty
+from httpretty import httprettified
+from requests import Session
+
+from tests.unit.oauth_test_utils import _post_statement_requests, _get_token_requests, RedirectHandler, \
+    GetTokenCallback, REDIRECT_RESOURCE, TOKEN_RESOURCE, PostStatementCallback, SERVER_ADDRESS
+from trino import constants
+from trino.auth import OAuth2Authentication
 from trino.dbapi import connect
 
 
@@ -39,3 +48,177 @@ def test_http_session_is_defaulted_when_not_specified(mock_client):
     # THEN
     request_args, _ = mock_client.TrinoRequest.call_args
     assert mock_client.TrinoRequest.http.Session.return_value in request_args
+
+
+@httprettified
+def test_token_retrieved_once_per_auth_instance(sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    with connect(
+            "coordinator",
+            user="test",
+            auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+            http_scheme=constants.HTTPS
+    ) as conn:
+        conn.cursor().execute("SELECT 1")
+        conn.cursor().execute("SELECT 2")
+        conn.cursor().execute("SELECT 3")
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    with connect(
+            "coordinator",
+            user="test",
+            auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+            http_scheme=constants.HTTPS
+    ) as conn2:
+        conn2.cursor().execute("SELECT 1")
+        conn2.cursor().execute("SELECT 2")
+        conn2.cursor().execute("SELECT 3")
+
+    assert len(_get_token_requests(challenge_id)) == 2
+
+
+@httprettified
+def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    authentication = OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+
+    with connect(
+            "coordinator",
+            user="test",
+            auth=authentication,
+            http_scheme=constants.HTTPS
+    ) as conn:
+        conn.cursor().execute("SELECT 1")
+        conn.cursor().execute("SELECT 2")
+        conn.cursor().execute("SELECT 3")
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    with connect(
+            "coordinator",
+            user="test",
+            auth=authentication,
+            http_scheme=constants.HTTPS
+    ) as conn2:
+        conn2.cursor().execute("SELECT 1")
+        conn2.cursor().execute("SELECT 2")
+        conn2.cursor().execute("SELECT 3")
+
+    assert len(_post_statement_requests()) == 7
+    assert len(_get_token_requests(challenge_id)) == 1
+
+
+@httprettified
+def test_token_retrieved_once_when_multithreaded(sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    authentication = OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+
+    conn = connect(
+        "coordinator",
+        user="test",
+        auth=authentication,
+        http_scheme=constants.HTTPS
+    )
+
+    class RunningThread(threading.Thread):
+        lock = threading.Lock()
+
+        def __init__(self):
+            super().__init__()
+
+        def run(self) -> None:
+            with RunningThread.lock:
+                conn.cursor().execute("SELECT 1")
+
+    threads = [
+        RunningThread(),
+        RunningThread(),
+        RunningThread()
+    ]
+
+    # run and join all threads
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(_get_token_requests(challenge_id)) == 1
