@@ -27,7 +27,9 @@ with open("trino/__init__.py", "rb") as f:
 
 kerberos_require = ["requests_kerberos"]
 sqlalchemy_require = ["sqlalchemy~=1.3"]
+external_authentication_token_cache_require = ["keyring"]
 
+# We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
 all_require = kerberos_require + sqlalchemy_require
 
 tests_require = all_require + [
@@ -80,6 +82,7 @@ setup(
         "kerberos": kerberos_require,
         "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
+        "external-authentication-token-cache": external_authentication_token_cache_require,
     },
     entry_points={
         "sqlalchemy.dialects": [

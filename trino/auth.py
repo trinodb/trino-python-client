@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 from requests import Request
 from requests.auth import AuthBase, extract_cookies_to_jar
 from requests.utils import parse_dict_header
+import importlib
 
 import trino.logging
 from trino.client import exceptions
@@ -230,6 +231,40 @@ class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
         self._cache[host] = token
 
 
+class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
+    """
+    Keyring Token Cache implementation
+    """
+
+    def __init__(self):
+        super().__init__()
+        try:
+            self._keyring = importlib.import_module("keyring")
+        except ImportError:
+            self._keyring = None
+            logger.info("keyring module not found. OAuth2 token will not be stored in keyring.")
+
+    def is_keyring_available(self) -> bool:
+        return self._keyring is not None
+
+    def get_token_from_cache(self, host: str) -> Optional[str]:
+        try:
+            return self._keyring.get_password(host, "token")
+        except self._keyring.errors.NoKeyringError as e:
+            raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
+                                                     "detected, check https://pypi.org/project/keyring/ for more "
+                                                     "information.") from e
+
+    def store_token_to_cache(self, host: str, token: str) -> None:
+        try:
+            # keyring is installed, so we can store the token for reuse within multiple threads
+            self._keyring.set_password(host, "token", token)
+        except self._keyring.errors.NoKeyringError as e:
+            raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
+                                                     "detected, check https://pypi.org/project/keyring/ for more "
+                                                     "information.") from e
+
+
 class _OAuth2TokenBearer(AuthBase):
     """
     Custom implementation of Trino Oauth2 based authorization to get the token
@@ -239,7 +274,8 @@ class _OAuth2TokenBearer(AuthBase):
 
     def __init__(self, redirect_auth_url_handler: Callable[[str], None]):
         self._redirect_auth_url = redirect_auth_url_handler
-        self._token_cache = _OAuth2TokenInMemoryCache()
+        keyring_cache = _OAuth2KeyRingTokenCache()
+        self._token_cache = keyring_cache if keyring_cache.is_keyring_available() else _OAuth2TokenInMemoryCache()
         self._token_lock = threading.Lock()
         self._inside_oauth_attempt_lock = threading.Lock()
         self._inside_oauth_attempt_blocker = threading.Event()
