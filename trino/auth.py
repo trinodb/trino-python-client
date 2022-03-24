@@ -15,7 +15,9 @@ import json
 import os
 import re
 import threading
-from typing import Optional
+import webbrowser
+from typing import Optional, List, Callable
+from urllib.parse import urlparse
 
 from requests import Request
 from requests.auth import AuthBase, extract_cookies_to_jar
@@ -130,6 +132,7 @@ class _BearerAuth(AuthBase):
     """
     Custom implementation of Authentication class for bearer token
     """
+
     def __init__(self, token):
         self.token = token
 
@@ -156,9 +159,75 @@ class JWTAuthentication(Authentication):
         return self.token == other.token
 
 
-def handle_redirect_auth_url(auth_url):
-    print("Open the following URL in browser for the external authentication:")
-    print(auth_url)
+class RedirectHandler(metaclass=abc.ABCMeta):
+    """
+    Abstract class for OAuth redirect handlers, inherit from this class to implement your own redirect handler.
+    """
+
+    @abc.abstractmethod
+    def __call__(self, url: str) -> None:
+        raise NotImplementedError()
+
+
+class ConsoleRedirectHandler(RedirectHandler):
+    """
+    Handler for OAuth redirections to log to console.
+    """
+
+    def __call__(self, url: str) -> None:
+        print("Open the following URL in browser for the external authentication:")
+        print(url)
+
+
+class WebBrowserRedirectHandler(RedirectHandler):
+    """
+    Handler for OAuth redirections to open in web browser.
+    """
+
+    def __call__(self, url: str) -> None:
+        webbrowser.open_new(url)
+
+
+class CompositeRedirectHandler(RedirectHandler):
+    """
+    Composite handler for OAuth redirect handlers.
+    """
+
+    def __init__(self, handlers: List[Callable[[str], None]]):
+        self.handlers = handlers
+
+    def __call__(self, url: str):
+        for handler in self.handlers:
+            handler(url)
+
+
+class _OAuth2TokenCache(metaclass=abc.ABCMeta):
+    """
+    Abstract class for OAuth token cache, inherit from this class to implement your own token cache.
+    """
+
+    @abc.abstractmethod
+    def get_token_from_cache(self, host: str) -> Optional[str]:
+        pass
+
+    @abc.abstractmethod
+    def store_token_to_cache(self, host: str, token: str) -> None:
+        pass
+
+
+class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
+    """
+    In-memory token cache implementation. The token is stored per host, so multiple clients can share the same cache.
+    """
+
+    def __init__(self):
+        self._cache = {}
+
+    def get_token_from_cache(self, host: str) -> Optional[str]:
+        return self._cache.get(host)
+
+    def store_token_to_cache(self, host: str, token: str) -> None:
+        self._cache[host] = token
 
 
 class _OAuth2TokenBearer(AuthBase):
@@ -168,14 +237,19 @@ class _OAuth2TokenBearer(AuthBase):
     MAX_OAUTH_ATTEMPTS = 5
     _BEARER_PREFIX = re.compile(r"bearer", flags=re.IGNORECASE)
 
-    def __init__(self, http_session, redirect_auth_url_handler=handle_redirect_auth_url):
+    def __init__(self, redirect_auth_url_handler: Callable[[str], None]):
         self._redirect_auth_url = redirect_auth_url_handler
-        self._thread_local = threading.local()
-        http_session.hooks['response'].append(self._authenticate)
+        self._token_cache = _OAuth2TokenInMemoryCache()
+        self._token_lock = threading.Lock()
+        self._inside_oauth_attempt_lock = threading.Lock()
+        self._inside_oauth_attempt_blocker = threading.Event()
 
     def __call__(self, r):
-        if hasattr(self._thread_local, 'token') and self._thread_local.token:
-            r.headers['Authorization'] = "Bearer " + self._thread_local.token
+        host = self._determine_host(r.url)
+        token = self._get_token_from_cache(host)
+
+        if token is not None:
+            r.headers['Authorization'] = "Bearer " + token
 
         r.register_hook('response', self._authenticate)
 
@@ -185,7 +259,23 @@ class _OAuth2TokenBearer(AuthBase):
         if not 400 <= response.status_code < 500:
             return response
 
-        # we have to handle the authentication, may be token the token expired or it wasn't there at all
+        acquired = self._inside_oauth_attempt_lock.acquire(blocking=False)
+        if acquired:
+            try:
+                # Lock is acquired, attempt the OAuth2 flow
+                self._attempt_oauth(response, **kwargs)
+                self._inside_oauth_attempt_blocker.set()
+            finally:
+                self._inside_oauth_attempt_lock.release()
+                self._inside_oauth_attempt_blocker.clear()
+        else:
+            # Lock is not acquired, we are already in the OAuth2 flow, so we block until OAuth2 flow is finished.
+            self._inside_oauth_attempt_blocker.wait()
+
+        return self._retry_request(response, **kwargs)
+
+    def _attempt_oauth(self, response, **kwargs):
+        # we have to handle the authentication, may be token the token expired, or it wasn't there at all
         auth_info = response.headers.get('WWW-Authenticate')
         if not auth_info:
             raise exceptions.TrinoAuthError("Error: header WWW-Authenticate not available in the response.")
@@ -203,8 +293,6 @@ class _OAuth2TokenBearer(AuthBase):
         if token_server is None:
             raise exceptions.TrinoAuthError("Error: header info didn't have x_token_server")
 
-        self._thread_local.token_server = token_server
-
         # tell app that use this url to proceed with the authentication
         self._redirect_auth_url(auth_server)
 
@@ -213,15 +301,19 @@ class _OAuth2TokenBearer(AuthBase):
         response.content
         response.close()
 
-        self._thread_local.token = self._get_token(token_server, response, **kwargs)
-        return self._retry_request(response, **kwargs)
+        token = self._get_token(token_server, response, **kwargs)
+
+        request = response.request
+        host = self._determine_host(request.url)
+        self._store_token_to_cache(host, token)
 
     def _retry_request(self, response, **kwargs):
         request = response.request.copy()
         extract_cookies_to_jar(request._cookies, response.request, response.raw)
         request.prepare_cookies(request._cookies)
 
-        request.headers['Authorization'] = "Bearer " + self._thread_local.token
+        host = self._determine_host(response.request.url)
+        request.headers['Authorization'] = "Bearer " + self._get_token_from_cache(host)
         retry_response = response.connection.send(request, **kwargs)
         retry_response.history.append(response)
         retry_response.request = request
@@ -251,13 +343,29 @@ class _OAuth2TokenBearer(AuthBase):
 
         raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
 
+    def _get_token_from_cache(self, host: str) -> Optional[str]:
+        with self._token_lock:
+            return self._token_cache.get_token_from_cache(host)
+
+    def _store_token_to_cache(self, host: str, token: str) -> None:
+        with self._token_lock:
+            self._token_cache.store_token_to_cache(host, token)
+
+    @staticmethod
+    def _determine_host(url) -> Optional[str]:
+        return urlparse(url).hostname
+
 
 class OAuth2Authentication(Authentication):
-    def __init__(self, redirect_auth_url_handler=handle_redirect_auth_url):
+    def __init__(self, redirect_auth_url_handler=CompositeRedirectHandler([
+        WebBrowserRedirectHandler(),
+        ConsoleRedirectHandler()
+    ])):
         self._redirect_auth_url = redirect_auth_url_handler
+        self._bearer = _OAuth2TokenBearer(self._redirect_auth_url)
 
     def set_http_session(self, http_session):
-        http_session.auth = _OAuth2TokenBearer(http_session, self._redirect_auth_url)
+        http_session.auth = self._bearer
         return http_session
 
     def get_exceptions(self):

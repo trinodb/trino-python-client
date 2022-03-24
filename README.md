@@ -167,11 +167,14 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
 
 ### OAuth2 Authentication
 
-- `OAuth2Authentication` class can be used to connect to a Trino cluster configured with
+The `OAuth2Authentication` class can be used to connect to a Trino cluster configured with
 the [OAuth2 authentication type](https://trino.io/docs/current/security/oauth2.html).
-- A callback to handle the redirect url can be provided via param `redirect_auth_url_handler`, by default it just outputs the redirect url to stdout.
 
-* DBAPI
+A callback to handle the redirect url can be provided via param `redirect_auth_url_handler` of the `trino.auth.OAuth2Authentication` class. By default, it will try to launch a web browser (`trino.auth.WebBrowserRedirectHandler`) to go through the authentication flow and output the redirect url to stdout (`trino.auth.ConsoleRedirectHandler`). Multiple redirect handlers are combined using the `trino.auth.CompositeRedirectHandler` class.
+
+The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` instance.
+
+- DBAPI
 
     ```python
     from trino.dbapi import connect
@@ -185,7 +188,7 @@ the [OAuth2 authentication type](https://trino.io/docs/current/security/oauth2.h
     )
     ```
 
-* SQLAlchemy
+- SQLAlchemy
 
     ```python
     from sqlalchemy import create_engine
