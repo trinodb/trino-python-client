@@ -509,7 +509,8 @@ class TrinoResult(object):
     def response_headers(self):
         return self._query.response_headers
 
-    def _map_to_python_type(self, cls, item: Tuple[Any, Dict]) -> Any:
+    @classmethod
+    def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:
         (value, data_type) = item
 
         if value is None:
@@ -531,7 +532,7 @@ class TrinoResult(object):
                 dt, tz = value.rsplit(' ', 1)
                 if tz.startswith('+') or tz.startswith('-'):
                     return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f %z")
-                return datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=self._pytz.timezone(tz))
+                return datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=cls._pytz.timezone(tz))
             elif "timestamp" in raw_type:
                 return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
             elif "time with time zone" in raw_type:
