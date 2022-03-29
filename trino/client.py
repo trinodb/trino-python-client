@@ -509,8 +509,7 @@ class TrinoResult(object):
     def response_headers(self):
         return self._query.response_headers
 
-    @classmethod
-    def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:
+    def _map_to_python_type(self, cls, item: Tuple[Any, Dict]) -> Any:
         (value, data_type) = item
 
         if value is None:
