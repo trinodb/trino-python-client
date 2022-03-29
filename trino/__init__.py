@@ -19,4 +19,4 @@ from . import logging
 
 __all__ = ['auth', 'dbapi', 'client', 'constants', 'exceptions', 'logging']
 
-__version__ = "0.311.0"
+__version__ = "0.312.0"
