@@ -41,7 +41,6 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pytz
 import requests
 
 import trino.logging
@@ -480,6 +479,9 @@ class TrinoResult(object):
         self._rows = rows or []
         self._rownumber = 0
         self._experimental_python_types = experimental_python_types
+        if experimental_python_types:
+            import pytz
+            self._pytz = pytz
 
     @property
     def rownumber(self) -> int:
@@ -530,7 +532,7 @@ class TrinoResult(object):
                 dt, tz = value.rsplit(' ', 1)
                 if tz.startswith('+') or tz.startswith('-'):
                     return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f %z")
-                return datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=pytz.timezone(tz))
+                return datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=self._pytz.timezone(tz))
             elif "timestamp" in raw_type:
                 return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
             elif "time with time zone" in raw_type:
