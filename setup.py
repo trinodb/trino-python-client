@@ -28,7 +28,7 @@ with open("trino/__init__.py", "rb") as f:
 kerberos_require = ["requests_kerberos"]
 sqlalchemy_require = ["sqlalchemy~=1.3"]
 
-all_require = ["pytz"] + kerberos_require + sqlalchemy_require
+all_require = kerberos_require + sqlalchemy_require
 
 tests_require = all_require + [
     # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
@@ -74,7 +74,7 @@ setup(
         "Topic :: Database :: Front-Ends",
     ],
     python_requires='>=3.7',
-    install_requires=["requests"],
+    install_requires=["pytz", "requests"],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
