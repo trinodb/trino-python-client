@@ -107,12 +107,13 @@ def get_session_property_values(headers, header):
 
 
 class TrinoStatus(object):
-    def __init__(self, id, stats, warnings, info_uri, next_uri, rows, columns=None):
+    def __init__(self, id, stats, warnings, info_uri, next_uri, update_type, rows, columns=None):
         self.id = id
         self.stats = stats
         self.warnings = warnings
         self.info_uri = info_uri
         self.next_uri = next_uri
+        self.update_type = update_type
         self.rows = rows
         self.columns = columns
 
@@ -448,6 +449,7 @@ class TrinoRequest(object):
             warnings=response.get("warnings", []),
             info_uri=response["infoUri"],
             next_uri=self._next_uri,
+            update_type=response.get("updateType"),
             rows=response.get("data", []),
             columns=response.get("columns"),
         )
@@ -572,6 +574,7 @@ class TrinoQuery(object):
         self._finished = False
         self._cancelled = False
         self._request = request
+        self._update_type = None
         self._sql = sql
         self._result = TrinoResult(self, experimental_python_types=experimental_python_types)
         self._response_headers = None
@@ -589,6 +592,10 @@ class TrinoQuery(object):
     @property
     def stats(self):
         return self._stats
+
+    @property
+    def update_type(self):
+        return self._update_type
 
     @property
     def warnings(self):
@@ -627,6 +634,7 @@ class TrinoQuery(object):
 
     def _update_state(self, status):
         self._stats.update(status.stats)
+        self._update_type = status.update_type
         if status.columns:
             self._columns = status.columns
 

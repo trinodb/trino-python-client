@@ -244,6 +244,12 @@ class Cursor(object):
         return None
 
     @property
+    def update_type(self):
+        if self._query is not None:
+            return self._query.update_type
+        return None
+
+    @property
     def description(self):
         if self._query.columns is None:
             return None
@@ -465,7 +471,30 @@ class Cursor(object):
         return result
 
     def executemany(self, operation, seq_of_params):
-        raise trino.exceptions.NotSupportedError
+        """
+        PEP-0249: Prepare a database operation (query or command) and then
+        execute it against all parameter sequences or mappings found in the sequence seq_of_parameters.
+        Modules are free to implement this method using multiple calls to
+        the .execute() method or by using array operations to have the
+        database process the sequence as a whole in one call.
+
+        Use of this method for an operation which produces one or more result
+        sets constitutes undefined behavior, and the implementation is permitted (but not required)
+        to raise an exception when it detects that a result set has been created by an invocation of the operation.
+
+        The same comments as for .execute() also apply accordingly to this method.
+
+        Return values are not defined.
+        """
+        for parameters in seq_of_params[:-1]:
+            self.execute(operation, parameters)
+            self.fetchall()
+            if self._query.update_type is None:
+                raise NotSupportedError("Query must return update type")
+        if seq_of_params:
+            self.execute(operation, seq_of_params[-1])
+        else:
+            self.execute(operation)
 
     def fetchone(self) -> Optional[List[Any]]:
         """
