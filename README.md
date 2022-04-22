@@ -320,7 +320,43 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
-# Improved Python types
+## Prepared statements
+
+Prepared statements are queries that are saved in a session with a given name. The statement can include parameters in place of literals to be replaced at execution time. Parameters are represented by question marks.
+
+```python
+import decimal
+import trino
+
+conn = trino.dbapi.connect(
+  ...
+)
+
+cur = conn.cursor()
+
+cur.execute("SELECT ?, ?, ?", params=(1, "2", decimal.Decimal("3.1"),))
+rows = cur.fetchall()
+```
+
+Note: When executing a prepared statement with a large number of parameters, you might encounter following error.
+
+```
+requests.exceptions.ConnectionError: ('Connection aborted.', LineTooLong('got more than 65536 bytes when reading header line'))
+```
+
+Python's http client has a hardcoded limit of 65536 bytes for a header line.
+
+You can work around this limit using following code by adding this code before you execute your Trino queries. 
+
+Note that this overrides Python's http client header handling, this will also affect any other applications within that python environment.
+
+```python
+from trino.client import PythonHttpClientOverride
+
+PythonHttpClientOverride.disable_header_limit()
+```
+
+## Improved Python types
 
 If you enable the flag `experimental_python_types`, the client will convert the results of the query to the 
 corresponding Python types. For example, if the query returns a `DECIMAL` column, the result will be a `Decimal` object.

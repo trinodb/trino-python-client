@@ -48,7 +48,7 @@ import trino.logging
 from trino import constants, exceptions
 from trino.transaction import NO_TRANSACTION
 
-__all__ = ["TrinoQuery", "TrinoRequest", "PROXIES"]
+__all__ = ["TrinoQuery", "TrinoRequest", "PROXIES", "PythonHttpClientOverride"]
 
 logger = trino.logging.get_logger(__name__)
 
@@ -135,6 +135,29 @@ class TrinoStatus(object):
                 len(self.rows),
             )
         )
+
+
+class PythonHttpClientOverride(object):
+    @staticmethod
+    def disable_header_limit():
+        """
+        Disable header limit to avoid LineTooLong('got more than 65536 bytes when reading header line')
+        """
+        import http.client
+        import email.parser
+        from http.client import HTTPMessage, _MAXLINE
+
+        def parse_headers(fp, _class=HTTPMessage):
+            headers = []
+            while True:
+                line = fp.readline(_MAXLINE + 1)
+                headers.append(line)
+                if line in (b'\r\n', b'\n', b''):
+                    break
+            header_string = b''.join(headers).decode('iso-8859-1')
+            return email.parser.Parser(_class=_class).parsestr(header_string)
+
+        http.client.parse_headers = parse_headers
 
 
 class TrinoRequest(object):

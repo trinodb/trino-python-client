@@ -16,9 +16,11 @@ from decimal import Decimal
 import pytest
 import pytz
 import requests
+from requests.exceptions import ConnectionError
 
 import trino
 from tests.integration.conftest import trino_version
+from trino.client import PythonHttpClientOverride
 from trino.exceptions import TrinoQueryError, TrinoUserError, NotSupportedError
 from trino.transaction import IsolationLevel
 
@@ -911,3 +913,32 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
 
     query_client_tags = query_info['session']['clientTags']
     return query_client_tags
+
+
+def test_prepared_statement(trino_connection):
+    cur = trino_connection.cursor(experimental_python_types=True)
+    params = (Decimal(1), datetime(2020, 1, 1, 0, 0, 0), 5, 'test')
+    cur.execute('SELECT ?, ?, ?, ?', params)
+    rows = cur.fetchall()
+    assert rows[0] == [p for p in params]
+
+
+def test_prepared_statement_with_parameters_over_http_client_max_line_length_errors(trino_connection):
+    with pytest.raises(ConnectionError):
+        prepared_statement_with_parameters_over_http_client_max_line_length(trino_connection)
+
+
+def test_prepared_statement_with_parameters_over_http_client_max_line_length(trino_connection):
+    PythonHttpClientOverride.disable_header_limit()
+
+    prepared_statement_with_parameters_over_http_client_max_line_length(trino_connection)
+
+
+def prepared_statement_with_parameters_over_http_client_max_line_length(trino_connection):
+    import http
+
+    cur = trino_connection.cursor(experimental_python_types=True)
+    params = [i for i in range(0, http.client._MAXLINE + 1)]
+    cur.execute('SELECT ' + ','.join(['?' for _ in params]), params)
+    rows = cur.fetchall()
+    assert rows[0] == [p for p in params]
