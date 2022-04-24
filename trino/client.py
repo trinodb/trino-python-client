@@ -528,6 +528,21 @@ class TrinoResult(object):
                     "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
                 }
                 return [cls._map_to_python_type((array_item, raw_type)) for array_item in value]
+            if isinstance(value, dict):
+                if raw_type == "map":
+                    raw_key_type = {
+                        "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
+                    }
+                    raw_value_type = {
+                        "typeSignature": data_type["typeSignature"]["arguments"][1]["value"]
+                    }
+                    return {
+                        cls._map_to_python_type((key, raw_key_type)):
+                            cls._map_to_python_type((value[key], raw_value_type))
+                        for key in value
+                    }
+                # TODO: support row type
+                return value
             elif "decimal" in raw_type:
                 return Decimal(value)
             elif raw_type == "double":

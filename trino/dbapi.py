@@ -392,6 +392,7 @@ class Cursor(object):
             return "ARRAY[%s]" % ','.join(map(self._format_prepared_param, param))
 
         if isinstance(param, dict):
+            # TODO: support mixed types in dicts and convert to ROW
             keys = list(param.keys())
             values = [param[key] for key in keys]
             return "MAP({}, {})".format(
