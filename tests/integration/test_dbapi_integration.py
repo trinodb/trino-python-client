@@ -614,9 +614,8 @@ def test_float_query_param(trino_connection):
     assert rows[0][0] == 1.1
 
 
-@pytest.mark.skip(reason="Nan currently not returning the correct python type for nan")
 def test_float_nan_query_param(trino_connection):
-    cur = trino_connection.cursor()
+    cur = trino_connection.cursor(experimental_python_types=True)
     cur.execute("SELECT ?", params=(float("nan"),))
     rows = cur.fetchall()
 
@@ -625,15 +624,14 @@ def test_float_nan_query_param(trino_connection):
     assert math.isnan(rows[0][0])
 
 
-@pytest.mark.skip(reason="Nan currently not returning the correct python type fon inf")
 def test_float_inf_query_param(trino_connection):
-    cur = trino_connection.cursor()
+    cur = trino_connection.cursor(experimental_python_types=True)
     cur.execute("SELECT ?", params=(float("inf"),))
     rows = cur.fetchall()
 
     assert rows[0][0] == float("inf")
 
-    cur.execute("SELECT ?", params=(-float("-inf"),))
+    cur.execute("SELECT ?", params=(float("-inf"),))
     rows = cur.fetchall()
 
     assert rows[0][0] == float("-inf")

@@ -61,6 +61,10 @@ else:
 
 _HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
 
+INF = float("inf")
+NEGATIVE_INF = float("-inf")
+NAN = float("nan")
+
 
 class ClientSession(object):
     def __init__(
@@ -526,6 +530,14 @@ class TrinoResult(object):
                 return [cls._map_to_python_type((array_item, raw_type)) for array_item in value]
             elif "decimal" in raw_type:
                 return Decimal(value)
+            elif raw_type == "double":
+                if value == 'Infinity':
+                    return INF
+                elif value == '-Infinity':
+                    return NEGATIVE_INF
+                elif value == 'NaN':
+                    return NAN
+                return value
             elif raw_type == "date":
                 return datetime.strptime(value, "%Y-%m-%d").date()
             elif raw_type == "timestamp with time zone":
