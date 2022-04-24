@@ -591,6 +591,16 @@ def test_dict_query_param(trino_connection):
     assert rows[0][0] == "map(varchar(3), varchar(3))"
 
 
+def test_dict_timestamp_query_param_types(trino_connection):
+    cur = trino_connection.cursor(experimental_python_types=True)
+
+    params = {"foo": datetime(2020, 1, 1, 16, 43, 22, 320000)}
+    cur.execute("SELECT ?", params=(params,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == params
+
+
 def test_boolean_query_param(trino_connection):
     cur = trino_connection.cursor()
 
