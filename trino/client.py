@@ -77,6 +77,7 @@ class ClientSession(object):
         headers=None,
         transaction_id=None,
         extra_credential=None,
+        client_tags=None
     ):
         self.catalog = catalog
         self.schema = schema
@@ -88,6 +89,7 @@ class ClientSession(object):
         self._headers = headers or {}
         self.transaction_id = transaction_id
         self.extra_credential = extra_credential
+        self.client_tags = client_tags
 
     @property
     def properties(self):
@@ -226,7 +228,8 @@ class TrinoRequest(object):
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=exceptions.RetryWithExponentialBackoff(),
-        verify: bool = True
+        verify: bool = True,
+        client_tags: Optional[List[str]] = None
     ) -> None:
         self._client_session = ClientSession(
             catalog,
@@ -237,6 +240,7 @@ class TrinoRequest(object):
             http_headers,
             transaction_id,
             extra_credential,
+            client_tags
         )
 
         self._host = host
@@ -286,6 +290,8 @@ class TrinoRequest(object):
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
+        if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
+            headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``

@@ -15,6 +15,7 @@ from decimal import Decimal
 
 import pytest
 import pytz
+import requests
 
 import trino
 from tests.integration.conftest import trino_version
@@ -867,3 +868,46 @@ def test_info_uri(trino_connection):
     cur.fetchall()
     assert cur.info_uri is not None
     assert cur._query.query_id in cur.info_uri
+
+
+def test_client_tags_single_tag(run_trino):
+    client_tags = ["foo"]
+    query_client_tags = retrieve_client_tags_from_query(run_trino, client_tags)
+    assert query_client_tags == client_tags
+
+
+def test_client_tags_multiple_tags(run_trino):
+    client_tags = ["foo", "bar"]
+    query_client_tags = retrieve_client_tags_from_query(run_trino, client_tags)
+    assert query_client_tags == client_tags
+
+
+def test_client_tags_special_characters(run_trino):
+    client_tags = ["foo %20", "bar=test"]
+    query_client_tags = retrieve_client_tags_from_query(run_trino, client_tags)
+    assert query_client_tags == client_tags
+
+
+def retrieve_client_tags_from_query(run_trino, client_tags):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        client_tags=client_tags,
+    )
+
+    cur = trino_connection.cursor()
+    cur.execute('SELECT 1')
+    cur.fetchall()
+
+    api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
+    query_info = requests.post(api_url + "/ui/login", data={
+        "username": "admin",
+        "password": "",
+        "redirectPath": api_url + '/ui/api/query/' + cur._query.query_id
+    }).json()
+
+    query_client_tags = query_info['session']['clientTags']
+    return query_client_tags
