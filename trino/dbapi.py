@@ -108,7 +108,8 @@ class Connection(object):
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
         verify=True,
-        http_session=None
+        http_session=None,
+        client_tags=None
     ):
         self.host = host
         self.port = port
@@ -130,6 +131,7 @@ class Connection(object):
         self.redirect_handler = redirect_handler
         self.max_attempts = max_attempts
         self.request_timeout = request_timeout
+        self.client_tags = client_tags
 
         self._isolation_level = isolation_level
         self._request = None
@@ -194,6 +196,7 @@ class Connection(object):
             self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
+            client_tags=self.client_tags
         )
 
     def cursor(self, experimental_python_types=False):

@@ -172,6 +172,49 @@ def test_request_invalid_http_headers():
     assert str(value_error.value).startswith("cannot override reserved HTTP header")
 
 
+def test_request_client_tags_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        user="test_user",
+        client_tags=["tag1", "tag2"]
+    )
+
+    def assert_headers(headers):
+        assert headers[constants.HEADER_CLIENT_TAGS] == "tag1,tag2"
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers(post_kwargs["headers"])
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers(get_kwargs["headers"])
+
+
+def test_request_client_tags_headers_no_client_tags(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        user="test_user"
+    )
+
+    def assert_headers(headers):
+        assert constants.HEADER_CLIENT_TAGS not in headers
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers(post_kwargs["headers"])
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers(get_kwargs["headers"])
+
+
 def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
     _, post = mock_get_and_post
 
