@@ -524,25 +524,30 @@ class TrinoResult(object):
 
         try:
             if isinstance(value, list):
-                raw_type = {
-                    "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
-                }
-                return [cls._map_to_python_type((array_item, raw_type)) for array_item in value]
-            if isinstance(value, dict):
-                if raw_type == "map":
-                    raw_key_type = {
+                if raw_type == "array":
+                    raw_type = {
                         "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
                     }
-                    raw_value_type = {
-                        "typeSignature": data_type["typeSignature"]["arguments"][1]["value"]
-                    }
-                    return {
-                        cls._map_to_python_type((key, raw_key_type)):
-                            cls._map_to_python_type((value[key], raw_value_type))
-                        for key in value
-                    }
-                # TODO: support row type
+                    return [cls._map_to_python_type((array_item, raw_type)) for array_item in value]
+                if raw_type == "row":
+                    raw_types = map(lambda arg: arg["value"], data_type["typeSignature"]["arguments"])
+                    return tuple(
+                        cls._map_to_python_type((array_item, raw_type))
+                        for (array_item, raw_type) in zip(value, raw_types)
+                    )
                 return value
+            if isinstance(value, dict):
+                raw_key_type = {
+                    "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
+                }
+                raw_value_type = {
+                    "typeSignature": data_type["typeSignature"]["arguments"][1]["value"]
+                }
+                return {
+                    cls._map_to_python_type((key, raw_key_type)):
+                        cls._map_to_python_type((value[key], raw_value_type))
+                    for key in value
+                }
             elif "decimal" in raw_type:
                 return Decimal(value)
             elif raw_type == "double":

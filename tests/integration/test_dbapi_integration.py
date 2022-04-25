@@ -615,6 +615,32 @@ def test_boolean_query_param(trino_connection):
     assert rows[0][0] is False
 
 
+def test_row(trino_connection):
+    cur = trino_connection.cursor(experimental_python_types=True)
+    params = (1, Decimal("2.0"), datetime(2020, 1, 1, 0, 0, 0))
+    cur.execute("SELECT ?", (params,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == params
+
+
+def test_nested_row(trino_connection):
+    cur = trino_connection.cursor(experimental_python_types=True)
+    params = ((1, "test", Decimal("3.1")), Decimal("2.0"), datetime(2020, 1, 1, 0, 0, 0))
+    cur.execute("SELECT ?", (params,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == params
+
+
+def test_named_row(trino_connection):
+    cur = trino_connection.cursor(experimental_python_types=True)
+    cur.execute("SELECT CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE))")
+    rows = cur.fetchall()
+
+    assert rows[0][0] == (1, 2.0)
+
+
 def test_float_query_param(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(1.1,))
