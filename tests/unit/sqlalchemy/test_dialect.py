@@ -7,7 +7,7 @@ from sqlalchemy.engine.url import URL
 
 from trino.auth import BasicAuthentication
 from trino.dbapi import Connection
-from trino.sqlalchemy.dialect import TrinoDialect
+from trino.sqlalchemy.dialect import CertificateAuthentication, JWTAuthentication, TrinoDialect
 from trino.transaction import IsolationLevel
 
 
@@ -15,7 +15,6 @@ class TestTrinoDialect:
     def setup(self):
         self.dialect = TrinoDialect()
 
-    # TODO: Test more authentication methods and URL params (https://github.com/trinodb/trino-python-client/issues/106)
     @pytest.mark.parametrize(
         "url, expected_args, expected_kwargs",
         [
@@ -72,3 +71,40 @@ class TestTrinoDialect:
 
         isolation_level = self.dialect.get_isolation_level(dbapi_conn)
         assert isolation_level == "SERIALIZABLE"
+
+
+def test_trino_connection_basic_auth():
+    dialect = TrinoDialect()
+    username = 'trino-user'
+    password = 'trino-bunny'
+    url = make_url(f'trino://{username}:{password}@host')
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams['http_scheme'] == "https"
+    assert isinstance(cparams['auth'], BasicAuthentication)
+    assert cparams['auth']._username == username
+    assert cparams['auth']._password == password
+
+
+def test_trino_connection_jwt_auth():
+    dialect = TrinoDialect()
+    access_token = 'sample-token'
+    url = make_url(f'trino://host/?access_token={access_token}')
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams['http_scheme'] == "https"
+    assert isinstance(cparams['auth'], JWTAuthentication)
+    assert cparams['auth'].token == access_token
+
+
+def test_trino_connection_certificate_auth():
+    dialect = TrinoDialect()
+    cert = '/path/to/cert.pem'
+    key = '/path/to/key.pem'
+    url = make_url(f'trino://host/?cert={cert}&key={key}')
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams['http_scheme'] == "https"
+    assert isinstance(cparams['auth'], CertificateAuthentication)
+    assert cparams['auth']._cert == cert
+    assert cparams['auth']._key == key

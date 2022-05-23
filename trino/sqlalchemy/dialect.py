@@ -18,7 +18,7 @@ from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
 
 from trino import dbapi as trino_dbapi, logging
-from trino.auth import BasicAuthentication, JWTAuthentication
+from trino.auth import BasicAuthentication, CertificateAuthentication, JWTAuthentication
 from trino.dbapi import Cursor
 from trino.exceptions import TrinoUserError
 from trino.sqlalchemy import compiler, datatype, error
@@ -95,6 +95,10 @@ class TrinoDialect(DefaultDialect):
         if "access_token" in url.query:
             kwargs["http_scheme"] = "https"
             kwargs["auth"] = JWTAuthentication(url.query["access_token"])
+
+        if "cert" and "key" in url.query:
+            kwargs["http_scheme"] = "https"
+            kwargs["auth"] = CertificateAuthentication(url.query['cert'], url.query['key'])
 
         if "source" in url.query:
             kwargs["source"] = url.query["source"]

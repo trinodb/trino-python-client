@@ -241,6 +241,9 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
     from sqlalchemy import create_engine
     from trino.auth import CertificateAuthentication
 
+    engine = create_engine("trino://<username>@<host>:<port>/<catalog>/<schema>?cert=<cert>&key=<key>")
+
+    # or
     engine = create_engine(
     "trino://<username>@<host>:<port>/<catalog>",
         connect_args={
