@@ -89,6 +89,20 @@ nodes = Table(
 rows = connection.execute(select(nodes)).fetchall()
 ```
 
+In order to pass additional connection attributes use [connect_args](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.connect_args) method.
+
+```python
+from sqlalchemy import create_engine
+
+engine = create_engine(
+    'trino://user@localhost:8080/system',
+    connect_args={
+      "session_properties": {'query_max_run_time': '1d'},
+      "client_tags": ["tag1", "tag2"]
+    }
+)
+```
+
 ## Authentications
 
 ### Basic Authentication

@@ -22,15 +22,15 @@ class TestTrinoDialect:
             (
                 make_url("trino://user@localhost"),
                 list(),
-                dict(host="localhost", catalog="system", user="user"),
+                dict(host="localhost", catalog="system", user="user", source="trino-sqlalchemy"),
             ),
             (
                 make_url("trino://user@localhost:8080"),
                 list(),
-                dict(host="localhost", port=8080, catalog="system", user="user"),
+                dict(host="localhost", port=8080, catalog="system", user="user", source="trino-sqlalchemy"),
             ),
             (
-                make_url("trino://user:pass@localhost:8080"),
+                make_url("trino://user:pass@localhost:8080?source=trino-rulez"),
                 list(),
                 dict(
                     host="localhost",
@@ -39,6 +39,7 @@ class TestTrinoDialect:
                     user="user",
                     auth=BasicAuthentication("user", "pass"),
                     http_scheme="https",
+                    source="trino-rulez"
                 ),
             ),
         ],

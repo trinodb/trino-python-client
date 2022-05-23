@@ -96,6 +96,11 @@ class TrinoDialect(DefaultDialect):
             kwargs["http_scheme"] = "https"
             kwargs["auth"] = JWTAuthentication(url.query["access_token"])
 
+        if "source" in url.query:
+            kwargs["source"] = url.query["source"]
+        else:
+            kwargs["source"] = "trino-sqlalchemy"
+
         return args, kwargs
 
     def get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
