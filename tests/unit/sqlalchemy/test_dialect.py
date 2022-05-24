@@ -41,6 +41,26 @@ class TestTrinoDialect:
                     source="trino-rulez"
                 ),
             ),
+            (
+                make_url(
+                    'trino://user@localhost:8080?'
+                    'session_properties={"query_max_run_time": "1d"}'
+                    '&http_headers={"trino": 1}'
+                    '&extra_credential=[("a", "b"), ("c", "d")]'
+                    '&client_tags=[1, "sql"]'),
+                list(),
+                dict(
+                    host="localhost",
+                    port=8080,
+                    catalog="system",
+                    user="user",
+                    source="trino-sqlalchemy",
+                    session_properties={"query_max_run_time": "1d"},
+                    http_headers={"trino": 1},
+                    extra_credential=[("a", "b"), ("c", "d")],
+                    client_tags=[1, "sql"]
+                ),
+            ),
         ],
     )
     def test_create_connect_args(self, url: URL, expected_args: List[Any], expected_kwargs: Dict[str, Any]):

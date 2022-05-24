@@ -90,6 +90,7 @@ rows = connection.execute(select(nodes)).fetchall()
 ```
 
 In order to pass additional connection attributes use [connect_args](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.connect_args) method.
+Attributes can be also passed in connection string.
 
 ```python
 from sqlalchemy import create_engine
@@ -100,6 +101,13 @@ engine = create_engine(
       "session_properties": {'query_max_run_time': '1d'},
       "client_tags": ["tag1", "tag2"]
     }
+)
+
+# or in connection string
+engine = create_engine(
+    'trino://user@localhost:8080/system?'
+    'session_properties={"query_max_run_time": "1d"}'
+    '&client_tags=["tag1", "tag2"]',
 )
 ```
 

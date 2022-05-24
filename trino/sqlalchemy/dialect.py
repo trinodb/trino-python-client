@@ -9,6 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
+from ast import literal_eval
 from textwrap import dedent
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -104,6 +106,18 @@ class TrinoDialect(DefaultDialect):
             kwargs["source"] = url.query["source"]
         else:
             kwargs["source"] = "trino-sqlalchemy"
+
+        if "session_properties" in url.query:
+            kwargs["session_properties"] = json.loads(url.query["session_properties"])
+
+        if "http_headers" in url.query:
+            kwargs["http_headers"] = json.loads(url.query["http_headers"])
+
+        if "extra_credential" in url.query:
+            kwargs["extra_credential"] = literal_eval(url.query["extra_credential"])
+
+        if "client_tags" in url.query:
+            kwargs["client_tags"] = json.loads(url.query["client_tags"])
 
         return args, kwargs
 
