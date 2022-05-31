@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import re
-from typing import Iterator, List, Optional, Tuple, Type, Union
+from typing import Iterator, List, Optional, Tuple, Type, Union, Dict, Any
 
 from sqlalchemy import util
 from sqlalchemy.sql import sqltypes
@@ -55,6 +55,22 @@ class ROW(TypeEngine):
         return list
 
 
+class TIME(sqltypes.TIME):
+    __visit_name__ = "TIME"
+
+    def __init__(self, precision=None, timezone=False):
+        super(TIME, self).__init__(timezone=timezone)
+        self.precision = precision
+
+
+class TIMESTAMP(sqltypes.TIMESTAMP):
+    __visit_name__ = "TIMESTAMP"
+
+    def __init__(self, precision=None, timezone=False):
+        super(TIMESTAMP, self).__init__(timezone=timezone)
+        self.precision = precision
+
+
 # https://trino.io/docs/current/language/types.html
 _type_map = {
     # === Boolean ===
@@ -77,8 +93,10 @@ _type_map = {
     "json": sqltypes.JSON,
     # === Date and time ===
     "date": sqltypes.DATE,
-    "time": sqltypes.TIME,
-    "timestamp": sqltypes.TIMESTAMP,
+    "time": TIME,
+    "time with time zone": TIME,
+    "timestamp": TIMESTAMP,
+    "timestamp with time zone": TIMESTAMP,
     # 'interval year to month':
     # 'interval day to second':
     #
@@ -193,7 +211,10 @@ def parse_sqltype(type_str: str) -> TypeEngine:
     type_class = _type_map[type_name]
     type_args = [int(o.strip()) for o in type_opts.split(",")] if type_opts else []
     if type_name in ("time", "timestamp"):
-        type_kwargs = dict(timezone=type_str.endswith("with time zone"))
-        # TODO: support parametric timestamps (https://github.com/trinodb/trino-python-client/issues/107)
+        type_kwargs: Dict[str, Any] = dict()
+        if type_str.endswith("with time zone"):
+            type_kwargs["timezone"] = True
+        if type_opts is not None:
+            type_kwargs["precision"] = int(type_opts)
         return type_class(**type_kwargs)
     return type_class(*type_args)
