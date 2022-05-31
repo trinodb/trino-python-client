@@ -16,14 +16,17 @@ from sqlalchemy.sql.sqltypes import (
     ARRAY,
     INTEGER,
     DECIMAL,
-    DATE,
-    TIME,
-    TIMESTAMP,
+    DATE
 )
 from sqlalchemy.sql.type_api import TypeEngine
 
 from trino.sqlalchemy import datatype
-from trino.sqlalchemy.datatype import MAP, ROW
+from trino.sqlalchemy.datatype import (
+    MAP,
+    ROW,
+    TIME,
+    TIMESTAMP
+)
 
 
 @pytest.mark.parametrize(
@@ -65,8 +68,7 @@ parse_type_options_testcases = {
     "CHAR(10)": CHAR(10),
     "VARCHAR(10)": VARCHAR(10),
     "DECIMAL(20)": DECIMAL(20),
-    "DECIMAL(20, 3)": DECIMAL(20, 3),
-    # TODO: support parametric timestamps (https://github.com/trinodb/trino-python-client/issues/107)
+    "DECIMAL(20, 3)": DECIMAL(20, 3)
 }
 
 
@@ -142,8 +144,8 @@ parse_row_testcases = {
     ),
     "row(min timestamp(6) with time zone, max timestamp(6) with time zone)": ROW(
         attr_types=[
-            ("min", TIMESTAMP(timezone=True)),
-            ("max", TIMESTAMP(timezone=True)),
+            ("min", TIMESTAMP(6, timezone=True)),
+            ("max", TIMESTAMP(6, timezone=True)),
         ]
     ),
     'row("first name" varchar, "last name" varchar)': ROW(
@@ -173,12 +175,19 @@ def test_parse_row(type_str: str, sql_type: ARRAY, assert_sqltype):
 
 
 parse_datetime_testcases = {
-    # TODO: support parametric timestamps (https://github.com/trinodb/trino-python-client/issues/107)
     "date": DATE(),
     "time": TIME(),
+    "time(0)": TIME(0),
+    "time(3)": TIME(3, timezone=False),
+    "time(6)": TIME(6),
+    "time(13)": TIME(13),
+    "time(12) with time zone": TIME(12, timezone=True),
     "time with time zone": TIME(timezone=True),
-    "timestamp": TIMESTAMP(),
-    "timestamp with time zone": TIMESTAMP(timezone=True),
+    "timestamp(0)": TIMESTAMP(0),
+    "timestamp(3)": TIMESTAMP(3, timezone=False),
+    "timestamp(6)": TIMESTAMP(6),
+    "timestamp(12) with time zone": TIMESTAMP(12, timezone=True),
+    "timestamp with time zone": TIMESTAMP(timezone=True)
 }
 
 
@@ -187,6 +196,6 @@ parse_datetime_testcases = {
     parse_datetime_testcases.items(),
     ids=parse_datetime_testcases.keys(),
 )
-def test_parse_datetime(type_str: str, sql_type: ARRAY, assert_sqltype):
+def test_parse_datetime(type_str: str, sql_type: TypeEngine, assert_sqltype):
     actual_type = datatype.parse_sqltype(type_str)
     assert_sqltype(actual_type, sql_type)

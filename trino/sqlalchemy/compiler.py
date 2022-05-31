@@ -147,6 +147,29 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
     def visit_DATETIME(self, type_, **kw):
         return self.visit_TIMESTAMP(type_, **kw)
 
+    def visit_TIMESTAMP(self, type_, **kw):
+        datatype = "TIMESTAMP"
+        precision = getattr(type_, "precision", None)
+        if precision not in range(0, 13) and precision is not None:
+            raise ValueError(f"invalid precision={precision}, it must be from range 0-12")
+        if precision is not None:
+            datatype += f"({precision})"
+        if getattr(type_, "timezone", False):
+            datatype += " WITH TIME ZONE"
+
+        return datatype
+
+    def visit_TIME(self, type_, **kw):
+        datatype = "TIME"
+        precision = getattr(type_, "precision", None)
+        if precision not in range(0, 13) and precision is not None:
+            raise ValueError(f"invalid precision={precision}, it must be from range 0-12")
+        if precision is not None:
+            datatype += f"({precision})"
+        if getattr(type_, "timezone", False):
+            datatype += " WITH TIME ZONE"
+        return datatype
+
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
