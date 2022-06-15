@@ -147,6 +147,18 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
     def visit_DATETIME(self, type_, **kw):
         return self.visit_TIMESTAMP(type_, **kw)
 
+    def visit_INTERVAL(self, type_, **kw):
+        text = "INTERVAL"
+        if type_.adapt_datatype:
+            if type_.fields in ("month", "year"):
+                return "INTERVAL YEAR TO MONTH"
+            elif type_.fields in ("second", "minute", "hour", "day"):
+                return "INTERVAL DAY TO SECOND"
+        if type_.precision is not None:
+            text += " '%d'" % type_.precision
+        if type_.fields is not None:
+            text += " " + type_.fields
+        return text
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS

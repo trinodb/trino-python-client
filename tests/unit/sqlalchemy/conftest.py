@@ -12,7 +12,7 @@
 import pytest
 from sqlalchemy.sql.sqltypes import ARRAY
 
-from trino.sqlalchemy.datatype import MAP, ROW, SQLType
+from trino.sqlalchemy.datatype import INTERVAL, MAP, ROW, SQLType
 
 
 @pytest.fixture(scope="session")
@@ -40,6 +40,11 @@ def assert_sqltype():
             for (this_attr, that_attr) in zip(this.attr_types, that.attr_types):
                 assert this_attr[0] == that_attr[0]
                 _assert_sqltype(this_attr[1], that_attr[1])
+
+        elif isinstance(this, INTERVAL):
+            assert this.precision == that.precision
+            assert this.fields == that.fields
+
         else:
             assert str(this) == str(that)
 

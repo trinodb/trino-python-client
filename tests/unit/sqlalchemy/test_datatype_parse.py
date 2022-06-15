@@ -23,7 +23,7 @@ from sqlalchemy.sql.sqltypes import (
 from sqlalchemy.sql.type_api import TypeEngine
 
 from trino.sqlalchemy import datatype
-from trino.sqlalchemy.datatype import MAP, ROW
+from trino.sqlalchemy.datatype import INTERVAL, MAP, ROW
 
 
 @pytest.mark.parametrize(
@@ -179,6 +179,8 @@ parse_datetime_testcases = {
     "time with time zone": TIME(timezone=True),
     "timestamp": TIMESTAMP(),
     "timestamp with time zone": TIMESTAMP(timezone=True),
+    "interval '6' month": INTERVAL(precision=6, fields="month"),
+    "interval '14' day": INTERVAL(precision=14, fields="day"),
 }
 
 

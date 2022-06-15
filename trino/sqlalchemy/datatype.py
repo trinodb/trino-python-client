@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import re
+import datetime as dt
 from typing import Iterator, List, Optional, Tuple, Type, Union
 
 from sqlalchemy import util
@@ -21,6 +22,44 @@ SQLType = Union[TypeEngine, Type[TypeEngine]]
 
 class DOUBLE(sqltypes.Float):
     __visit_name__ = "DOUBLE"
+
+
+class INTERVAL(sqltypes.NativeForEmulated, sqltypes._AbstractInterval):
+    __visit_name__ = "INTERVAL"
+    native = True
+
+    def __init__(self, precision=None, fields=None, adapt_datatype: bool = False):
+        """Construct an INTERVAL.
+
+        :param precision: integer precision value
+        :param fields: string fields specifier.  allows storage of fields
+         to be limited, such as ``"YEAR"``, ``"MONTH"``, ``"SECOND"``,
+         etc.
+        :param adapt_datatype: allows conversion from data type value to column data type
+        """
+        self.precision = precision
+        self.fields = fields
+        self.adapt_datatype = adapt_datatype
+
+    def adapt_value_to_datatype(self):
+        return INTERVAL(
+            precision=self.precision,
+            fields=self.fields,
+            adapt_datatype=True)
+
+    @property
+    def _type_affinity(self):
+        return sqltypes.Interval
+
+    def as_generic(self, allow_nulltype=False):
+        return sqltypes.Interval(native=True, second_precision=self.precision)
+
+    @property
+    def python_type(self):
+        return dt.timedelta
+
+    def coerce_compared_value(self, op, value):
+        return self
 
 
 class MAP(TypeEngine):
@@ -79,9 +118,7 @@ _type_map = {
     "date": sqltypes.DATE,
     "time": sqltypes.TIME,
     "timestamp": sqltypes.TIMESTAMP,
-    # 'interval year to month':
-    # 'interval day to second':
-    #
+    "interval": INTERVAL,
     # === Structural ===
     # 'array': ARRAY,
     # 'map':   MAP
@@ -108,13 +145,13 @@ def unquote(string: str, quote: str = '"', escape: str = "\\") -> str:
 
 
 def aware_split(
-    string: str,
-    delimiter: str = ",",
-    maxsplit: int = -1,
-    quote: str = '"',
-    escaped_quote: str = r"\"",
-    open_bracket: str = "(",
-    close_bracket: str = ")",
+        string: str,
+        delimiter: str = ",",
+        maxsplit: int = -1,
+        quote: str = '"',
+        escaped_quote: str = r"\"",
+        open_bracket: str = "(",
+        close_bracket: str = ")",
 ) -> Iterator[str]:
     """
     A split function that is aware of quotes and brackets/parentheses.
@@ -158,15 +195,16 @@ def aware_split(
 
 def parse_sqltype(type_str: str) -> TypeEngine:
     type_str = type_str.strip().lower()
-    match = re.match(r"^(?P<type>\w+)\s*(?:\((?P<options>.*)\))?", type_str)
+    match = re.match(r"^(?P<type>\w+)\s*(?:[\(|'](?P<precision>.*)[\)|'])?(?:[ ](?P<fields>.+))?", type_str)
     if not match:
         util.warn(f"Could not parse type name '{type_str}'")
         return sqltypes.NULLTYPE
     type_name = match.group("type")
-    type_opts = match.group("options")
+    type_precision = match.group("precision")
+    type_fields = match.group("fields")
 
     if type_name == "array":
-        item_type = parse_sqltype(type_opts)
+        item_type = parse_sqltype(type_precision)
         if isinstance(item_type, sqltypes.ARRAY):
             # Multi-dimensions array is normalized in SQLAlchemy, e.g:
             # `ARRAY(ARRAY(INT))` in Trino SQL will become `ARRAY(INT(), dimensions=2)` in SQLAlchemy
@@ -174,13 +212,13 @@ def parse_sqltype(type_str: str) -> TypeEngine:
             return sqltypes.ARRAY(item_type.item_type, dimensions=dimensions)
         return sqltypes.ARRAY(item_type)
     elif type_name == "map":
-        key_type_str, value_type_str = aware_split(type_opts)
+        key_type_str, value_type_str = aware_split(type_precision)
         key_type = parse_sqltype(key_type_str)
         value_type = parse_sqltype(value_type_str)
         return MAP(key_type, value_type)
     elif type_name == "row":
         attr_types: List[Tuple[Optional[str], SQLType]] = []
-        for attr in aware_split(type_opts):
+        for attr in aware_split(type_precision):
             attr_name, attr_type_str = aware_split(attr.strip(), delimiter=" ", maxsplit=1)
             attr_name = unquote(attr_name)
             attr_type = parse_sqltype(attr_type_str)
@@ -191,7 +229,18 @@ def parse_sqltype(type_str: str) -> TypeEngine:
         util.warn(f"Did not recognize type '{type_name}'")
         return sqltypes.NULLTYPE
     type_class = _type_map[type_name]
-    type_args = [int(o.strip()) for o in type_opts.split(",")] if type_opts else []
+    type_args = [int(o.strip()) for o in type_precision.split(",")] if type_precision else []
+
+    if type_name == "interval":
+        if type_fields not in ("second", "minute", "hour", "day", "month", "year"):
+            util.warn(f"Did not recognize field type '{type_fields}'")
+            return sqltypes.NULLTYPE
+        type_kwargs: Dict[str, Any] = dict(
+            precision=int(type_precision),
+            fields=type_fields
+        )
+        return type_class(**type_kwargs)
+
     if type_name in ("time", "timestamp"):
         type_kwargs = dict(timezone=type_str.endswith("with time zone"))
         # TODO: support parametric timestamps (https://github.com/trinodb/trino-python-client/issues/107)
