@@ -777,6 +777,30 @@ def test_5XX_error_retry(status_code, attempts, monkeypatch):
     assert post_retry.retry_count == attempts
 
 
+@pytest.mark.parametrize("status_code", [
+    501
+])
+def test_error_no_retry(status_code, monkeypatch):
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = status_code
+
+    post_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
+
+    req = TrinoRequest(
+        host="coordinator", port=8080, user="test", max_attempts=3
+    )
+
+    req.post("URL")
+    assert post_retry.retry_count == 1
+
+    req.get("URL")
+    assert post_retry.retry_count == 1
+
+
 class FakeGatewayResponse(object):
     def __init__(self, http_response, redirect_count=1):
         self.__name__ = "FakeGatewayResponse"
