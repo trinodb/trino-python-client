@@ -752,9 +752,13 @@ def test_authentication_fail_retry(monkeypatch):
     assert post_retry.retry_count == attempts
 
 
-def test_503_error_retry(monkeypatch):
+@pytest.mark.parametrize("status_code, attempts", [
+    (503, 3),
+    (504, 3),
+])
+def test_5XX_error_retry(status_code, attempts, monkeypatch):
     http_resp = TrinoRequest.http.Response()
-    http_resp.status_code = 503
+    http_resp.status_code = status_code
 
     post_retry = RetryRecorder(result=http_resp)
     monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
@@ -762,29 +766,6 @@ def test_503_error_retry(monkeypatch):
     get_retry = RetryRecorder(result=http_resp)
     monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
 
-    attempts = 3
-    req = TrinoRequest(
-        host="coordinator", port=8080, user="test", max_attempts=attempts
-    )
-
-    req.post("URL")
-    assert post_retry.retry_count == attempts
-
-    req.get("URL")
-    assert post_retry.retry_count == attempts
-
-
-def test_504_error_retry(monkeypatch):
-    http_resp = TrinoRequest.http.Response()
-    http_resp.status_code = 504
-
-    post_retry = RetryRecorder(result=http_resp)
-    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
-
-    get_retry = RetryRecorder(result=http_resp)
-    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
-
-    attempts = 3
     req = TrinoRequest(
         host="coordinator", port=8080, user="test", max_attempts=attempts
     )
