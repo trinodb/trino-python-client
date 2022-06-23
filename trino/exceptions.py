@@ -29,6 +29,10 @@ class HttpError(Exception):
     pass
 
 
+class Http502Error(Exception):
+    pass
+
+
 class Http503Error(HttpError):
     pass
 
