@@ -19,6 +19,7 @@ from sqlalchemy import (
     String,
     Table,
 )
+from sqlalchemy.schema import CreateTable
 
 from trino.sqlalchemy.dialect import TrinoDialect
 
@@ -26,8 +27,15 @@ metadata = MetaData()
 table = Table(
     'table',
     metadata,
-    Column('id', Integer, primary_key=True),
+    Column('id', Integer),
     Column('name', String),
+)
+table_with_catalog = Table(
+    'table',
+    metadata,
+    Column('id', Integer),
+    schema='default',
+    trino_catalog='other'
 )
 
 
@@ -64,3 +72,20 @@ def test_cte_insert_order(dialect):
         'FROM "table")\n'\
         ' SELECT cte.id, cte.name \n'\
         'FROM cte'
+
+
+def test_catalogs_argument(dialect):
+    statement = select(table_with_catalog)
+    query = statement.compile(dialect=dialect)
+    assert str(query) == 'SELECT default."table".id \nFROM "other".default."table"'
+
+
+def test_catalogs_create_table(dialect):
+    statement = CreateTable(table_with_catalog)
+    query = statement.compile(dialect=dialect)
+    assert str(query) == \
+        '\n'\
+        'CREATE TABLE "other".default."table" (\n'\
+        '\tid INTEGER\n'\
+        ')\n'\
+        '\n'
