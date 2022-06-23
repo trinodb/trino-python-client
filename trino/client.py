@@ -340,9 +340,9 @@ class TrinoRequest(object):
             self._handle_retry,
             exceptions=self._exceptions,
             conditions=(
-                # need retry when there is no exception but the status code is 503 or 504
+                # need retry when there is no exception but the status code is 502, 503, or 504
                 lambda response: getattr(response, "status_code", None)
-                in (503, 504),
+                in (502, 503, 504),
             ),
             max_attempts=self._max_attempts,
         )
@@ -416,6 +416,9 @@ class TrinoRequest(object):
         return exceptions.TrinoQueryError(error, query_id)
 
     def raise_response_error(self, http_response):
+        if http_response.status_code == 502:
+            raise exceptions.Http502Error("error 502: bad gateway")
+
         if http_response.status_code == 503:
             raise exceptions.Http503Error("error 503: service unavailable")
 

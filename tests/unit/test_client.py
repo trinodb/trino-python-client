@@ -753,6 +753,7 @@ def test_authentication_fail_retry(monkeypatch):
 
 
 @pytest.mark.parametrize("status_code, attempts", [
+    (502, 3),
     (503, 3),
     (504, 3),
 ])
