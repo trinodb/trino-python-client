@@ -10,6 +10,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from sqlalchemy.sql import compiler
+try:
+    from sqlalchemy.sql.expression import (
+        Alias,
+        CTE,
+        Subquery,
+    )
+except ImportError:
+    # For SQLAlchemy versions < 1.4, the CTE and Subquery classes did not explicitly exist
+    from sqlalchemy.sql.expression import Alias
+    CTE = type(None)
+    Subquery = type(None)
 
 # https://trino.io/docs/current/language/reserved.html
 RESERVED_WORDS = {
@@ -102,6 +113,31 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
             text += "\nLIMIT " + self.process(select._limit_clause, **kw)
         return text
 
+    def visit_table(self, table, asfrom=False, iscrud=False, ashint=False,
+                    fromhints=None, use_schema=True, **kwargs):
+        sql = super(TrinoSQLCompiler, self).visit_table(
+            table, asfrom, iscrud, ashint, fromhints, use_schema, **kwargs
+        )
+        return self.add_catalog(sql, table)
+
+    @staticmethod
+    def add_catalog(sql, table):
+        if table is None:
+            return sql
+
+        if isinstance(table, (Alias, CTE, Subquery)):
+            return sql
+
+        if (
+                'trino' not in table.dialect_options
+                or 'catalog' not in table.dialect_options['trino']
+        ):
+            return sql
+
+        catalog = table.dialect_options['trino']['catalog']
+        sql = f'"{catalog}".{sql}'
+        return sql
+
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
     pass
@@ -173,3 +209,7 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
+
+    def format_table(self, table, use_schema=True, name=None):
+        result = super(TrinoIdentifierPreparer, self).format_table(table, use_schema, name)
+        return TrinoSQLCompiler.add_catalog(result, table)
