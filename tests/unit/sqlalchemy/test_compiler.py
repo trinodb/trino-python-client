@@ -10,7 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from sqlalchemy import Table, MetaData, Column, Integer, String, select
+from sqlalchemy import (
+    Column,
+    insert,
+    Integer,
+    MetaData,
+    select,
+    String,
+    Table,
+)
 
 from trino.sqlalchemy.dialect import TrinoDialect
 
@@ -44,3 +52,15 @@ def test_offset(dialect):
     statement = select(table).offset(0)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nOFFSET :param_1'
+
+
+def test_cte_insert_order(dialect):
+    cte = select(table).cte('cte')
+    statement = insert(table).from_select(table.columns, cte)
+    query = statement.compile(dialect=dialect)
+    assert str(query) == \
+        'INSERT INTO "table" (id, name) WITH cte AS \n'\
+        '(SELECT "table".id AS id, "table".name AS name \n'\
+        'FROM "table")\n'\
+        ' SELECT cte.id, cte.name \n'\
+        'FROM cte'

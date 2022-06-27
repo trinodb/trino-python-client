@@ -62,6 +62,9 @@ class TrinoDialect(DefaultDialect):
     # and tests are needed before being enabled
     supports_statement_cache = False
 
+    # Support proper ordering of CTEs in regard to an INSERT statement
+    cte_follows_insert = True
+
     @classmethod
     def dbapi(cls):
         """
