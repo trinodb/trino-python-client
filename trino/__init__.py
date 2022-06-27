@@ -19,4 +19,12 @@ from . import logging
 
 __all__ = ['auth', 'dbapi', 'client', 'constants', 'exceptions', 'logging']
 
+try:
+    from . import sqlalchemy
+    __all__ += ['sqlalchemy']
+except ImportError:
+    import warnings
+    warnings.warn('SQLAlchemy integration requires the sqlalchemy extra to be installed, try with '
+                  'pip install trino[sqlalchemy]')
+
 __version__ = "0.313.0"
