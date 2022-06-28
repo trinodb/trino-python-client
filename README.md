@@ -322,6 +322,39 @@ cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 
+### SSL verification
+
+In order to disable SSL verification, set the `verify` parameter to `False`.
+
+```python
+from trino.dbapi import connect
+from trino.auth import BasicAuthentication
+
+conn = connect(
+    user="<username>",
+    auth=BasicAuthentication("<username>", "<password>"),
+    http_scheme="https",
+    verify=False
+)
+```
+
+### Self-signed certificates
+
+To use self-signed certificates, specify a path to the certificate in `verify` parameter.
+More details can be found in [the Python requests library documentation](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification).
+
+```python
+from trino.dbapi import connect
+from trino.auth import BasicAuthentication
+
+conn = connect(
+    user="<username>",
+    auth=BasicAuthentication("<username>", "<password>"),
+    http_scheme="https",
+    verify="/path/to/cert.crt"
+)
+```
+
 ## Transactions
 
 The client runs by default in *autocommit* mode. To enable transactions, set
