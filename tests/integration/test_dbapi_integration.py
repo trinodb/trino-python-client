@@ -495,6 +495,26 @@ def test_null_date_with_time_zone(trino_connection):
     assert rows[0][0] is None
 
 
+def test_pyformat_query_param(trino_connection):
+    cur = trino_connection.cursor()
+
+    cur.execute("SELECT %(key)s, %(value)d", params={"key": "key1", "value": 123})
+    rows = cur.fetchall()
+
+    assert rows[0][0] == ["key1"]
+    assert rows[0][1] == [123]
+
+
+def test_pyformat_reuse_query_param(trino_connection):
+    cur = trino_connection.cursor()
+
+    cur.execute("SELECT %(num)d, %(num)d", params={"num": -1})
+    rows = cur.fetchall()
+
+    assert rows[0][0] == [-1]
+    assert rows[0][1] == [-1]
+
+
 def test_array_query_param(trino_connection):
     cur = trino_connection.cursor()
 

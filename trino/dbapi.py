@@ -441,33 +441,38 @@ class Cursor(object):
 
     def execute(self, operation, params=None):
         if params:
-            assert isinstance(params, (list, tuple)), (
-                'params must be a list or tuple containing the query '
+            assert isinstance(params, (dict, list, tuple)), (
+                'params must be a dict, list or tuple containing the query '
                 'parameter values'
             )
 
-            statement_name = self._generate_unique_statement_name()
-            # Send prepare statement
-            added_prepare_header = self._prepare_statement(
-                operation, statement_name
-            )
+            if isinstance(params, dict):
+                self._query = trino.client.TrinoQuery(self._request, sql=operation % params,
+                                                      experimental_python_types=self._experimental_pyton_types)
+                result = self._query.execute()
+            else:
+                statement_name = self._generate_unique_statement_name()
+                # Send prepare statement
+                added_prepare_header = self._prepare_statement(
+                    operation, statement_name
+                )
 
-            try:
-                # Send execute statement and assign the return value to `results`
-                # as it will be returned by the function
-                self._query = self._get_added_prepare_statement_trino_query(
-                    statement_name, params
-                )
-                result = self._query.execute(
-                    additional_http_headers={
-                        constants.HEADER_PREPARED_STATEMENT: added_prepare_header
-                    }
-                )
-            finally:
-                # Send deallocate statement
-                # At this point the query can be deallocated since it has already
-                # been executed
-                self._deallocate_prepare_statement(added_prepare_header, statement_name)
+                try:
+                    # Send execute statement and assign the return value to `results`
+                    # as it will be returned by the function
+                    self._query = self._get_added_prepare_statement_trino_query(
+                        statement_name, params
+                    )
+                    result = self._query.execute(
+                        additional_http_headers={
+                            constants.HEADER_PREPARED_STATEMENT: added_prepare_header
+                        }
+                    )
+                finally:
+                    # Send deallocate statement
+                    # At this point the query can be deallocated since it has already
+                    # been executed
+                    self._deallocate_prepare_statement(added_prepare_header, statement_name)
 
         else:
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
