@@ -766,7 +766,7 @@ def test_select_tpch_1000(trino_connection):
 def test_cancel_query(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT * FROM tpch.sf1.customer")
-    cur.fetchone()  # TODO (https://github.com/trinodb/trino/issues/2683) test with and without .fetchone
+    cur.fetchone()
     cur.cancel()  # would raise an exception if cancel fails
 
     cur = trino_connection.cursor()
