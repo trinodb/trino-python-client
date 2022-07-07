@@ -775,6 +775,18 @@ def test_cancel_query(trino_connection):
     assert "Cancel query failed; no running query" in str(cancel_error.value)
 
 
+def test_close_cursor(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("SELECT * FROM tpch.sf1.customer")
+    cur.fetchone()
+    cur.close()  # would raise an exception if cancel fails
+
+    cur = trino_connection.cursor()
+    with pytest.raises(Exception) as cancel_error:
+        cur.close()
+    assert "Cancel query failed; no running query" in str(cancel_error.value)
+
+
 def test_session_properties(run_trino):
     _, host, port = run_trino
 

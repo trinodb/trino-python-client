@@ -567,7 +567,9 @@ class Cursor(object):
         self._query.cancel()
 
     def close(self):
-        self._connection.close()
+        self.cancel()
+        # TODO: Cancel not only the last query executed on this cursor
+        #  but also any other outstanding queries executed through this cursor.
 
 
 Date = datetime.date
