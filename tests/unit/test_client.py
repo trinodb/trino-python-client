@@ -167,9 +167,10 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_ROLE] == "hive=ALL"
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 8
+        assert len(headers.keys()) == 9
 
     def assert_headers_without_role(headers):
         assert headers[constants.HEADER_CATALOG] == catalog

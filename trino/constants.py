@@ -36,7 +36,9 @@ HEADER_CLIENT_TAGS = "X-Trino-Client-Tags"
 HEADER_EXTRA_CREDENTIAL = "X-Trino-Extra-Credential"
 
 HEADER_SESSION = "X-Trino-Session"
+HEADER_ROLE = "X-Trino-Role"
 HEADER_SET_SESSION = "X-Trino-Set-Session"
+HEADER_SET_ROLE = "X-Trino-Set-Role"
 HEADER_CLEAR_SESSION = "X-Trino-Clear-Session"
 
 HEADER_ROLE = "X-Trino-Role"

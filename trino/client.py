@@ -289,6 +289,7 @@ class TrinoRequest(object):
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=exceptions.RetryWithExponentialBackoff(),
         verify: bool = True,
+        client_tags: Optional[List[str]] = None,
         role: Optional[str] = None
     ) -> None:
         self._client_session = client_session
