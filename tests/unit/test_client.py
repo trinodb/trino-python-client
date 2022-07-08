@@ -80,6 +80,7 @@ def test_request_headers(mock_get_and_post):
             client_info_header: client_info_value,
         },
         redirect_handler=None,
+        role="hive=ALL",
     )
 
     def assert_headers(headers):
@@ -88,9 +89,10 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_ROLE] == "hive=ALL"
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 8
+        assert len(headers.keys()) == 9
 
     req.post("URL")
     _, post_kwargs = post.call_args

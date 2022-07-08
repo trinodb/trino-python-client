@@ -229,7 +229,8 @@ class TrinoRequest(object):
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=exceptions.RetryWithExponentialBackoff(),
         verify: bool = True,
-        client_tags: Optional[List[str]] = None
+        client_tags: Optional[List[str]] = None,
+        role: Optional[str] = None
     ) -> None:
         self._client_session = ClientSession(
             catalog,
@@ -246,6 +247,7 @@ class TrinoRequest(object):
         self._host = host
         self._port = port
         self._next_uri: Optional[str] = None
+        self._role = role
 
         if http_scheme is None:
             if self._port == constants.DEFAULT_TLS_PORT:
@@ -307,6 +309,8 @@ class TrinoRequest(object):
 
         transaction_id = self._client_session.transaction_id
         headers[constants.HEADER_TRANSACTION] = transaction_id
+        if self._role:
+            headers[constants.HEADER_ROLE] = self._role
 
         if self._client_session.extra_credential is not None and \
                 len(self._client_session.extra_credential) > 0:
@@ -326,6 +330,10 @@ class TrinoRequest(object):
     @property
     def max_attempts(self) -> int:
         return self._max_attempts
+
+    @property
+    def role(self) -> Optional[str]:
+        return self._role
 
     @max_attempts.setter
     def max_attempts(self, value) -> None:
@@ -453,6 +461,9 @@ class TrinoRequest(object):
                 http_response.headers, constants.HEADER_SET_SESSION
             ):
                 self._client_session.properties[key] = value
+
+        if constants.HEADER_SET_ROLE in http_response.headers:
+            self._role = http_response.headers[constants.HEADER_SET_ROLE]
 
         self._next_uri = response.get("nextUri")
 
