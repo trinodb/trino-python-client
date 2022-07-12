@@ -28,7 +28,16 @@ def trino_connection(run_trino):
     _, host, port = run_trino
 
     yield trino.dbapi.Connection(
-        host=host, port=port, user="test", source="test", max_attempts=1
+        host=host, port=port, user="test", source="test", max_attempts=1,
+    )
+
+
+@pytest.fixture
+def trino_connection_jmx(run_trino):
+    _, host, port = run_trino
+
+    yield trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test", max_attempts=1, catalog='jmx',
     )
 
 
@@ -76,6 +85,7 @@ def test_select_query(trino_connection):
     assert columns["node_version"] == "varchar"
     assert columns["coordinator"] == "boolean"
     assert columns["state"] == "varchar"
+
 
 
 def test_select_query_result_iteration(trino_connection):
@@ -937,3 +947,14 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
 
     query_client_tags = query_info['session']['clientTags']
     return query_client_tags
+
+
+def test_set_role(trino_connection_jmx):
+    cur0 = trino_connection_jmx.cursor()
+    cur0.execute("SHOW SCHEMAS")
+    cur0.fetchall()
+    assert cur0._request.role is None
+
+    cur0.execute("SET ROLE ALL")
+    cur0.fetchall()
+    assert cur0._request.role == "system=ALL"
