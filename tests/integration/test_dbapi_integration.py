@@ -87,6 +87,7 @@ def test_select_query(trino_connection):
     assert columns["state"] == "varchar"
 
 
+
 def test_select_query_result_iteration(trino_connection):
     cur0 = trino_connection.cursor()
     cur0.execute("SELECT custkey FROM tpch.sf1.customer LIMIT 10")
@@ -1054,3 +1055,14 @@ def test_use_catalog(run_trino):
     result = cur.fetchall()
     assert result[0][0] == 'tpch'
     assert result[0][1] == 'sf1'
+
+
+def test_set_role(trino_connection_jmx):
+    cur0 = trino_connection_jmx.cursor()
+    cur0.execute("SHOW SCHEMAS")
+    cur0.fetchall()
+    assert cur0._request.role is None
+
+    cur0.execute("SET ROLE ALL")
+    cur0.fetchall()
+    assert cur0._request.role == "system=ALL"
