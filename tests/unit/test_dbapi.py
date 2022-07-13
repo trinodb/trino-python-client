@@ -232,5 +232,5 @@ def test_tags_are_set_when_specified(mock_client):
         conn.cursor().execute("SOME FAKE QUERY")
 
     # THEN
-    _, passed_client_tags = mock_client.TrinoRequest.call_args
+    _, passed_client_tags = mock_client.ClientSession.call_args
     assert passed_client_tags["client_tags"] == client_tags
