@@ -170,7 +170,8 @@ class TrinoRequest(object):
                  authentication.
     :param extra_credential: extra credentials. as list of ``(key, value)``
                              tuples.
-    :param role: role for the current session. Some connectors do not support role management. See connector documentation for more details.
+    :param role: role for the current session. Some connectors do not support
+                 role management. See connector documentation for more details
     :max_attempts: maximum number of attempts when sending HTTP requests. An
                    attempt is an HTTP request. 5 attempts means 4 retries.
     :request_timeout: How long (in seconds) to wait for the server to send

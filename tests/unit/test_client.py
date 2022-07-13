@@ -137,6 +137,7 @@ def test_request_headers(mock_get_and_post):
     _, get_kwargs = get.call_args
     assert_headers_without_role(get_kwargs["headers"])
 
+
 def test_request_session_properties_headers(mock_get_and_post):
     get, post = mock_get_and_post
 
