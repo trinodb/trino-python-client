@@ -119,6 +119,17 @@ class Connection(object):
         self.catalog = catalog
         self.schema = schema
         self.session_properties = session_properties
+        self._client_session = trino.client.ClientSession(
+            user=user,
+            catalog=catalog,
+            schema=schema,
+            source=source,
+            properties=session_properties,
+            headers=http_headers,
+            transaction_id=NO_TRANSACTION,
+            extra_credential=extra_credential,
+            client_tags=client_tags
+        )
         # mypy cannot follow module import
         if http_session is None:
             self._http_session = trino.client.TrinoRequest.http.Session()
@@ -184,21 +195,13 @@ class Connection(object):
         return trino.client.TrinoRequest(
             self.host,
             self.port,
-            self.user,
-            self.source,
-            self.catalog,
-            self.schema,
-            self.session_properties,
+            self._client_session,
             self._http_session,
-            self.http_headers,
-            NO_TRANSACTION,
             self.http_scheme,
             self.auth,
-            self.extra_credential,
             self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
-            client_tags=self.client_tags
         )
 
     def cursor(self, experimental_python_types: bool = None):
