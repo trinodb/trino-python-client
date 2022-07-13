@@ -45,3 +45,6 @@ HEADER_TRANSACTION = "X-Trino-Transaction-Id"
 HEADER_PREPARED_STATEMENT = 'X-Trino-Prepared-Statement'
 HEADER_ADDED_PREPARE = 'X-Trino-Added-Prepare'
 HEADER_DEALLOCATED_PREPARE = 'X-Trino-Deallocated-Prepare'
+
+HEADER_SET_SCHEMA = "X-Trino-Set-Schema"
+HEADER_SET_CATALOG = "X-Trino-Set-Catalog"

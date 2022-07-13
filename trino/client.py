@@ -126,11 +126,23 @@ class ClientSession(object):
 
     @property
     def catalog(self):
-        return self._catalog
+        with self._object_lock:
+            return self._catalog
+
+    @catalog.setter
+    def catalog(self, catalog):
+        with self._object_lock:
+            self._catalog = catalog
 
     @property
     def schema(self):
-        return self._schema
+        with self._object_lock:
+            return self._schema
+
+    @schema.setter
+    def schema(self, schema):
+        with self._object_lock:
+            self._schema = schema
 
     @property
     def source(self):
@@ -488,6 +500,12 @@ class TrinoRequest(object):
                 http_response.headers, constants.HEADER_SET_SESSION
             ):
                 self._client_session.properties[key] = value
+
+        if constants.HEADER_SET_CATALOG in http_response.headers:
+            self._client_session.catalog = http_response.headers[constants.HEADER_SET_CATALOG]
+
+        if constants.HEADER_SET_SCHEMA in http_response.headers:
+            self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
 
         self._next_uri = response.get("nextUri")
 

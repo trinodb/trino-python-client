@@ -983,3 +983,54 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
 
     query_client_tags = query_info['session']['clientTags']
     return query_client_tags
+
+
+@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+def test_use_catalog_schema(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] is None
+    assert result[0][1] is None
+
+    cur.execute('USE tpch.tiny')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] == 'tiny'
+
+    cur.execute('USE tpcds.sf1')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpcds'
+    assert result[0][1] == 'sf1'
+
+
+@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+def test_use_catalog(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test", catalog="tpch", max_attempts=1
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] is None
+
+    cur.execute('USE tiny')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] == 'tiny'
+
+    cur.execute('USE sf1')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] == 'sf1'
