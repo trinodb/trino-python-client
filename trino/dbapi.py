@@ -109,7 +109,8 @@ class Connection(object):
         isolation_level=IsolationLevel.AUTOCOMMIT,
         verify=True,
         http_session=None,
-        client_tags=None
+        client_tags=None,
+        experimental_python_types=False,
     ):
         self.host = host
         self.port = port
@@ -136,6 +137,7 @@ class Connection(object):
         self._isolation_level = isolation_level
         self._request = None
         self._transaction = None
+        self.experimental_python_types = experimental_python_types
 
     @property
     def isolation_level(self):
@@ -199,17 +201,21 @@ class Connection(object):
             client_tags=self.client_tags
         )
 
-    def cursor(self, experimental_python_types=False):
+    def cursor(self, experimental_python_types: bool = None):
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
                 self.start_transaction()
-            request = self.transaction._request
-        elif self.transaction is not None:
-            request = self.transaction._request
+        if self.transaction is not None:
+            request = self.transaction.request
         else:
             request = self._create_request()
-        return Cursor(self, request, experimental_python_types)
+        return Cursor(
+            self,
+            request,
+            # if experimental_python_types is not explicitly set in Cursor, take from Connection
+            experimental_python_types if experimental_python_types is not None else self.experimental_python_types
+        )
 
 
 class Cursor(object):
