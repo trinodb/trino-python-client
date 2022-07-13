@@ -47,7 +47,8 @@ class TestTrinoDialect:
                     'session_properties={"query_max_run_time": "1d"}'
                     '&http_headers={"trino": 1}'
                     '&extra_credential=[("a", "b"), ("c", "d")]'
-                    '&client_tags=[1, "sql"]'),
+                    '&client_tags=[1, "sql"]'
+                    '&experimental_python_types=true'),
                 list(),
                 dict(
                     host="localhost",
@@ -58,7 +59,8 @@ class TestTrinoDialect:
                     session_properties={"query_max_run_time": "1d"},
                     http_headers={"trino": 1},
                     extra_credential=[("a", "b"), ("c", "d")],
-                    client_tags=[1, "sql"]
+                    client_tags=[1, "sql"],
+                    experimental_python_types=True,
                 ),
             ),
         ],

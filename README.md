@@ -99,7 +99,8 @@ engine = create_engine(
     'trino://user@localhost:8080/system',
     connect_args={
       "session_properties": {'query_max_run_time': '1d'},
-      "client_tags": ["tag1", "tag2"]
+      "client_tags": ["tag1", "tag2"],
+      "experimental_python_types": True,
     }
 )
 
@@ -107,7 +108,8 @@ engine = create_engine(
 engine = create_engine(
     'trino://user@localhost:8080/system?'
     'session_properties={"query_max_run_time": "1d"}'
-    '&client_tags=["tag1", "tag2"]',
+    '&client_tags=["tag1", "tag2"]'
+    '&experimental_python_types=true',
 )
 ```
 
@@ -361,10 +363,11 @@ import pytz
 from datetime import datetime
 
 conn = trino.dbapi.connect(
+    experimental_python_types=True,
     ...
 )
 
-cur = conn.cursor(experimental_python_types=True)
+cur = conn.cursor()
 
 params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
 

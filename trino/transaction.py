@@ -59,6 +59,10 @@ class Transaction(object):
     def id(self):
         return self._id
 
+    @property
+    def request(self):
+        return self._request
+
     def begin(self):
         response = self._request.post(START_TRANSACTION)
         if not response.ok:

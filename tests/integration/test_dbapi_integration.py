@@ -166,8 +166,34 @@ def test_execute_many_select(trino_connection):
     assert "Query must return update type" in str(e.value)
 
 
-def test_python_types_not_used_when_experimental_python_types_is_not_set(trino_connection):
-    cur = trino_connection.cursor()
+@pytest.mark.parametrize("connection_experimental_python_types,cursor_experimental_python_types,expected",
+                         [
+                             (None, None, False),
+                             (None, False, False),
+                             (None, True, True),
+                             (False, None, False),
+                             (False, False, False),
+                             (False, True, True),
+                             (True, None, True),
+                             (True, False, False),
+                             (True, True, True),
+                         ])
+def test_experimental_python_types_with_connection_and_cursor(
+        connection_experimental_python_types,
+        cursor_experimental_python_types,
+        expected,
+        run_trino
+):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        experimental_python_types=connection_experimental_python_types,
+    )
+
+    cur = connection.cursor(experimental_python_types=cursor_experimental_python_types)
 
     cur.execute("""
     SELECT
@@ -180,15 +206,23 @@ def test_python_types_not_used_when_experimental_python_types_is_not_set(trino_c
     """)
     rows = cur.fetchall()
 
-    for value in rows[0]:
-        assert isinstance(value, str)
+    if expected:
+        assert rows[0][0] == Decimal('0.142857')
+        assert rows[0][1] == date(2018, 1, 1)
+        assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
+        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=pytz.timezone('UTC'))
+        assert rows[0][4] == datetime(2019, 1, 1)
+        assert rows[0][5] == time(0, 0, 0, 0)
+    else:
+        for value in rows[0]:
+            assert isinstance(value, str)
 
-    assert rows[0][0] == '0.142857'
-    assert rows[0][1] == '2018-01-01'
-    assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
-    assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
-    assert rows[0][4] == '2019-01-01 00:00:00.000'
-    assert rows[0][5] == '00:00:00.000'
+        assert rows[0][0] == '0.142857'
+        assert rows[0][1] == '2018-01-01'
+        assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
+        assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
+        assert rows[0][4] == '2019-01-01 00:00:00.000'
+        assert rows[0][5] == '00:00:00.000'
 
 
 def test_decimal_query_param(trino_connection):

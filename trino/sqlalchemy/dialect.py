@@ -122,6 +122,9 @@ class TrinoDialect(DefaultDialect):
         if "client_tags" in url.query:
             kwargs["client_tags"] = json.loads(url.query["client_tags"])
 
+        if "experimental_python_types" in url.query:
+            kwargs["experimental_python_types"] = json.loads(url.query["experimental_python_types"])
+
         return args, kwargs
 
     def get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
