@@ -87,7 +87,6 @@ def test_select_query(trino_connection):
     assert columns["state"] == "varchar"
 
 
-
 def test_select_query_result_iteration(trino_connection):
     cur0 = trino_connection.cursor()
     cur0.execute("SELECT custkey FROM tpch.sf1.customer LIMIT 10")
