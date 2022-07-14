@@ -504,7 +504,7 @@ class TrinoResult(object):
         # Initial fetch from the first POST request
         for row in self._rows:
             self._rownumber += 1
-            yield row
+            yield self._map_row(self._experimental_python_types, row, self._query.columns)
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
@@ -513,14 +513,18 @@ class TrinoResult(object):
             for row in rows:
                 self._rownumber += 1
                 logger.debug("row %s", row)
-                if not self._experimental_python_types:
-                    yield row
-                else:
-                    yield self._map_to_python_types(row, self._query.columns)
+                yield self._map_row(self._experimental_python_types, row, self._query.columns)
 
     @property
     def response_headers(self):
         return self._query.response_headers
+
+    @classmethod
+    def _map_row(cls, experimental_python_types, row, columns):
+        if not experimental_python_types:
+            return row
+        else:
+            return cls._map_to_python_types(cls, row, columns)
 
     @classmethod
     def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:
