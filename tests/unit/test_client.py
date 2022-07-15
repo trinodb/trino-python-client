@@ -66,7 +66,7 @@ def test_request_headers(mock_get_and_post):
     client_info_header = constants.HEADER_CLIENT_INFO
     client_info_value = "some_client_info"
 
-    req_with_role = TrinoRequest(
+    req_with_role_1 = TrinoRequest(
         host="coordinator",
         port=8080,
         user=user,
@@ -81,6 +81,40 @@ def test_request_headers(mock_get_and_post):
         },
         redirect_handler=None,
         role="hive=ALL",
+    )
+
+    req_with_role_2 = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        user=user,
+        source=source,
+        catalog=catalog,
+        schema=schema,
+        http_scheme="http",
+        session_properties={},
+        http_headers={
+            accept_encoding_header: accept_encoding_value,
+            client_info_header: client_info_value,
+        },
+        redirect_handler=None,
+        role="admin",
+    )
+
+    req_with_role_3 = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        user=user,
+        source=source,
+        catalog=catalog,
+        schema=schema,
+        http_scheme="http",
+        session_properties={},
+        http_headers={
+            accept_encoding_header: accept_encoding_value,
+            client_info_header: client_info_value,
+        },
+        redirect_handler=None,
+        role="",
     )
 
     req_without_role = TrinoRequest(
@@ -99,7 +133,7 @@ def test_request_headers(mock_get_and_post):
         redirect_handler=None,
     )
 
-    def assert_headers_with_role(headers):
+    def assert_headers_with_role_1(headers):
         assert headers[constants.HEADER_CATALOG] == catalog
         assert headers[constants.HEADER_SCHEMA] == schema
         assert headers[constants.HEADER_SOURCE] == source
@@ -109,6 +143,27 @@ def test_request_headers(mock_get_and_post):
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
         assert len(headers.keys()) == 9
+
+    def assert_headers_with_role_2(headers):
+        assert headers[constants.HEADER_CATALOG] == catalog
+        assert headers[constants.HEADER_SCHEMA] == schema
+        assert headers[constants.HEADER_SOURCE] == source
+        assert headers[constants.HEADER_USER] == user
+        assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_ROLE] == "admin"
+        assert headers[accept_encoding_header] == accept_encoding_value
+        assert headers[client_info_header] == client_info_value
+        assert len(headers.keys()) == 9
+
+    def assert_headers_with_role_3(headers):
+        assert headers[constants.HEADER_CATALOG] == catalog
+        assert headers[constants.HEADER_SCHEMA] == schema
+        assert headers[constants.HEADER_SOURCE] == source
+        assert headers[constants.HEADER_USER] == user
+        assert headers[constants.HEADER_SESSION] == ""
+        assert headers[accept_encoding_header] == accept_encoding_value
+        assert headers[client_info_header] == client_info_value
+        assert len(headers.keys()) == 8
 
     def assert_headers_without_role(headers):
         assert headers[constants.HEADER_CATALOG] == catalog
@@ -121,13 +176,29 @@ def test_request_headers(mock_get_and_post):
         assert headers[client_info_header] == client_info_value
         assert len(headers.keys()) == 8
 
-    req_with_role.post("URL")
+    req_with_role_1.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers_with_role(post_kwargs["headers"])
+    assert_headers_with_role_1(post_kwargs["headers"])
 
-    req_with_role.get("URL")
+    req_with_role_1.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers_with_role(get_kwargs["headers"])
+    assert_headers_with_role_1(get_kwargs["headers"])
+
+    req_with_role_2.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_with_role_2(post_kwargs["headers"])
+
+    req_with_role_2.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_with_role_2(get_kwargs["headers"])
+
+    req_with_role_3.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_with_role_3(post_kwargs["headers"])
+
+    req_with_role_3.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_with_role_3(get_kwargs["headers"])
 
     req_without_role.post("URL")
     _, post_kwargs = post.call_args
