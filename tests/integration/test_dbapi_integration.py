@@ -28,7 +28,16 @@ def trino_connection(run_trino):
     _, host, port = run_trino
 
     yield trino.dbapi.Connection(
-        host=host, port=port, user="test", source="test", max_attempts=1
+        host=host, port=port, user="test", source="test", max_attempts=1,
+    )
+
+
+@pytest.fixture
+def trino_connection_jmx(run_trino):
+    _, host, port = run_trino
+
+    yield trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test", max_attempts=1, catalog='jmx',
     )
 
 
@@ -985,6 +994,17 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
     return query_client_tags
 
 
+def test_set_role(trino_connection_jmx):
+    cur0 = trino_connection_jmx.cursor()
+    cur0.execute("SHOW SCHEMAS")
+    cur0.fetchall()
+    assert cur0._request.role is None
+
+    cur0.execute("SET ROLE ALL")
+    cur0.fetchall()
+    assert cur0._request.role == "system=ALL"
+
+
 @pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
 def test_use_catalog_schema(trino_connection):
     cur = trino_connection.cursor()
@@ -1034,3 +1054,14 @@ def test_use_catalog(run_trino):
     result = cur.fetchall()
     assert result[0][0] == 'tpch'
     assert result[0][1] == 'sf1'
+
+
+def test_set_role(trino_connection_jmx):
+    cur0 = trino_connection_jmx.cursor()
+    cur0.execute("SHOW SCHEMAS")
+    cur0.fetchall()
+    assert cur0._request.role is None
+
+    cur0.execute("SET ROLE ALL")
+    cur0.fetchall()
+    assert cur0._request.role == "system=ALL"

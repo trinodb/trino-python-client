@@ -30,6 +30,7 @@ conn = connect(
     user="<username>",
     catalog="<catalog>",
     schema="<schema>",
+    role="<role>",
 )
 cur = conn.cursor()
 cur.execute("SELECT * FROM system.runtime.nodes")
