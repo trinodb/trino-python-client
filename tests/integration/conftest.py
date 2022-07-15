@@ -20,7 +20,7 @@ from uuid import uuid4
 import click
 import trino.logging
 import pytest
-from trino.client import TrinoQuery, TrinoRequest
+from trino.client import TrinoQuery, TrinoRequest, ClientSession
 from trino.constants import DEFAULT_PORT
 from trino.exceptions import TimeoutError
 
@@ -65,7 +65,13 @@ def start_trino(image_tag=None):
 
 
 def wait_for_trino_workers(host, port, timeout=180):
-    request = TrinoRequest(host=host, port=port, user="test_fixture")
+    request = TrinoRequest(
+        host=host,
+        port=port,
+        client_session=ClientSession(
+            user="test_fixture"
+        )
+    )
     sql = "SELECT state FROM system.runtime.nodes"
     t0 = time.time()
     while True:

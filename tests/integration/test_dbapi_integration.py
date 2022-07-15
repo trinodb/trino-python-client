@@ -175,8 +175,34 @@ def test_execute_many_select(trino_connection):
     assert "Query must return update type" in str(e.value)
 
 
-def test_python_types_not_used_when_experimental_python_types_is_not_set(trino_connection):
-    cur = trino_connection.cursor()
+@pytest.mark.parametrize("connection_experimental_python_types,cursor_experimental_python_types,expected",
+                         [
+                             (None, None, False),
+                             (None, False, False),
+                             (None, True, True),
+                             (False, None, False),
+                             (False, False, False),
+                             (False, True, True),
+                             (True, None, True),
+                             (True, False, False),
+                             (True, True, True),
+                         ])
+def test_experimental_python_types_with_connection_and_cursor(
+        connection_experimental_python_types,
+        cursor_experimental_python_types,
+        expected,
+        run_trino
+):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        experimental_python_types=connection_experimental_python_types,
+    )
+
+    cur = connection.cursor(experimental_python_types=cursor_experimental_python_types)
 
     cur.execute("""
     SELECT
@@ -189,15 +215,23 @@ def test_python_types_not_used_when_experimental_python_types_is_not_set(trino_c
     """)
     rows = cur.fetchall()
 
-    for value in rows[0]:
-        assert isinstance(value, str)
+    if expected:
+        assert rows[0][0] == Decimal('0.142857')
+        assert rows[0][1] == date(2018, 1, 1)
+        assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
+        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=pytz.timezone('UTC'))
+        assert rows[0][4] == datetime(2019, 1, 1)
+        assert rows[0][5] == time(0, 0, 0, 0)
+    else:
+        for value in rows[0]:
+            assert isinstance(value, str)
 
-    assert rows[0][0] == '0.142857'
-    assert rows[0][1] == '2018-01-01'
-    assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
-    assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
-    assert rows[0][4] == '2019-01-01 00:00:00.000'
-    assert rows[0][5] == '00:00:00.000'
+        assert rows[0][0] == '0.142857'
+        assert rows[0][1] == '2018-01-01'
+        assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
+        assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
+        assert rows[0][4] == '2019-01-01 00:00:00.000'
+        assert rows[0][5] == '00:00:00.000'
 
 
 def test_decimal_query_param(trino_connection):
@@ -775,12 +809,24 @@ def test_select_tpch_1000(trino_connection):
 def test_cancel_query(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT * FROM tpch.sf1.customer")
-    cur.fetchone()  # TODO (https://github.com/trinodb/trino/issues/2683) test with and without .fetchone
+    cur.fetchone()
     cur.cancel()  # would raise an exception if cancel fails
 
     cur = trino_connection.cursor()
     with pytest.raises(Exception) as cancel_error:
         cur.cancel()
+    assert "Cancel query failed; no running query" in str(cancel_error.value)
+
+
+def test_close_cursor(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("SELECT * FROM tpch.sf1.customer")
+    cur.fetchone()
+    cur.close()  # would raise an exception if cancel fails
+
+    cur = trino_connection.cursor()
+    with pytest.raises(Exception) as cancel_error:
+        cur.close()
     assert "Cancel query failed; no running query" in str(cancel_error.value)
 
 
@@ -957,3 +1003,54 @@ def test_set_role(trino_connection_jmx):
     cur0.execute("SET ROLE ALL")
     cur0.fetchall()
     assert cur0._request.role == "system=ALL"
+
+
+@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+def test_use_catalog_schema(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] is None
+    assert result[0][1] is None
+
+    cur.execute('USE tpch.tiny')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] == 'tiny'
+
+    cur.execute('USE tpcds.sf1')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpcds'
+    assert result[0][1] == 'sf1'
+
+
+@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+def test_use_catalog(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test", catalog="tpch", max_attempts=1
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] is None
+
+    cur.execute('USE tiny')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] == 'tiny'
+
+    cur.execute('USE sf1')
+    cur.fetchall()
+    cur.execute('SELECT current_catalog, current_schema')
+    result = cur.fetchall()
+    assert result[0][0] == 'tpch'
+    assert result[0][1] == 'sf1'

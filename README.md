@@ -100,7 +100,8 @@ engine = create_engine(
     'trino://user@localhost:8080/system',
     connect_args={
       "session_properties": {'query_max_run_time': '1d'},
-      "client_tags": ["tag1", "tag2"]
+      "client_tags": ["tag1", "tag2"],
+      "experimental_python_types": True,
     }
 )
 
@@ -108,7 +109,8 @@ engine = create_engine(
 engine = create_engine(
     'trino://user@localhost:8080/system?'
     'session_properties={"query_max_run_time": "1d"}'
-    '&client_tags=["tag1", "tag2"]',
+    '&client_tags=["tag1", "tag2"]'
+    '&experimental_python_types=true',
 )
 ```
 
@@ -321,6 +323,39 @@ cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 
+### SSL verification
+
+In order to disable SSL verification, set the `verify` parameter to `False`.
+
+```python
+from trino.dbapi import connect
+from trino.auth import BasicAuthentication
+
+conn = connect(
+    user="<username>",
+    auth=BasicAuthentication("<username>", "<password>"),
+    http_scheme="https",
+    verify=False
+)
+```
+
+### Self-signed certificates
+
+To use self-signed certificates, specify a path to the certificate in `verify` parameter.
+More details can be found in [the Python requests library documentation](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification).
+
+```python
+from trino.dbapi import connect
+from trino.auth import BasicAuthentication
+
+conn = connect(
+    user="<username>",
+    auth=BasicAuthentication("<username>", "<password>"),
+    http_scheme="https",
+    verify="/path/to/cert.crt"
+)
+```
+
 ## Transactions
 
 The client runs by default in *autocommit* mode. To enable transactions, set
@@ -362,10 +397,11 @@ import pytz
 from datetime import datetime
 
 conn = trino.dbapi.connect(
+    experimental_python_types=True,
     ...
 )
 
-cur = conn.cursor(experimental_python_types=True)
+cur = conn.cursor()
 
 params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
 

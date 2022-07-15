@@ -36,6 +36,7 @@ The main interface is :class:`TrinoQuery`: ::
 import copy
 import os
 import re
+import threading
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -46,9 +47,8 @@ import requests
 
 import trino.logging
 from trino import constants, exceptions
-from trino.transaction import NO_TRANSACTION
 
-__all__ = ["TrinoQuery", "TrinoRequest", "PROXIES"]
+__all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 
 logger = trino.logging.get_logger(__name__)
 
@@ -67,37 +67,127 @@ NAN = float("nan")
 
 
 class ClientSession(object):
+    """
+    Manage the current Client Session properties of a specific connection. This class is thread-safe.
+
+    :param user: associated with the query. It is useful for access control
+                 and query scheduling.
+    :param source: associated with the query. It is useful for access
+                   control and query scheduling.
+    :param catalog: to query. The *catalog* is associated with a Trino
+                    connector. This variable sets the default catalog used
+                    by SQL statements. For example, if *catalog* is set
+                    to ``some_catalog``, the SQL statement
+                    ``SELECT * FROM some_schema.some_table`` will actually
+                    query the table
+                    ``some_catalog.some_schema.some_table``.
+    :param schema: to query. The *schema* is a logical abstraction to group
+                   table. This variable sets the default schema used by
+                   SQL statements. For example, if *schema* is set to
+                   ``some_schema``, the SQL statement
+                   ``SELECT * FROM some_table`` will actually query the
+                   table ``some_catalog.some_schema.some_table``.
+    :param properties: set specific Trino behavior for the current
+                               session. Please refer to the output of
+                               ``SHOW SESSION`` to check the available
+                               properties.
+    :param headers: HTTP headers to POST/GET in the HTTP requests
+    :param extra_credential: extra credentials. as list of ``(key, value)``
+                             tuples.
+    :param client_tags: Client tags as list of strings.
+    """
+
     def __init__(
         self,
-        catalog,
-        schema,
-        source,
-        user,
-        properties=None,
-        headers=None,
-        transaction_id=None,
-        extra_credential=None,
-        client_tags=None
+        user: str,
+        catalog: str = None,
+        schema: str = None,
+        source: str = None,
+        properties: Dict[str, str] = None,
+        headers: Dict[str, str] = None,
+        transaction_id: str = None,
+        extra_credential: List[Tuple[str, str]] = None,
+        client_tags: List[str] = None,
     ):
-        self.catalog = catalog
-        self.schema = schema
-        self.source = source
-        self.user = user
-        if properties is None:
-            properties = {}
-        self._properties = properties
+        self._user = user
+        self._catalog = catalog
+        self._schema = schema
+        self._source = source
+        self._properties = properties or {}
         self._headers = headers or {}
-        self.transaction_id = transaction_id
-        self.extra_credential = extra_credential
-        self.client_tags = client_tags
+        self._transaction_id = transaction_id
+        self._extra_credential = extra_credential
+        self._client_tags = client_tags
+        self._object_lock = threading.Lock()
+
+    @property
+    def user(self):
+        return self._user
+
+    @property
+    def catalog(self):
+        with self._object_lock:
+            return self._catalog
+
+    @catalog.setter
+    def catalog(self, catalog):
+        with self._object_lock:
+            self._catalog = catalog
+
+    @property
+    def schema(self):
+        with self._object_lock:
+            return self._schema
+
+    @schema.setter
+    def schema(self, schema):
+        with self._object_lock:
+            self._schema = schema
+
+    @property
+    def source(self):
+        return self._source
 
     @property
     def properties(self):
-        return self._properties
+        with self._object_lock:
+            return self._properties
+
+    @properties.setter
+    def properties(self, properties):
+        with self._object_lock:
+            self._properties = properties
 
     @property
     def headers(self):
         return self._headers
+
+    @property
+    def transaction_id(self):
+        with self._object_lock:
+            return self._transaction_id
+
+    @transaction_id.setter
+    def transaction_id(self, transaction_id):
+        with self._object_lock:
+            self._transaction_id = transaction_id
+
+    @property
+    def extra_credential(self):
+        return self._extra_credential
+
+    @property
+    def client_tags(self):
+        return self._client_tags
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["_object_lock"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._object_lock = threading.Lock()
 
 
 def get_header_values(headers, header):
@@ -143,40 +233,15 @@ class TrinoRequest(object):
 
     :param host: name of the coordinator
     :param port: TCP port to connect to the coordinator
-    :param user: associated with the query. It is useful for access control
-                 and query scheduling.
-    :param source: associated with the query. It is useful for access
-                   control and query scheduling.
-    :param catalog: to query. The *catalog* is associated with a Trino
-                    connector. This variable sets the default catalog used
-                    by SQL statements. For example, if *catalog* is set
-                    to ``some_catalog``, the SQL statement
-                    ``SELECT * FROM some_schema.some_table`` will actually
-                    query the table
-                    ``some_catalog.some_schema.some_table``.
-    :param schema: to query. The *schema* is a logical abstraction to group
-                   table. This variable sets the default schema used by
-                   SQL statements. For eample, if *schema* is set to
-                   ``some_schema``, the SQL statement
-                   ``SELECT * FROM some_table`` will actually query the
-                   table ``some_catalog.some_schema.some_table``.
-    :param session_properties: set specific Trino behavior for the current
-                               session. Please refer to the output of
-                               ``SHOW SESSION`` to check the available
-                               properties.
-    :param http_headers: HTTP headers to post/get in the HTTP requests
     :param http_scheme: "http" or "https"
     :param auth: class that manages user authentication. ``None`` means no
                  authentication.
-    :param extra_credential: extra credentials. as list of ``(key, value)``
-                             tuples.
-    :param role: role for the current session. Some connectors do not support
-                 role management. See connector documentation for more details
     :max_attempts: maximum number of attempts when sending HTTP requests. An
                    attempt is an HTTP request. 5 attempts means 4 retries.
     :request_timeout: How long (in seconds) to wait for the server to send
                       data before giving up, as a float or a
                       ``(connect timeout, read timeout)`` tuple.
+    :param role: role for the current session. Some connectors do not support
 
     The client initiates a query by sending an HTTP POST to the
     coordinator. It then gets a response back from the coordinator with:
@@ -215,37 +280,18 @@ class TrinoRequest(object):
         self,
         host: str,
         port: int,
-        user: str,
-        source: str = None,
-        catalog: str = None,
-        schema: str = None,
-        session_properties: Optional[Dict[str, Any]] = None,
+        client_session: ClientSession,
         http_session: Any = None,
-        http_headers: Optional[Dict[str, str]] = None,
-        transaction_id: Optional[str] = NO_TRANSACTION,
         http_scheme: str = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
-        extra_credential: Optional[List[Tuple[str, str]]] = None,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=exceptions.RetryWithExponentialBackoff(),
         verify: bool = True,
-        client_tags: Optional[List[str]] = None,
         role: Optional[str] = None
     ) -> None:
-        self._client_session = ClientSession(
-            catalog,
-            schema,
-            source,
-            user,
-            session_properties,
-            http_headers,
-            transaction_id,
-            extra_credential,
-            client_tags
-        )
-
+        self._client_session = client_session
         self._host = host
         self._port = port
         self._next_uri: Optional[str] = None
@@ -464,6 +510,12 @@ class TrinoRequest(object):
             ):
                 self._client_session.properties[key] = value
 
+        if constants.HEADER_SET_CATALOG in http_response.headers:
+            self._client_session.catalog = http_response.headers[constants.HEADER_SET_CATALOG]
+
+        if constants.HEADER_SET_SCHEMA in http_response.headers:
+            self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
+
         if constants.HEADER_SET_ROLE in http_response.headers:
             self._role = http_response.headers[constants.HEADER_SET_ROLE]
 
@@ -517,7 +569,7 @@ class TrinoResult(object):
         # Initial fetch from the first POST request
         for row in self._rows:
             self._rownumber += 1
-            yield row
+            yield self._map_row(self._experimental_python_types, row, self._query.columns)
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
@@ -526,14 +578,18 @@ class TrinoResult(object):
             for row in rows:
                 self._rownumber += 1
                 logger.debug("row %s", row)
-                if not self._experimental_python_types:
-                    yield row
-                else:
-                    yield self._map_to_python_types(row, self._query.columns)
+                yield self._map_row(self._experimental_python_types, row, self._query.columns)
 
     @property
     def response_headers(self):
         return self._query.response_headers
+
+    @classmethod
+    def _map_row(cls, experimental_python_types, row, columns):
+        if not experimental_python_types:
+            return row
+        else:
+            return cls._map_to_python_types(cls, row, columns)
 
     @classmethod
     def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:

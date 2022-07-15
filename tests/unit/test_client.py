@@ -28,7 +28,7 @@ from tests.unit.oauth_test_utils import RedirectHandler, GetTokenCallback, PostS
     SERVER_ADDRESS
 from trino import constants
 from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
-from trino.client import TrinoQuery, TrinoRequest, TrinoResult
+from trino.client import TrinoQuery, TrinoRequest, TrinoResult, ClientSession
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -38,12 +38,14 @@ def test_trino_initial_request(mock_requests, sample_post_response_data):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = TrinoRequest.http.Response()
@@ -69,16 +71,17 @@ def test_request_headers(mock_get_and_post):
     req_with_role_1 = TrinoRequest(
         host="coordinator",
         port=8080,
-        user=user,
-        source=source,
-        catalog=catalog,
-        schema=schema,
+        client_session=ClientSession(
+            source=source,
+            catalog=catalog,
+            user=user,
+            schema=schema,
+            headers={
+                accept_encoding_header: accept_encoding_value,
+                client_info_header: client_info_value,
+            }
+        ),
         http_scheme="http",
-        session_properties={},
-        http_headers={
-            accept_encoding_header: accept_encoding_value,
-            client_info_header: client_info_value,
-        },
         redirect_handler=None,
         role="hive=ALL",
     )
@@ -86,16 +89,17 @@ def test_request_headers(mock_get_and_post):
     req_with_role_2 = TrinoRequest(
         host="coordinator",
         port=8080,
-        user=user,
-        source=source,
-        catalog=catalog,
-        schema=schema,
+        client_session=ClientSession(
+            source=source,
+            catalog=catalog,
+            user=user,
+            schema=schema,
+            headers={
+                accept_encoding_header: accept_encoding_value,
+                client_info_header: client_info_value,
+            }
+        ),
         http_scheme="http",
-        session_properties={},
-        http_headers={
-            accept_encoding_header: accept_encoding_value,
-            client_info_header: client_info_value,
-        },
         redirect_handler=None,
         role="admin",
     )
@@ -103,16 +107,17 @@ def test_request_headers(mock_get_and_post):
     req_with_role_3 = TrinoRequest(
         host="coordinator",
         port=8080,
-        user=user,
-        source=source,
-        catalog=catalog,
-        schema=schema,
+        client_session=ClientSession(
+            source=source,
+            catalog=catalog,
+            user=user,
+            schema=schema,
+            headers={
+                accept_encoding_header: accept_encoding_value,
+                client_info_header: client_info_value,
+            }
+        ),
         http_scheme="http",
-        session_properties={},
-        http_headers={
-            accept_encoding_header: accept_encoding_value,
-            client_info_header: client_info_value,
-        },
         redirect_handler=None,
         role="",
     )
@@ -120,16 +125,17 @@ def test_request_headers(mock_get_and_post):
     req_without_role = TrinoRequest(
         host="coordinator",
         port=8080,
-        user=user,
-        source=source,
-        catalog=catalog,
-        schema=schema,
+        client_session=ClientSession(
+            source=source,
+            catalog=catalog,
+            user=user,
+            schema=schema,
+            headers={
+                accept_encoding_header: accept_encoding_value,
+                client_info_header: client_info_value,
+            }
+        ),
         http_scheme="http",
-        session_properties={},
-        http_headers={
-            accept_encoding_header: accept_encoding_value,
-            client_info_header: client_info_value,
-        },
         redirect_handler=None,
     )
 
@@ -215,12 +221,14 @@ def test_request_session_properties_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test_user",
-        session_properties={
-            "a": "1",
-            "b": "2",
-            "c": "more=v1,v2"
-        }
+        client_session=ClientSession(
+            user="test_user",
+            properties={
+                "a": "1",
+                "b": "2",
+                "c": "more=v1,v2"
+            }
+        )
     )
 
     def assert_headers(headers):
@@ -245,12 +253,14 @@ def test_additional_request_post_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
         http_scheme="http",
-        session_properties={},
     )
 
     sql = 'select 1'
@@ -274,8 +284,10 @@ def test_request_invalid_http_headers():
         TrinoRequest(
             host="coordinator",
             port=8080,
-            user="test",
-            http_headers={constants.HEADER_USER: "invalid_header"},
+            client_session=ClientSession(
+                user="test",
+                headers={constants.HEADER_USER: "invalid_header"},
+            ),
         )
     assert str(value_error.value).startswith("cannot override reserved HTTP header")
 
@@ -286,8 +298,10 @@ def test_request_client_tags_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test_user",
-        client_tags=["tag1", "tag2"]
+        client_session=ClientSession(
+            user="test_user",
+            client_tags=["tag1", "tag2"]
+        ),
     )
 
     def assert_headers(headers):
@@ -308,7 +322,9 @@ def test_request_client_tags_headers_no_client_tags(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test_user"
+        client_session=ClientSession(
+            user="test_user",
+        )
     )
 
     def assert_headers(headers):
@@ -329,7 +345,9 @@ def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
     )
 
     req.post("SELECT 1")
@@ -345,7 +363,9 @@ def test_https_scheme(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
     )
 
@@ -363,7 +383,9 @@ def test_http_scheme_with_port(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTP,
     )
 
@@ -395,7 +417,9 @@ def test_request_timeout():
         req = TrinoRequest(
             host=host,
             port=port,
-            user="test",
+            client_session=ClientSession(
+                user="test",
+            ),
             http_scheme=http_scheme,
             max_attempts=1,
             request_timeout=request_timeout,
@@ -440,7 +464,9 @@ def test_oauth2_authentication_flow(attempts, sample_post_response_data):
     request = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
         auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
     response = request.post("select 1")
@@ -481,7 +507,9 @@ def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
     request = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
         auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
     with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
@@ -513,7 +541,9 @@ def test_oauth2_authentication_missing_headers(header, error):
     request = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
         auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=RedirectHandler()))
 
@@ -564,7 +594,9 @@ def test_oauth2_header_parsing(header, sample_post_response_data):
     response = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
         auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
     ).post("select 1")
@@ -604,7 +636,9 @@ def test_oauth2_authentication_fail_token_server(http_status, sample_post_respon
     request = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
         auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
 
@@ -635,7 +669,9 @@ def test_multithreaded_oauth2_authentication_flow(sample_post_response_data):
             request = TrinoRequest(
                 host="coordinator",
                 port=constants.DEFAULT_TLS_PORT,
-                user="test",
+                client_session=ClientSession(
+                    user="test",
+                ),
                 http_scheme=constants.HTTPS,
                 auth=auth)
             for i in range(10):
@@ -675,12 +711,14 @@ def test_trino_fetch_request(mock_requests, sample_get_response_data):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = TrinoRequest.http.Response()
@@ -699,12 +737,14 @@ def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = TrinoRequest.http.Response()
@@ -741,12 +781,14 @@ def test_trino_connection_error(monkeypatch, error_code, error_type, error_messa
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
         http_scheme="http",
-        session_properties={},
     )
 
     http_resp = TrinoRequest.http.Response()
@@ -762,8 +804,10 @@ def test_extra_credential(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
-        extra_credential=[("a.username", "foo"), ("b.password", "bar")],
+        client_session=ClientSession(
+            user="test",
+            extra_credential=[("a.username", "foo"), ("b.password", "bar")],
+        ),
     )
 
     req.post("SELECT 1")
@@ -778,8 +822,10 @@ def test_extra_credential_key_with_illegal_chars():
         TrinoRequest(
             host="coordinator",
             port=constants.DEFAULT_TLS_PORT,
-            user="test",
-            extra_credential=[("a=b", "")],
+            client_session=ClientSession(
+                user="test",
+                extra_credential=[("a=b", "")],
+            ),
         )
 
     assert str(e_info.value) == "whitespace or '=' are disallowed in extra credential 'a=b'"
@@ -790,8 +836,10 @@ def test_extra_credential_key_non_ascii():
         TrinoRequest(
             host="coordinator",
             port=constants.DEFAULT_TLS_PORT,
-            user="test",
-            extra_credential=[("的", "")],
+            client_session=ClientSession(
+                user="test",
+                extra_credential=[("的", "")],
+            ),
         )
 
     assert str(e_info.value) == "only ASCII characters are allowed in extra credential '的'"
@@ -803,8 +851,10 @@ def test_extra_credential_value_encoding(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        user="test",
-        extra_credential=[("foo", "bar 的")],
+        client_session=ClientSession(
+            user="test",
+            extra_credential=[("foo", "bar 的")],
+        ),
     )
 
     req.post("SELECT 1")
@@ -845,7 +895,9 @@ def test_authentication_fail_retry(monkeypatch):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
+        client_session=ClientSession(
+            user="test",
+        ),
         http_scheme=constants.HTTPS,
         auth=kerberos_auth,
         max_attempts=attempts,
@@ -876,7 +928,12 @@ def test_5XX_error_retry(status_code, attempts, monkeypatch):
     monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
 
     req = TrinoRequest(
-        host="coordinator", port=8080, user="test", max_attempts=attempts
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+        ),
+        max_attempts=attempts
     )
 
     req.post("URL")
@@ -900,7 +957,12 @@ def test_error_no_retry(status_code, monkeypatch):
     monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
 
     req = TrinoRequest(
-        host="coordinator", port=8080, user="test", max_attempts=3
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+        ),
+        max_attempts=3,
     )
 
     req.post("URL")
@@ -967,12 +1029,14 @@ def test_trino_query_response_headers(sample_get_response_data):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        user="test",
-        source="test",
-        catalog="test",
-        schema="test",
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
         http_scheme="http",
-        session_properties={},
     )
 
     sql = 'execute my_stament using 1, 2, 3'

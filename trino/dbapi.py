@@ -109,7 +109,8 @@ class Connection(object):
         isolation_level=IsolationLevel.AUTOCOMMIT,
         verify=True,
         http_session=None,
-        client_tags=None
+        client_tags=None,
+        experimental_python_types=False,
     ):
         self.host = host
         self.port = port
@@ -118,6 +119,17 @@ class Connection(object):
         self.catalog = catalog
         self.schema = schema
         self.session_properties = session_properties
+        self._client_session = trino.client.ClientSession(
+            user=user,
+            catalog=catalog,
+            schema=schema,
+            source=source,
+            properties=session_properties,
+            headers=http_headers,
+            transaction_id=NO_TRANSACTION,
+            extra_credential=extra_credential,
+            client_tags=client_tags
+        )
         # mypy cannot follow module import
         if http_session is None:
             self._http_session = trino.client.TrinoRequest.http.Session()
@@ -136,6 +148,7 @@ class Connection(object):
         self._isolation_level = isolation_level
         self._request = None
         self._transaction = None
+        self.experimental_python_types = experimental_python_types
 
     @property
     def isolation_level(self):
@@ -182,34 +195,30 @@ class Connection(object):
         return trino.client.TrinoRequest(
             self.host,
             self.port,
-            self.user,
-            self.source,
-            self.catalog,
-            self.schema,
-            self.session_properties,
+            self._client_session,
             self._http_session,
-            self.http_headers,
-            NO_TRANSACTION,
             self.http_scheme,
             self.auth,
-            self.extra_credential,
             self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
-            client_tags=self.client_tags
         )
 
-    def cursor(self, experimental_python_types=False):
+    def cursor(self, experimental_python_types: bool = None):
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
                 self.start_transaction()
-            request = self.transaction._request
-        elif self.transaction is not None:
-            request = self.transaction._request
+        if self.transaction is not None:
+            request = self.transaction.request
         else:
             request = self._create_request()
-        return Cursor(self, request, experimental_python_types)
+        return Cursor(
+            self,
+            request,
+            # if experimental_python_types is not explicitly set in Cursor, take from Connection
+            experimental_python_types if experimental_python_types is not None else self.experimental_python_types
+        )
 
 
 class Cursor(object):
@@ -567,7 +576,9 @@ class Cursor(object):
         self._query.cancel()
 
     def close(self):
-        self._connection.close()
+        self.cancel()
+        # TODO: Cancel not only the last query executed on this cursor
+        #  but also any other outstanding queries executed through this cursor.
 
 
 Date = datetime.date
