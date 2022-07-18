@@ -92,9 +92,10 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_ROLE] is None
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 8
+        assert len(headers.keys()) == 9
 
     req.post("URL")
     _, post_kwargs = post.call_args
@@ -1002,3 +1003,71 @@ def test_retry_with():
     with_retry(FailerUntil(2).__call__)()
     with pytest.raises(SomeException):
         with_retry(FailerUntil(3).__call__)()
+
+
+def assert_headers_with_role(headers, role):
+    assert headers[constants.HEADER_USER] == "test_user"
+    assert headers[constants.HEADER_ROLE] == role
+    assert len(headers.keys()) == 7
+
+
+def test_request_headers_role_hive_all(mock_get_and_post):
+    get, post = mock_get_and_post
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            role="hive=ALL",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_with_role(post_kwargs["headers"], "hive=ALL")
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_with_role(post_kwargs["headers"], "hive=ALL")
+
+
+def test_request_headers_role_admin(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            role="admin",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_with_role(post_kwargs["headers"], "admin")
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_with_role(post_kwargs["headers"], "admin")
+
+
+def test_request_headers_role_empty(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            role="",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_with_role(post_kwargs["headers"], "")
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_with_role(post_kwargs["headers"], "")

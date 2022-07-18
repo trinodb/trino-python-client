@@ -98,6 +98,8 @@ class ClientSession(object):
     :param extra_credential: extra credentials. as list of ``(key, value)``
                              tuples.
     :param client_tags: Client tags as list of strings.
+    :param role: role for the current session. Some connectors do not
+                 support role management. See connector documentation for more details.
     """
 
     def __init__(
@@ -111,6 +113,7 @@ class ClientSession(object):
         transaction_id: str = None,
         extra_credential: List[Tuple[str, str]] = None,
         client_tags: List[str] = None,
+        role: str = None,
     ):
         self._user = user
         self._catalog = catalog
@@ -121,6 +124,7 @@ class ClientSession(object):
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
         self._client_tags = client_tags
+        self._role = role
         self._object_lock = threading.Lock()
 
     @property
@@ -191,6 +195,16 @@ class ClientSession(object):
     def __setstate__(self, state):
         self.__dict__.update(state)
         self._object_lock = threading.Lock()
+
+    @property
+    def role(self):
+        with self._object_lock:
+            return self._role
+
+    @role.setter
+    def role(self, role):
+        with self._object_lock:
+            self._role = role
 
 
 def get_header_values(headers, header):
@@ -368,6 +382,7 @@ class TrinoRequest(object):
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
+        headers[constants.HEADER_ROLE] = self._client_session.role
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
             headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
 
@@ -537,6 +552,9 @@ class TrinoRequest(object):
 
         if constants.HEADER_SET_SCHEMA in http_response.headers:
             self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
+
+        if constants.HEADER_SET_ROLE in http_response.headers:
+            self._client_session.role = http_response.headers[constants.HEADER_SET_ROLE]
 
         self._next_uri = response.get("nextUri")
 
