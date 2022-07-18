@@ -1034,3 +1034,37 @@ def test_use_catalog(run_trino):
     result = cur.fetchall()
     assert result[0][0] == 'tpch'
     assert result[0][1] == 'sf1'
+
+
+@pytest.mark.skipif(trino_version() == '351', reason="Newer Trino versions return the system role")
+def test_set_role_trino_higher_351(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch"
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SHOW TABLES FROM information_schema')
+    cur.fetchall()
+    assert cur._request._client_session.role is None
+
+    cur.execute("SET ROLE ALL")
+    cur.fetchall()
+    assert cur._request._client_session.role == "system=ALL"
+
+
+@pytest.mark.skipif(trino_version() != '351', reason="Trino 351 returns the role for the current catalog")
+def test_set_role_trino_351(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch"
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SHOW TABLES FROM information_schema')
+    cur.fetchall()
+    assert cur._request._client_session.role is None
+
+    cur.execute("SET ROLE ALL")
+    cur.fetchall()
+    assert cur._request._client_session.role == "tpch=ALL"
