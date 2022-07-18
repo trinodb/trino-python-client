@@ -37,6 +37,7 @@ import copy
 import os
 import re
 import threading
+import json
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -210,7 +211,7 @@ class TrinoStatus(object):
         self.info_uri = info_uri
         self.next_uri = next_uri
         self.update_type = update_type
-        self.rows = rows
+        self.rows = self.__process_rows(rows, columns)
         self.columns = columns
 
     def __repr__(self):
@@ -225,6 +226,66 @@ class TrinoStatus(object):
                 len(self.rows),
             )
         )
+
+    def __process_rows(self, rows, columns):
+        if len(rows) == 0:
+            return []
+        col_funcs = [self.__col_func(column) for column in columns]
+
+        return [self.__process_row(row, col_funcs) for row in rows]
+
+    def __process_row(self, row, col_funcs):
+        result = []
+        for idx, val in enumerate(row):
+            if val is None:
+                result.append(None)
+            else:
+                result.append((col_funcs[idx])(val))
+        return result
+
+    def __col_func(self, column):
+        col_type = column['type']
+
+        if col_type.startswith('decimal') or col_type.startswith('double') or col_type.startswith('real'):
+            return lambda val : float('inf') if val == 'Infinity' else -float('inf') if val == '-Infinity' else float('nan') if val == 'NaN' else float(val)
+        elif col_type == 'timestamp' or col_type == 'timestamp(0)':
+            return lambda val : datetime.strptime(val, "%Y-%m-%d %H:%M:%S")
+        elif col_type.startswith('time'):
+            pattern = "%Y-%m-%d %H:%M:%S" if col_type.startswith('timestamp') else "%H:%M:%S"
+            ms_size, ms_to_trim = self.__get_number_of_digits(col_type)
+            if ms_size > 0:
+                pattern += ".%f"
+
+            if col_type.startswith('timestamp'):
+                datetime_size = 21 + ms_size - ms_to_trim
+                if 'with time zone' in col_type:
+                    pattern += ' %z'
+
+                if ms_to_trim > 0:
+                    return lambda val : datetime.strptime(val[:21] + val[datetime_size:], pattern)
+                else:
+                    return lambda val : datetime.strptime(val, pattern)
+
+            else:
+                time_size = 9 + ms_size - ms_to_trim
+                return lambda val : datetime.strptime(val[:time_size], pattern).time()
+        elif col_type == 'date':
+            return lambda val : datetime.strptime(val, '%Y-%m-%d').date()
+        elif col_type == 'json':
+            return lambda val : json.loads(json.loads(val))
+        else:
+            return lambda val : val
+
+    def __get_number_of_digits(self, col_type):
+        start_bracket_idx = col_type.find('(') + 1
+        if start_bracket_idx == 0:
+            return -1, 0
+        end_bracket_idx = col_type.find(')')
+        ms_size = int(col_type[start_bracket_idx:end_bracket_idx])
+        if ms_size == 0:
+            return -1, 0
+        ms_to_trim = ms_size - min(ms_size, 6)
+        return ms_size, ms_to_trim
 
 
 class TrinoRequest(object):
