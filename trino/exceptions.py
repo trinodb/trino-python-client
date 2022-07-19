@@ -41,10 +41,6 @@ class TrinoError(Exception):
     pass
 
 
-class TimeoutError(Exception):
-    pass
-
-
 class TrinoAuthError(Exception):
     pass
 
