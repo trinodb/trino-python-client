@@ -22,7 +22,6 @@ import trino.logging
 import pytest
 from trino.client import TrinoQuery, TrinoRequest, ClientSession
 from trino.constants import DEFAULT_PORT
-from trino.exceptions import TimeoutError
 
 
 logger = trino.logging.get_logger(__name__)
