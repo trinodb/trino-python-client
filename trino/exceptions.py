@@ -21,35 +21,57 @@ import trino.logging
 logger = trino.logging.get_logger(__name__)
 
 
-class HttpError(Exception):
+# PEP 249 Errors
+class Error(Exception):
     pass
 
 
-class Http502Error(Exception):
+class Warning(Exception):
     pass
 
 
-class Http503Error(HttpError):
+class InterfaceError(Error):
     pass
 
 
-class Http504Error(HttpError):
+class DatabaseError(Error):
     pass
 
 
-class TrinoError(Exception):
+class InternalError(DatabaseError):
     pass
 
 
-class TrinoAuthError(Exception):
+class OperationalError(DatabaseError):
     pass
 
 
-class TrinoDataError(Exception):
+class ProgrammingError(DatabaseError):
     pass
 
 
-class TrinoQueryError(Exception):
+class IntegrityError(DatabaseError):
+    pass
+
+
+class DataError(DatabaseError):
+    pass
+
+
+class NotSupportedError(DatabaseError):
+    pass
+
+
+# dbapi module errors (extending PEP 249 errors)
+class TrinoAuthError(OperationalError):
+    pass
+
+
+class TrinoDataError(NotSupportedError):
+    pass
+
+
+class TrinoQueryError(Error):
     def __init__(self, error, query_id=None):
         self._error = error
         self._query_id = query_id
@@ -100,56 +122,15 @@ class TrinoQueryError(Exception):
         return repr(self)
 
 
-class TrinoExternalError(TrinoQueryError):
+class TrinoExternalError(TrinoQueryError, OperationalError):
     pass
 
 
-class TrinoInternalError(TrinoQueryError):
+class TrinoInternalError(TrinoQueryError, InternalError):
     pass
 
 
-class TrinoUserError(TrinoQueryError):
-    pass
-
-
-# PEP 249
-class Error(Exception):
-    pass
-
-
-class Warning(Exception):
-    pass
-
-
-class InterfaceError(Error):
-    pass
-
-
-class DatabaseError(Error):
-    pass
-
-
-class InternalError(DatabaseError):
-    pass
-
-
-class OperationalError(DatabaseError):
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    pass
-
-
-class IntegrityError(DatabaseError):
-    pass
-
-
-class DataError(DatabaseError):
-    pass
-
-
-class NotSupportedError(DatabaseError):
+class TrinoUserError(TrinoQueryError, ProgrammingError):
     pass
 
 
@@ -166,4 +147,21 @@ class FailedToObtainDeallocatedPrepareHeader(Error):
     Raise this exception when unable to find the 'X-Trino-Deallocated-Prepare'
     header in the response of a DEALLOCATED statement request.
     """
+    pass
+
+
+# client module errors
+class HttpError(Exception):
+    pass
+
+
+class Http502Error(HttpError):
+    pass
+
+
+class Http503Error(HttpError):
+    pass
+
+
+class Http504Error(HttpError):
     pass
