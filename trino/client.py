@@ -34,9 +34,12 @@ The main interface is :class:`TrinoQuery`: ::
 """
 
 import copy
+import functools
 import os
+import random
 import re
 import threading
+import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -227,6 +230,34 @@ class TrinoStatus(object):
         )
 
 
+class _DelayExponential(object):
+    def __init__(
+            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
+    ):
+        self._base = base
+        self._exponent = exponent
+        self._jitter = jitter
+        self._max_delay = max_delay
+
+    def __call__(self, attempt):
+        delay = float(self._base) * (self._exponent ** attempt)
+        if self._jitter:
+            delay *= random.random()
+        delay = min(float(self._max_delay), delay)
+        return delay
+
+
+class _RetryWithExponentialBackoff(object):
+    def __init__(
+            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
+    ):
+        self._get_delay = _DelayExponential(base, exponent, jitter, max_delay)
+
+    def retry(self, func, args, kwargs, err, attempt):
+        delay = self._get_delay(attempt)
+        time.sleep(delay)
+
+
 class TrinoRequest(object):
     """
     Manage the HTTP requests of a Trino query.
@@ -286,7 +317,7 @@ class TrinoRequest(object):
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
-        handle_retry=exceptions.RetryWithExponentialBackoff(),
+        handle_retry=_RetryWithExponentialBackoff(),
         verify: bool = True,
     ) -> None:
         self._client_session = client_session
@@ -383,9 +414,9 @@ class TrinoRequest(object):
             self._delete = self._http_session.delete
             return
 
-        with_retry = exceptions.retry_with(
+        with_retry = _retry_with(
             self._handle_retry,
-            exceptions=self._exceptions,
+            handled_exceptions=self._exceptions,
             conditions=(
                 # need retry when there is no exception but the status code is 502, 503, or 504
                 lambda response: getattr(response, "status_code", None)
@@ -779,3 +810,32 @@ class TrinoQuery(object):
     @property
     def response_headers(self):
         return self._response_headers
+
+
+def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
+    def wrapper(func):
+        @functools.wraps(func)
+        def decorated(*args, **kwargs):
+            error = None
+            result = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    result = func(*args, **kwargs)
+                    if any(guard(result) for guard in conditions):
+                        handle_retry.retry(func, args, kwargs, None, attempt)
+                        continue
+                    return result
+                except Exception as err:
+                    error = err
+                    if any(isinstance(err, exc) for exc in handled_exceptions):
+                        handle_retry.retry(func, args, kwargs, err, attempt)
+                        continue
+                    break
+            logger.info("failed after %s attempts", attempt)
+            if error is not None:
+                raise error
+            return result
+
+        return decorated
+
+    return wrapper

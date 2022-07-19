@@ -28,7 +28,8 @@ from tests.unit.oauth_test_utils import RedirectHandler, GetTokenCallback, PostS
     SERVER_ADDRESS
 from trino import constants
 from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
-from trino.client import TrinoQuery, TrinoRequest, TrinoResult, ClientSession
+from trino.client import TrinoQuery, TrinoRequest, TrinoResult, ClientSession, _DelayExponential, _retry_with, \
+    _RetryWithExponentialBackoff
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -947,3 +948,57 @@ def test_trino_query_response_headers(sample_get_response_data):
 
         # Validate the result is an instance of TrinoResult
         assert isinstance(result, TrinoResult)
+
+
+def test_delay_exponential_without_jitter():
+    max_delay = 1200.0
+    get_delay = _DelayExponential(base=5, jitter=False, max_delay=max_delay)
+    results = [
+        10.0,
+        20.0,
+        40.0,
+        80.0,
+        160.0,
+        320.0,
+        640.0,
+        max_delay,  # rather than 1280.0
+        max_delay,  # rather than 2560.0
+    ]
+    for i, result in enumerate(results, start=1):
+        assert get_delay(i) == result
+
+
+def test_delay_exponential_with_jitter():
+    max_delay = 120.0
+    get_delay = _DelayExponential(base=10, jitter=False, max_delay=max_delay)
+    for i in range(10):
+        assert get_delay(i) <= max_delay
+
+
+class SomeException(Exception):
+    pass
+
+
+def test_retry_with():
+    max_attempts = 3
+    with_retry = _retry_with(
+        handle_retry=_RetryWithExponentialBackoff(),
+        handled_exceptions=[SomeException],
+        conditions={},
+        max_attempts=max_attempts,
+    )
+
+    class FailerUntil(object):
+        def __init__(self, until=1):
+            self.attempt = 0
+            self._until = until
+
+        def __call__(self):
+            self.attempt += 1
+            if self.attempt > self._until:
+                return
+            raise SomeException(self.attempt)
+
+    with_retry(FailerUntil(2).__call__)()
+    with pytest.raises(SomeException):
+        with_retry(FailerUntil(3).__call__)()
