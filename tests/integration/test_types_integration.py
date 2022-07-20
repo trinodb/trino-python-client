@@ -5,6 +5,7 @@ import datetime
 from datetime import timezone, timedelta
 import trino
 
+
 @pytest.fixture
 def trino_connection(run_trino):
     _, host, port = run_trino
@@ -12,6 +13,7 @@ def trino_connection(run_trino):
     yield trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
     )
+
 
 def test_int_types(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
@@ -48,6 +50,7 @@ def test_int_types(trino_connection):
         -9223372036854775808,
         None
     ])
+
 
 def test_float_types(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
@@ -94,6 +97,7 @@ def test_float_types(trino_connection):
         None
     ])
 
+
 def test_string_types(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
     cur.execute("""
@@ -130,6 +134,7 @@ def test_string_types(trino_connection):
         None,
         None
     ])
+
 
 def test_datetime_types(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
@@ -187,6 +192,8 @@ def test_datetime_types(trino_connection):
     """)
 
     result = cur.fetchall()
+    the_tz = datetime.timezone(datetime.timedelta(days=-1, seconds=57600))
+
     compare_results(result[0], [
         datetime.date(2001, 8, 22),
         None,
@@ -226,19 +233,20 @@ def test_datetime_types(trino_connection):
         None,
         datetime.datetime(2001, 8, 22, 1, 23, 45, 189123),
         None,
-        datetime.datetime(2001, 8, 22, 1, 23, 45, 123000, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=57600))),
+        datetime.datetime(2001, 8, 22, 1, 23, 45, 123000, tzinfo=the_tz),
         None,
-        datetime.datetime(2001, 8, 22, 1, 23, 45, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=57600))),
+        datetime.datetime(2001, 8, 22, 1, 23, 45, tzinfo=the_tz),
         None,
-        datetime.datetime(2001, 8, 22, 1, 23, 45, 123000, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=57600))),
+        datetime.datetime(2001, 8, 22, 1, 23, 45, 123000, the_tz),
         None,
-        datetime.datetime(2001, 8, 22, 1, 23, 45, 123456, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=57600))),
+        datetime.datetime(2001, 8, 22, 1, 23, 45, 123456, the_tz),
         None,
-        datetime.datetime(2001, 8, 22, 1, 23, 45, 189000, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=57600))),
+        datetime.datetime(2001, 8, 22, 1, 23, 45, 189000, the_tz),
         None,
-        datetime.datetime(2001, 8, 22, 1, 23, 45, 189123, tzinfo=datetime.timezone(datetime.timedelta(days=-1, seconds=57600))),
+        datetime.datetime(2001, 8, 22, 1, 23, 45, 189123, the_tz),
         None
     ])
+
 
 def test_misc_types(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
@@ -287,7 +295,7 @@ def test_misc_types(trino_connection):
         None,
         'AgwBAIADRAA=',
         None,
-        'AwwAAAAg' + 'A'*2730 + '==',
+        'AwwAAAAg' + 'A' * 2730 + '==',
         None,
         'AQgAAAACCwEAgANEAAAgAAABAAAASsQF+7cDRAABAA==',
         None,
@@ -304,7 +312,7 @@ def compare_results(actual, expected):
     for idx, actual_val in enumerate(actual):
         expected_val = expected[idx]
         if type(actual_val) == float and math.isnan(actual_val) \
-            and type(expected_val) == float and math.isnan(expected_val):
+           and type(expected_val) == float and math.isnan(expected_val):
             continue
 
         assert actual_val == expected_val

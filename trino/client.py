@@ -248,7 +248,7 @@ class TrinoStatus(object):
             return lambda val: Decimal(val)
         elif col_type.startswith('double') or col_type.startswith('real'):
             return lambda val: float('inf') if val == 'Infinity' else -float('inf') if val == '-Infinity' \
-                    else float('nan') if val == 'NaN' else float(val)
+                               else float('nan') if val == 'NaN' else float(val)
         elif col_type.startswith('time'):
             pattern = "%Y-%m-%d %H:%M:%S" if col_type.startswith('timestamp') else "%H:%M:%S"
             ms_size, ms_to_trim = self._get_number_of_digits(column)
@@ -262,9 +262,9 @@ class TrinoStatus(object):
                     if ms_to_trim > 0:
                         return lambda val: \
                             [datetime.strptime(val[:21] + val[dt_size:], pattern + ' %z')
-                            if tz.startswith('+') or tz.startswith('-')
-                            else datetime.strptime(dt[:21] + dt[dt_size:], pattern).replace(tzinfo=pytz.timezone(tz))
-                            for dt, tz in [val.rsplit(' ', 1)]][0]
+                             if tz.startswith('+') or tz.startswith('-')
+                             else datetime.strptime(dt[:21] + dt[dt_size:], pattern).replace(tzinfo=pytz.timezone(tz))
+                             for dt, tz in [val.rsplit(' ', 1)]][0]
                     else:
                         return lambda val: [datetime.strptime(val, pattern + ' %z')
                                             if tz.startswith('+') or tz.startswith('-')
@@ -286,7 +286,7 @@ class TrinoStatus(object):
                     return lambda val: datetime.strptime(val[:time_size], pattern).time()
 
         elif col_type == 'date':
-            return lambda val : datetime.strptime(val, '%Y-%m-%d').date()
+            return lambda val: datetime.strptime(val, '%Y-%m-%d').date()
         elif col_type == 'json':
             return lambda val: json.loads(json.loads(val))
         else:
