@@ -296,8 +296,8 @@ def test_misc_types(trino_connection):
         None,
         'AwwAAAAg' + 'A' * 2730 + '==',
         None,
+        'AQgAAAACCwEAgANEAAAgAAABAAAASsQF+7cDRAABAA==',
         None,
-        'AHsUrkfheoQ/AAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAAAAPA/AQAAAAAAAIA=',
         None,
         'AAAAAAAAAPA/AAAAAAAA8D8AAAAAAABZQAAAAAAAAPA/AQAAAAAAAAAAAPA/AAAAAAAA8D8=',
         None
