@@ -16,48 +16,62 @@ defined in pep-0249.
 """
 
 
-import functools
-import random
-import time
-
 import trino.logging
 
 logger = trino.logging.get_logger(__name__)
 
 
-class HttpError(Exception):
+# PEP 249 Errors
+class Error(Exception):
     pass
 
 
-class Http502Error(Exception):
+class Warning(Exception):
     pass
 
 
-class Http503Error(HttpError):
+class InterfaceError(Error):
     pass
 
 
-class Http504Error(HttpError):
+class DatabaseError(Error):
     pass
 
 
-class TrinoError(Exception):
+class InternalError(DatabaseError):
     pass
 
 
-class TimeoutError(Exception):
+class OperationalError(DatabaseError):
     pass
 
 
-class TrinoAuthError(Exception):
+class ProgrammingError(DatabaseError):
     pass
 
 
-class TrinoDataError(Exception):
+class IntegrityError(DatabaseError):
     pass
 
 
-class TrinoQueryError(Exception):
+class DataError(DatabaseError):
+    pass
+
+
+class NotSupportedError(DatabaseError):
+    pass
+
+
+# dbapi module errors (extending PEP 249 errors)
+class TrinoAuthError(OperationalError):
+    pass
+
+
+class TrinoDataError(NotSupportedError):
+    pass
+
+
+class TrinoQueryError(Error):
     def __init__(self, error, query_id=None):
         self._error = error
         self._query_id = query_id
@@ -108,113 +122,15 @@ class TrinoQueryError(Exception):
         return repr(self)
 
 
-class TrinoExternalError(TrinoQueryError):
+class TrinoExternalError(TrinoQueryError, OperationalError):
     pass
 
 
-class TrinoInternalError(TrinoQueryError):
+class TrinoInternalError(TrinoQueryError, InternalError):
     pass
 
 
-class TrinoUserError(TrinoQueryError):
-    pass
-
-
-def retry_with(handle_retry, exceptions, conditions, max_attempts):
-    def wrapper(func):
-        @functools.wraps(func)
-        def decorated(*args, **kwargs):
-            error = None
-            result = None
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    result = func(*args, **kwargs)
-                    if any(guard(result) for guard in conditions):
-                        handle_retry.retry(func, args, kwargs, None, attempt)
-                        continue
-                    return result
-                except Exception as err:
-                    error = err
-                    if any(isinstance(err, exc) for exc in exceptions):
-                        handle_retry.retry(func, args, kwargs, err, attempt)
-                        continue
-                    break
-            logger.info("failed after %s attempts", attempt)
-            if error is not None:
-                raise error
-            return result
-
-        return decorated
-
-    return wrapper
-
-
-class DelayExponential(object):
-    def __init__(
-        self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
-    ):
-        self._base = base
-        self._exponent = exponent
-        self._jitter = jitter
-        self._max_delay = max_delay
-
-    def __call__(self, attempt):
-        delay = float(self._base) * (self._exponent ** attempt)
-        if self._jitter:
-            delay *= random.random()
-        delay = min(float(self._max_delay), delay)
-        return delay
-
-
-class RetryWithExponentialBackoff(object):
-    def __init__(
-        self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
-    ):
-        self._get_delay = DelayExponential(base, exponent, jitter, max_delay)
-
-    def retry(self, func, args, kwargs, err, attempt):
-        delay = self._get_delay(attempt)
-        time.sleep(delay)
-
-
-# PEP 249
-class Error(Exception):
-    pass
-
-
-class Warning(Exception):
-    pass
-
-
-class InterfaceError(Error):
-    pass
-
-
-class DatabaseError(Error):
-    pass
-
-
-class InternalError(DatabaseError):
-    pass
-
-
-class OperationalError(DatabaseError):
-    pass
-
-
-class ProgrammingError(DatabaseError):
-    pass
-
-
-class IntegrityError(DatabaseError):
-    pass
-
-
-class DataError(DatabaseError):
-    pass
-
-
-class NotSupportedError(DatabaseError):
+class TrinoUserError(TrinoQueryError, ProgrammingError):
     pass
 
 
@@ -231,4 +147,21 @@ class FailedToObtainDeallocatedPrepareHeader(Error):
     Raise this exception when unable to find the 'X-Trino-Deallocated-Prepare'
     header in the response of a DEALLOCATED statement request.
     """
+    pass
+
+
+# client module errors
+class HttpError(Exception):
+    pass
+
+
+class Http502Error(HttpError):
+    pass
+
+
+class Http503Error(HttpError):
+    pass
+
+
+class Http504Error(HttpError):
     pass
