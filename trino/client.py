@@ -695,7 +695,7 @@ class TrinoResult(object):
             return cls._map_to_python_types(cls, row, col_mapping_func)
 
     @classmethod
-    def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:
+    def _map_to_python_type(cls, item: Tuple[Any, Any]) -> Any:
         (value, col_mapping_func) = item
 
         if value is None:
@@ -707,8 +707,8 @@ class TrinoResult(object):
             error_str = f"Could not convert '{value}' into the associated python type"
             raise trino.exceptions.TrinoDataError(error_str) from e
 
-    def _map_to_python_types(self, row: List[Any], columns) -> List[Any]:
-        return list(map(self._map_to_python_type, zip(row, columns)))
+    def _map_to_python_types(self, row: List[Any], col_mapping_func) -> List[Any]:
+        return list(map(self._map_to_python_type, zip(row, col_mapping_func)))
 
 
 class TrinoQuery(object):
@@ -797,7 +797,7 @@ class TrinoQuery(object):
         if status.columns:
             self._columns = status.columns
 
-    def fetch(self) -> List[List[Any]]:
+    def fetch(self) -> Tuple[List[List[Any]], List[Any]]:
         """Continue fetching data for the current query_id"""
         response = self._request.get(self._request.next_uri)
         status = self._request.process(response)
