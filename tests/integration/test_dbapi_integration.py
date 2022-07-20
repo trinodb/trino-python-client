@@ -1034,4 +1034,3 @@ def test_use_catalog(run_trino):
     result = cur.fetchall()
     assert result[0][0] == 'tpch'
     assert result[0][1] == 'sf1'
-

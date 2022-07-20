@@ -232,11 +232,15 @@ class TrinoStatus(object):
         col_type = column['rawType']
 
         if col_type == 'array':
-            return lambda values : [self._col_func(column['arguments'][0]['value'])(value) for value in values]
+            elt_mapping_func = self._col_func(column['arguments'][0]['value'])
+            return lambda values : [elt_mapping_func(value) for value in values]
         elif col_type == 'row':
-            return lambda values : tuple(self._col_func(column['arguments'][idx]['value']['typeSignature'])(value) for idx, value in enumerate(values))
+            elt_mapping_funcs = [self._col_func(arg['value']['typeSignature']) for arg in column['arguments']]
+            return lambda values : tuple(elt_mapping_funcs[idx](value) for idx, value in enumerate(values))
         elif col_type == 'map':
-            return lambda values : {self._col_func(column['arguments'][0]['value'])(key) : self._col_func(column['arguments'][1]['value'])(value) for key, value in values.items()}
+            key_mapping_func = self._col_func(column['arguments'][0]['value'])
+            value_mapping_func = self._col_func(column['arguments'][1]['value'])
+            return lambda values : {key_mapping_func(key) : value_mapping_func(value) for key, value in values.items()}
         elif col_type.startswith('decimal'):
             return lambda val : Decimal(val)
         elif col_type.startswith('double') or col_type.startswith('real'):
