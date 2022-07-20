@@ -216,7 +216,7 @@ class TrinoStatus(object):
         self.update_type = update_type
         self.rows = rows
         self.columns = columns
-        self.col_mapping_funcs = [] if columns is None else [self._col_func(column['typeSignature']) for column in columns]
+        self.col_mapping_funcs = [] if columns is None else [self._col_func(col['typeSignature']) for col in columns]
 
     def __repr__(self):
         return (
@@ -236,18 +236,19 @@ class TrinoStatus(object):
 
         if col_type == 'array':
             elt_mapping_func = self._col_func(column['arguments'][0]['value'])
-            return lambda values : [elt_mapping_func(value) for value in values]
+            return lambda values: [elt_mapping_func(value) for value in values]
         elif col_type == 'row':
             elt_mapping_funcs = [self._col_func(arg['value']['typeSignature']) for arg in column['arguments']]
-            return lambda values : tuple(elt_mapping_funcs[idx](value) for idx, value in enumerate(values))
+            return lambda values: tuple(elt_mapping_funcs[idx](value) for idx, value in enumerate(values))
         elif col_type == 'map':
             key_mapping_func = self._col_func(column['arguments'][0]['value'])
             value_mapping_func = self._col_func(column['arguments'][1]['value'])
-            return lambda values : {key_mapping_func(key) : value_mapping_func(value) for key, value in values.items()}
+            return lambda values: {key_mapping_func(key): value_mapping_func(value) for key, value in values.items()}
         elif col_type.startswith('decimal'):
-            return lambda val : Decimal(val)
+            return lambda val: Decimal(val)
         elif col_type.startswith('double') or col_type.startswith('real'):
-            return lambda val : float('inf') if val == 'Infinity' else -float('inf') if val == '-Infinity' else float('nan') if val == 'NaN' else float(val)
+            return lambda val: float('inf') if val == 'Infinity' else -float('inf') if val == '-Infinity' \
+                    else float('nan') if val == 'NaN' else float(val)
         elif col_type.startswith('time'):
             pattern = "%Y-%m-%d %H:%M:%S" if col_type.startswith('timestamp') else "%H:%M:%S"
             ms_size, ms_to_trim = self._get_number_of_digits(column)
@@ -255,34 +256,41 @@ class TrinoStatus(object):
                 pattern += ".%f"
 
             if col_type.startswith('timestamp'):
-                datetime_size = 21 + ms_size - ms_to_trim
+                dt_size = 21 + ms_size - ms_to_trim
                 if 'with time zone' in col_type:
 
                     if ms_to_trim > 0:
-                        return lambda val: [datetime.strptime(val[:21] + val[datetime_size:], pattern + ' %z') if tz.startswith('+') or tz.startswith('-') else datetime.strptime(dt[:21] + dt[datetime_size:], pattern).replace(tzinfo=pytz.timezone(tz)) for dt, tz in [val.rsplit(' ', 1)]][0]
+                        return lambda val: \
+                            [datetime.strptime(val[:21] + val[dt_size:], pattern + ' %z')
+                            if tz.startswith('+') or tz.startswith('-')
+                            else datetime.strptime(dt[:21] + dt[dt_size:], pattern).replace(tzinfo=pytz.timezone(tz))
+                            for dt, tz in [val.rsplit(' ', 1)]][0]
                     else:
-                        return lambda val: [datetime.strptime(val, pattern + ' %z') if tz.startswith('+') or tz.startswith('-') else datetime.strptime(dt, pattern).replace(tzinfo=pytz.timezone(tz)) for dt, tz in [val.rsplit(' ', 1)]][0]
+                        return lambda val: [datetime.strptime(val, pattern + ' %z')
+                                            if tz.startswith('+') or tz.startswith('-')
+                                            else datetime.strptime(dt, pattern).replace(tzinfo=pytz.timezone(tz))
+                                            for dt, tz in [val.rsplit(' ', 1)]][0]
 
                 if ms_to_trim > 0:
-                    return lambda val : datetime.strptime(val[:21] + val[datetime_size:], pattern)
+                    return lambda val: datetime.strptime(val[:21] + val[dt_size:], pattern)
                 else:
-                    return lambda val : datetime.strptime(val, pattern)
+                    return lambda val: datetime.strptime(val, pattern)
 
             # Time
             else:
                 time_size = 9 + ms_size - ms_to_trim
 
                 if 'with time zone' in col_type:
-                    return lambda val : self._get_time_with_timezome(val, time_size, pattern)
+                    return lambda val: self._get_time_with_timezome(val, time_size, pattern)
                 else:
-                    return lambda val : datetime.strptime(val[:time_size], pattern).time()
+                    return lambda val: datetime.strptime(val[:time_size], pattern).time()
 
         elif col_type == 'date':
             return lambda val : datetime.strptime(val, '%Y-%m-%d').date()
         elif col_type == 'json':
-            return lambda val : json.loads(json.loads(val))
+            return lambda val: json.loads(json.loads(val))
         else:
-            return lambda val : val
+            return lambda val: val
 
     def _get_time_with_timezome(self, value, time_size, pattern):
         matches = re.match(r'^(.*)([\+\-])(\d{2}):(\d{2})$', value)
@@ -775,7 +783,10 @@ class TrinoQuery(object):
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
-        self._result = TrinoResult(self, rows=status.rows, col_mapping_funcs=status.col_mapping_funcs, experimental_python_types=self._experimental_python_types)
+        self._result = TrinoResult(self,
+                                   rows=status.rows,
+                                   col_mapping_funcs=status.col_mapping_funcs,
+                                   experimental_python_types=self._experimental_python_types)
         return self._result
 
     def _update_state(self, status):
