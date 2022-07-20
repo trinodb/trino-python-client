@@ -247,8 +247,10 @@ class TrinoStatus(object):
         elif col_type.startswith('decimal'):
             return lambda val: Decimal(val)
         elif col_type.startswith('double') or col_type.startswith('real'):
-            return lambda val: float('inf') if val == 'Infinity' else -float('inf') if val == '-Infinity' \
-                               else float('nan') if val == 'NaN' else float(val)
+            return lambda val: float('inf') if val == 'Infinity' \
+                else -float('inf') if val == '-Infinity' \
+                else float('nan') if val == 'NaN' \
+                else float(val)
         elif col_type.startswith('time'):
             pattern = "%Y-%m-%d %H:%M:%S" if col_type.startswith('timestamp') else "%H:%M:%S"
             ms_size, ms_to_trim = self._get_number_of_digits(column)

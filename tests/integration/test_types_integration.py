@@ -271,7 +271,6 @@ def test_misc_types(trino_connection):
   , cast(null AS P4HyperLogLog) AS col_p4hll_null
   , make_set_digest(1) AS col_setdigest
   , cast(null AS SetDigest) AS col_setdigest_null
-  , qdigest_agg(1) AS col_qdigest
   , cast(null AS QDigest(BIGINT)) AS col_qdigest_null
   , tdigest_agg(1) AS col_tdigest
   , cast(null AS TDigest) AS col_tdigest_null
@@ -297,7 +296,6 @@ def test_misc_types(trino_connection):
         None,
         'AwwAAAAg' + 'A' * 2730 + '==',
         None,
-        'AQgAAAACCwEAgANEAAAgAAABAAAASsQF+7cDRAABAA==',
         None,
         'AHsUrkfheoQ/AAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAAAAPA/AQAAAAAAAIA=',
         None,
