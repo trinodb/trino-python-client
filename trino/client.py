@@ -574,11 +574,10 @@ class TrinoResult(object):
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
 
-    def __init__(self, query, rows=None, experimental_python_types: bool = False):
+    def __init__(self, query, rows=None):
         self._query = query
         self._rows = rows or []
         self._rownumber = 0
-        self._experimental_python_types = experimental_python_types
 
     @property
     def rownumber(self) -> int:
@@ -588,7 +587,7 @@ class TrinoResult(object):
         # Initial fetch from the first POST request
         for row in self._rows:
             self._rownumber += 1
-            yield self._map_row(self._experimental_python_types, row, self._query.columns)
+            yield row
         self._rows = None
 
         # Subsequent fetches from GET requests until next_uri is empty.
@@ -597,92 +596,11 @@ class TrinoResult(object):
             for row in rows:
                 self._rownumber += 1
                 logger.debug("row %s", row)
-                yield self._map_row(self._experimental_python_types, row, self._query.columns)
+                yield row
 
     @property
     def response_headers(self):
         return self._query.response_headers
-
-    @classmethod
-    def _map_row(cls, experimental_python_types, row, columns):
-        if not experimental_python_types:
-            return row
-        else:
-            return cls._map_to_python_types(cls, row, columns)
-
-    @classmethod
-    def _map_to_python_type(cls, item: Tuple[Any, Dict]) -> Any:
-        (value, data_type) = item
-
-        if value is None:
-            return None
-
-        raw_type = data_type["typeSignature"]["rawType"]
-
-        try:
-            if isinstance(value, list):
-                if raw_type == "array":
-                    raw_type = {
-                        "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
-                    }
-                    return [cls._map_to_python_type((array_item, raw_type)) for array_item in value]
-                if raw_type == "row":
-                    raw_types = map(lambda arg: arg["value"], data_type["typeSignature"]["arguments"])
-                    return tuple(
-                        cls._map_to_python_type((array_item, raw_type))
-                        for (array_item, raw_type) in zip(value, raw_types)
-                    )
-                return value
-            if isinstance(value, dict):
-                raw_key_type = {
-                    "typeSignature": data_type["typeSignature"]["arguments"][0]["value"]
-                }
-                raw_value_type = {
-                    "typeSignature": data_type["typeSignature"]["arguments"][1]["value"]
-                }
-                return {
-                    cls._map_to_python_type((key, raw_key_type)):
-                        cls._map_to_python_type((value[key], raw_value_type))
-                    for key in value
-                }
-            elif "decimal" in raw_type:
-                return Decimal(value)
-            elif raw_type == "double":
-                if value == 'Infinity':
-                    return INF
-                elif value == '-Infinity':
-                    return NEGATIVE_INF
-                elif value == 'NaN':
-                    return NAN
-                return value
-            elif raw_type == "date":
-                return datetime.strptime(value, "%Y-%m-%d").date()
-            elif raw_type == "timestamp with time zone":
-                dt, tz = value.rsplit(' ', 1)
-                if tz.startswith('+') or tz.startswith('-'):
-                    return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f %z")
-                return datetime.strptime(dt, "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=pytz.timezone(tz))
-            elif "timestamp" in raw_type:
-                return datetime.strptime(value, "%Y-%m-%d %H:%M:%S.%f")
-            elif "time with time zone" in raw_type:
-                matches = re.match(r'^(.*)([\+\-])(\d{2}):(\d{2})$', value)
-                assert matches is not None
-                assert len(matches.groups()) == 4
-                if matches.group(2) == '-':
-                    tz = -timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
-                else:
-                    tz = timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
-                return datetime.strptime(matches.group(1), "%H:%M:%S.%f").time().replace(tzinfo=timezone(tz))
-            elif "time" in raw_type:
-                return datetime.strptime(value, "%H:%M:%S.%f").time()
-            else:
-                return value
-        except ValueError as e:
-            error_str = f"Could not convert '{value}' into the associated python type for '{raw_type}'"
-            raise trino.exceptions.TrinoDataError(error_str) from e
-
-    def _map_to_python_types(self, row: List[Any], columns: List[Dict[str, Any]]) -> List[Any]:
-        return list(map(self._map_to_python_type, zip(row, columns)))
 
 
 class TrinoQuery(object):
@@ -705,9 +623,10 @@ class TrinoQuery(object):
         self._request = request
         self._update_type = None
         self._sql = sql
-        self._result = TrinoResult(self, experimental_python_types=experimental_python_types)
+        self._result = TrinoResult(self)
         self._response_headers = None
         self._experimental_python_types = experimental_python_types
+        self._row_mapper: Optional[RowMapper] = None
 
     @property
     def columns(self):
@@ -758,12 +677,18 @@ class TrinoQuery(object):
         self._warnings = getattr(status, "warnings", [])
         if status.next_uri is None:
             self._finished = True
-        self._result = TrinoResult(self, status.rows, self._experimental_python_types)
+
+        rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
+
+        self._result = TrinoResult(self, rows)
         return self._result
 
     def _update_state(self, status):
         self._stats.update(status.stats)
         self._update_type = status.update_type
+        if not self._row_mapper and status.columns:
+            self._row_mapper = RowMapperFactory().create(columns=status.columns,
+                                                         experimental_python_types=self._experimental_python_types)
         if status.columns:
             self._columns = status.columns
 
@@ -776,7 +701,11 @@ class TrinoQuery(object):
         self._response_headers = response.headers
         if status.next_uri is None:
             self._finished = True
-        return status.rows
+
+        if not self._row_mapper:
+            return []
+
+        return self._row_mapper.map(status.rows)
 
     def cancel(self) -> None:
         """Cancel the current query"""
@@ -839,3 +768,159 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
         return decorated
 
     return wrapper
+
+
+class NoOpRowMapper:
+    """
+    No-op RowMapper which does not perform any transformation
+    Used when experimental_python_types is False.
+    """
+
+    def map(self, rows):
+        return rows
+
+
+class RowMapperFactory:
+    """
+    Given the 'columns' result from Trino, generate a list of
+    lambda functions (one for each column) which will process a data value
+    and returns a RowMapper instance which will process rows of data
+    """
+    no_op_row_mapper = NoOpRowMapper()
+
+    def create(self, columns, experimental_python_types):
+        assert columns is not None
+
+        if experimental_python_types:
+            return RowMapper([self._col_func(column['typeSignature']) for column in columns])
+        return RowMapperFactory.no_op_row_mapper
+
+    def _col_func(self, column):
+        col_type = column['rawType']
+
+        if col_type == 'array':
+            return self._array_map_func(column)
+        elif col_type == 'row':
+            return self._row_map_func(column)
+        elif col_type == 'map':
+            return self._map_map_func(column)
+        elif col_type.startswith('decimal'):
+            return lambda val: Decimal(val)
+        elif col_type.startswith('double') or col_type.startswith('real'):
+            return self._double_map_func()
+        elif col_type.startswith('timestamp'):
+            return self._timestamp_map_func(column, col_type)
+        elif col_type.startswith('time'):
+            return self._time_map_func(column, col_type)
+        elif col_type == 'date':
+            return lambda val: datetime.strptime(val, '%Y-%m-%d').date()
+        else:
+            return lambda val: val
+
+    def _array_map_func(self, column):
+        element_mapping_func = self._col_func(column['arguments'][0]['value'])
+        return lambda values: [element_mapping_func(value) for value in values]
+
+    def _row_map_func(self, column):
+        element_mapping_func = [self._col_func(arg['value']['typeSignature']) for arg in column['arguments']]
+        return lambda values: tuple(element_mapping_func[idx](value) for idx, value in enumerate(values))
+
+    def _map_map_func(self, column):
+        key_mapping_func = self._col_func(column['arguments'][0]['value'])
+        value_mapping_func = self._col_func(column['arguments'][1]['value'])
+        return lambda values: {key_mapping_func(key): value_mapping_func(value) for key, value in values.items()}
+
+    def _double_map_func(self):
+        return lambda val: INF if val == 'Infinity' \
+            else NEGATIVE_INF if val == '-Infinity' \
+            else NAN if val == 'NaN' \
+            else float(val)
+
+    def _timestamp_map_func(self, column, col_type):
+        datetime_default_size = 20  # size of 'YYYY-MM-DD HH:MM:SS.' (the datetime string up to the milliseconds)
+        pattern = "%Y-%m-%d %H:%M:%S"
+        ms_size, ms_to_trim = self._get_number_of_digits(column)
+        if ms_size > 0:
+            pattern += ".%f"
+
+        dt_size = datetime_default_size + ms_size - ms_to_trim
+        dt_tz_offset = datetime_default_size + ms_size
+        if 'with time zone' in col_type:
+
+            if ms_to_trim > 0:
+                return lambda val: \
+                    [datetime.strptime(val[:dt_size] + val[dt_tz_offset:], pattern + ' %z')
+                        if tz.startswith('+') or tz.startswith('-')
+                        else datetime.strptime(dt[:dt_size] + dt[dt_tz_offset:], pattern)
+                                     .replace(tzinfo=pytz.timezone(tz))
+                        for dt, tz in [val.rsplit(' ', 1)]][0]
+            else:
+                return lambda val: [datetime.strptime(val, pattern + ' %z')
+                                    if tz.startswith('+') or tz.startswith('-')
+                                    else datetime.strptime(dt, pattern).replace(tzinfo=pytz.timezone(tz))
+                                    for dt, tz in [val.rsplit(' ', 1)]][0]
+
+        if ms_to_trim > 0:
+            return lambda val: datetime.strptime(val[:dt_size] + val[dt_tz_offset:], pattern)
+        else:
+            return lambda val: datetime.strptime(val, pattern)
+
+    def _time_map_func(self, column, col_type):
+        pattern = "%H:%M:%S"
+        ms_size, ms_to_trim = self._get_number_of_digits(column)
+        if ms_size > 0:
+            pattern += ".%f"
+
+        time_size = 9 + ms_size - ms_to_trim
+
+        if 'with time zone' in col_type:
+            return lambda val: self._get_time_with_timezome(val, time_size, pattern)
+        else:
+            return lambda val: datetime.strptime(val[:time_size], pattern).time()
+
+    def _get_time_with_timezome(self, value, time_size, pattern):
+        matches = re.match(r'^(.*)([\+\-])(\d{2}):(\d{2})$', value)
+        assert matches is not None
+        assert len(matches.groups()) == 4
+        if matches.group(2) == '-':
+            tz = -timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
+        else:
+            tz = timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
+        return datetime.strptime(matches.group(1)[:time_size], pattern).time().replace(tzinfo=timezone(tz))
+
+    def _get_number_of_digits(self, column):
+        args = column['arguments']
+        if len(args) == 0:
+            return 3, 0
+        ms_size = column['arguments'][0]['value']
+        if ms_size == 0:
+            return -1, 0
+        ms_to_trim = ms_size - min(ms_size, 6)
+        return ms_size, ms_to_trim
+
+
+class RowMapper:
+    """
+    Maps a row of data given a list of mapping functions
+    """
+
+    def __init__(self, columns=[]):
+        self.columns = columns
+
+    def map(self, rows):
+        if len(self.columns) == 0:
+            return rows
+        return [self._map_row(row) for row in rows]
+
+    def _map_row(self, row):
+        return [self._map_value(value, self.columns[idx]) for idx, value in enumerate(row)]
+
+    def _map_value(self, value, col_mapping_func):
+        if value is None:
+            return None
+
+        try:
+            return col_mapping_func(value)
+        except ValueError as e:
+            error_str = f"Could not convert '{value}' into the associated python type"
+            raise trino.exceptions.TrinoDataError(error_str) from e
