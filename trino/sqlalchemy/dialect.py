@@ -22,7 +22,6 @@ from sqlalchemy.engine.url import URL
 from trino import dbapi as trino_dbapi, logging
 from trino.auth import BasicAuthentication, CertificateAuthentication, JWTAuthentication
 from trino.dbapi import Cursor
-from trino.exceptions import TrinoUserError
 from trino.sqlalchemy import compiler, datatype, error
 
 logger = logging.get_logger(__name__)
@@ -320,8 +319,8 @@ class TrinoDialect(DefaultDialect):
             res = connection.execute(sql.text(query))
             version = res.scalar()
             return tuple([version])
-        except TrinoUserError as e:
-            logger.debug(f"Failed to get server version: {e.message}")
+        except exc.ProgrammingError as e:
+            logger.debug(f"Failed to get server version: {e.orig.message}")
             return None
 
     def _get_default_schema_name(self, connection: Connection) -> Optional[str]:
