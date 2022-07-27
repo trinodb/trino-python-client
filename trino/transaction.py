@@ -50,19 +50,19 @@ class IsolationLevel(Enum):
 
 
 class Transaction(object):
-    def __init__(self, request):
+    def __init__(self, request: trino.client.TrinoRequest) -> None:
         self._request = request
         self._id = NO_TRANSACTION
 
     @property
-    def id(self):
+    def id(self) -> str:
         return self._id
 
     @property
-    def request(self):
+    def request(self) -> trino.client.TrinoRequest:
         return self._request
 
-    def begin(self):
+    def begin(self) -> None:
         response = self._request.post(START_TRANSACTION)
         if not response.ok:
             raise trino.exceptions.DatabaseError(
@@ -81,7 +81,7 @@ class Transaction(object):
         self._request.transaction_id = self._id
         logger.info("transaction started: %s", self._id)
 
-    def commit(self):
+    def commit(self) -> None:
         query = trino.client.TrinoQuery(self._request, COMMIT)
         try:
             list(query.execute())
@@ -92,7 +92,7 @@ class Transaction(object):
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
-    def rollback(self):
+    def rollback(self) -> None:
         query = trino.client.TrinoQuery(self._request, ROLLBACK)
         try:
             list(query.execute())

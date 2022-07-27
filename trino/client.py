@@ -492,7 +492,7 @@ class TrinoRequest(object):
     def next_uri(self) -> Optional[str]:
         return self._next_uri
 
-    def post(self, sql, additional_http_headers=None):
+    def post(self, sql: str, additional_http_headers: Optional[Dict[str, Any]] = None):
         data = sql.encode("utf-8")
         # Deep copy of the http_headers dict since they may be modified for this
         # request by the provided additional_http_headers
@@ -524,7 +524,7 @@ class TrinoRequest(object):
                 )
         return http_response
 
-    def get(self, url):
+    def get(self, url: str):
         return self._get(
             url,
             headers=self.http_headers,

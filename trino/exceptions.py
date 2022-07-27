@@ -14,7 +14,7 @@
 This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
-
+from typing import Any, Dict, Optional, Tuple
 
 import trino.logging
 
@@ -72,44 +72,44 @@ class TrinoDataError(NotSupportedError):
 
 
 class TrinoQueryError(Error):
-    def __init__(self, error, query_id=None):
+    def __init__(self, error: Dict[str, Any], query_id: Optional[str] = None) -> None:
         self._error = error
         self._query_id = query_id
 
     @property
-    def error_code(self):
+    def error_code(self) -> Optional[int]:
         return self._error.get("errorCode", None)
 
     @property
-    def error_name(self):
+    def error_name(self) -> Optional[str]:
         return self._error.get("errorName", None)
 
     @property
-    def error_type(self):
+    def error_type(self) -> Optional[str]:
         return self._error.get("errorType", None)
 
     @property
-    def error_exception(self):
+    def error_exception(self) -> Optional[str]:
         return self.failure_info.get("type", None) if self.failure_info else None
 
     @property
-    def failure_info(self):
+    def failure_info(self) -> Optional[Dict[str, Any]]:
         return self._error.get("failureInfo", None)
 
     @property
-    def message(self):
+    def message(self) -> str:
         return self._error.get("message", "Trino did not return an error message")
 
     @property
-    def error_location(self):
+    def error_location(self) -> Tuple[int, int]:
         location = self._error["errorLocation"]
         return (location["lineNumber"], location["columnNumber"])
 
     @property
-    def query_id(self):
+    def query_id(self) -> Optional[str]:
         return self._query_id
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return '{}(type={}, name={}, message="{}", query_id={})'.format(
             self.__class__.__name__,
             self.error_type,
@@ -118,7 +118,7 @@ class TrinoQueryError(Error):
             self.query_id,
         )
 
-    def __str__(self):
+    def __str__(self) -> str:
         return repr(self)
 
 
