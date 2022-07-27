@@ -11,8 +11,7 @@ repos:
       - id: "mypy"
         name: "Python: types"
         additional_dependencies:
-          - "types-pytz"
-          - "types-requests"
+          - "types-all"
 
   - repo: https://github.com/pycqa/isort
     rev: 5.6.4

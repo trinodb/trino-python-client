@@ -16,7 +16,7 @@ LEVEL = logging.INFO
 
 
 # TODO: provide interface to use ``logging.dictConfig``
-def get_logger(name, log_level=LEVEL):
+def get_logger(name: str, log_level: int = LEVEL) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(log_level)
     return logger
