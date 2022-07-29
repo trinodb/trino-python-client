@@ -515,3 +515,5 @@ Feel free to create an issue as it make your request visible to other users and 
 If an interactive discussion would be better or if you just want to hangout and chat about
 the Trino Python client, you can join us on the *#python-client* channel on
 [Trino Slack](https://trino.io/slack.html).
+
+Test
