@@ -13,6 +13,8 @@ import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, or_, not_
 
+from trino.sqlalchemy.datatype import VARCHAR
+
 
 @pytest.fixture
 def trino_connection(run_trino, request):
@@ -28,9 +30,9 @@ def test_select_query(trino_connection):
     metadata = sqla.MetaData()
     nations = sqla.Table('nation', metadata, schema='tiny', autoload_with=conn)
     assert_column(nations, "nationkey", sqla.sql.sqltypes.BigInteger)
-    assert_column(nations, "name", sqla.sql.sqltypes.String)
+    assert_column(nations, "name", VARCHAR)
     assert_column(nations, "regionkey", sqla.sql.sqltypes.BigInteger)
-    assert_column(nations, "comment", sqla.sql.sqltypes.String)
+    assert_column(nations, "comment", VARCHAR)
     query = sqla.select(nations)
     result = conn.execute(query)
     rows = result.fetchall()
@@ -52,8 +54,8 @@ def test_select_specific_columns(trino_connection):
     _, conn = trino_connection
     metadata = sqla.MetaData()
     nodes = sqla.Table('nodes', metadata, schema='runtime', autoload_with=conn)
-    assert_column(nodes, "node_id", sqla.sql.sqltypes.String)
-    assert_column(nodes, "state", sqla.sql.sqltypes.String)
+    assert_column(nodes, "node_id", VARCHAR)
+    assert_column(nodes, "state", VARCHAR)
     query = sqla.select(nodes.c.node_id, nodes.c.state)
     result = conn.execute(query)
     rows = result.fetchall()
@@ -138,6 +140,37 @@ def test_insert_multiple_statements(trino_connection):
     assert frozenset(rows) == frozenset([
         (2, "wendy", "Wendy Williams"),
         (3, "john", "John Doe"),
+        (4, "mary", "Mary Hopkins"),
+    ])
+    metadata.drop_all(engine)
+
+
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_insert_multiple_statements_number_to_string_coercion(trino_connection):
+    engine, conn = trino_connection
+    if not engine.dialect.has_schema(engine, "test"):
+        engine.execute(sqla.schema.CreateSchema("test"))
+    metadata = sqla.MetaData()
+    users = sqla.Table('users',
+                       metadata,
+                       sqla.Column('id', sqla.Integer),
+                       sqla.Column('name', sqla.String),
+                       sqla.Column('fullname', sqla.String),
+                       schema="test")
+    metadata.create_all(engine)
+    ins = users.insert()
+    conn.execute(ins, [
+        {"id": 2, "name": "wendy", "fullname": "Wendy Williams"},
+        {"id": 3, "name": "john", "fullname": 1234},
+        {"id": 4, "name": "mary", "fullname": "Mary Hopkins"},
+    ])
+    query = sqla.select(users)
+    result = conn.execute(query)
+    rows = result.fetchall()
+    assert len(rows) == 3
+    assert frozenset(rows) == frozenset([
+        (2, "wendy", "Wendy Williams"),
+        (3, "john", "1234"),
         (4, "mary", "Mary Hopkins"),
     ])
     metadata.drop_all(engine)

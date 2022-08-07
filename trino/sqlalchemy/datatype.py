@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import numbers
 import re
 from typing import Iterator, List, Optional, Tuple, Type, Union, Dict, Any
 
@@ -17,6 +18,17 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeEngine
 
 SQLType = Union[TypeEngine, Type[TypeEngine]]
+
+
+class VARCHAR(sqltypes.TypeDecorator):
+    impl = sqltypes.VARCHAR
+
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if isinstance(value, numbers.Number):
+            return str(value)
+        return value
 
 
 class DOUBLE(sqltypes.Float):
@@ -87,7 +99,7 @@ _type_map = {
     # === Fixed-precision ===
     "decimal": sqltypes.DECIMAL,
     # === String ===
-    "varchar": sqltypes.VARCHAR,
+    "varchar": VARCHAR,
     "char": sqltypes.CHAR,
     "varbinary": sqltypes.VARBINARY,
     "json": sqltypes.JSON,

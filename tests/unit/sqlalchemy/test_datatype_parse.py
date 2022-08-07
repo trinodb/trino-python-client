@@ -12,7 +12,6 @@
 import pytest
 from sqlalchemy.sql.sqltypes import (
     CHAR,
-    VARCHAR,
     ARRAY,
     INTEGER,
     DECIMAL,
@@ -25,7 +24,8 @@ from trino.sqlalchemy.datatype import (
     MAP,
     ROW,
     TIME,
-    TIMESTAMP
+    TIMESTAMP,
+    VARCHAR
 )
 
 

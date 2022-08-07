@@ -18,11 +18,13 @@ from sqlalchemy import exc, sql
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
+from sqlalchemy.sql import sqltypes
 
 from trino import dbapi as trino_dbapi, logging
 from trino.auth import BasicAuthentication, CertificateAuthentication, JWTAuthentication
 from trino.dbapi import Cursor
 from trino.sqlalchemy import compiler, datatype, error
+from trino.sqlalchemy.datatype import VARCHAR
 
 logger = logging.get_logger(__name__)
 
@@ -63,6 +65,11 @@ class TrinoDialect(DefaultDialect):
 
     # Support proper ordering of CTEs in regard to an INSERT statement
     cte_follows_insert = True
+
+    # map sqlalchemy types to Trino dialect specific types
+    colspecs = {
+        sqltypes.String: VARCHAR
+    }
 
     @classmethod
     def dbapi(cls):
