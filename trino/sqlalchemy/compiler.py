@@ -206,6 +206,9 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
             datatype += " WITH TIME ZONE"
         return datatype
 
+    def visit_JSON(self, type_, **kw):
+        return 'JSON'
+
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS

@@ -9,12 +9,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import re
 from typing import Iterator, List, Optional, Tuple, Type, Union, Dict, Any
 
 from sqlalchemy import util
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
+from sqlalchemy.types import String
 
 SQLType = Union[TypeEngine, Type[TypeEngine]]
 
@@ -71,6 +73,19 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
         self.precision = precision
 
 
+class JSON(TypeDecorator):
+    impl = String
+
+    def process_bind_param(self, value, dialect):
+        return json.dumps(value)
+
+    def process_result_value(self, value, dialect):
+        return json.loads(value)
+
+    def get_col_spec(self, **kw):
+        return 'JSON'
+
+
 # https://trino.io/docs/current/language/types.html
 _type_map = {
     # === Boolean ===
@@ -90,7 +105,7 @@ _type_map = {
     "varchar": sqltypes.VARCHAR,
     "char": sqltypes.CHAR,
     "varbinary": sqltypes.VARBINARY,
-    "json": sqltypes.JSON,
+    "json": JSON,
     # === Date and time ===
     "date": sqltypes.DATE,
     "time": TIME,
