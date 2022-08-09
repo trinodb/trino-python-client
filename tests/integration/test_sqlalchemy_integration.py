@@ -13,6 +13,8 @@ import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, or_, not_
 
+from trino.sqlalchemy.datatype import JSON
+
 
 @pytest.fixture
 def trino_connection(run_trino, request):
@@ -255,3 +257,41 @@ def test_cte(trino_connection):
     result = conn.execute(s)
     rows = result.fetchall()
     assert len(rows) == 15
+
+
+@pytest.mark.parametrize(
+    'trino_connection,json_object',
+    [
+        ('memory', None),
+        ('memory', 1),
+        ('memory', 'test'),
+        ('memory', [1, 'test']),
+        ('memory', {'test': 1}),
+    ],
+    indirect=['trino_connection']
+)
+def test_json_column(trino_connection, json_object):
+    engine, conn = trino_connection
+
+    if not engine.dialect.has_schema(engine, "test"):
+        engine.execute(sqla.schema.CreateSchema("test"))
+    metadata = sqla.MetaData()
+
+    try:
+        table_with_json = sqla.Table(
+            'table_with_json',
+            metadata,
+            sqla.Column('id', sqla.Integer),
+            sqla.Column('json_column', JSON),
+            schema="test"
+        )
+        metadata.create_all(engine)
+        ins = table_with_json.insert()
+        conn.execute(ins, {"id": 1, "json_column": json_object})
+        query = sqla.select(table_with_json)
+        result = conn.execute(query)
+        rows = result.fetchall()
+        assert len(rows) == 1
+        assert rows[0] == (1, json_object)
+    finally:
+        metadata.drop_all(engine)
