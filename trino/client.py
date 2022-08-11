@@ -804,7 +804,7 @@ class TrinoQuery(object):
         url = self._request.get_url("/v1/query/{}".format(self.query_id))
         logger.debug("cancelling query: %s", self.query_id)
         response = self._request.delete(url)
-        logger.info(response)
+        logger.debug(response)
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
