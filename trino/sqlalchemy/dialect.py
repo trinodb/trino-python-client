@@ -262,19 +262,26 @@ class TrinoDialect(DefaultDialect):
         return []
 
     def get_table_comment(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
-        schema = schema or self._get_default_schema_name(connection)
-        if schema is None:
+        catalog_name = self._get_default_catalog_name(connection)
+        if catalog_name is None:
+            raise exc.NoSuchTableError("catalog is required in connection")
+        schema_name = schema or self._get_default_schema_name(connection)
+        if schema_name is None:
             raise exc.NoSuchTableError("schema is required")
         query = dedent(
             """
             SELECT "comment"
             FROM "system"."metadata"."table_comments"
-            WHERE "schema_name" = :schema
-            AND "table_name" = :table_name
+            WHERE "catalog_name" = :catalog_name
+              AND "schema_name" = :schema_name
+              AND "table_name" = :table_name
         """
         ).strip()
         try:
-            res = connection.execute(sql.text(query), schema=schema, table_name=table_name)
+            res = connection.execute(
+                sql.text(query),
+                catalog_name=catalog_name, schema_name=schema_name, table_name=table_name
+            )
             return dict(text=res.scalar())
         except error.TrinoQueryError as e:
             if e.error_name in (
@@ -322,6 +329,10 @@ class TrinoDialect(DefaultDialect):
         except exc.ProgrammingError as e:
             logger.debug(f"Failed to get server version: {e.orig.message}")
             return None
+
+    def _get_default_catalog_name(self, connection: Connection) -> Optional[str]:
+        dbapi_connection: trino_dbapi.Connection = connection.connection
+        return dbapi_connection.catalog
 
     def _get_default_schema_name(self, connection: Connection) -> Optional[str]:
         dbapi_connection: trino_dbapi.Connection = connection.connection
