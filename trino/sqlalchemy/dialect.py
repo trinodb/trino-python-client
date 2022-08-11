@@ -238,12 +238,14 @@ class TrinoDialect(DefaultDialect):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
 
         partitioned_columns = self._get_columns(connection, f"{table_name}$partitions", schema, **kw)
+        if not partitioned_columns:
+            return []
         partition_index = dict(
-            name="partition", column_names=[col["name"] for col in partitioned_columns], unique=False
+            name="partition",
+            column_names=[col["name"] for col in partitioned_columns],
+            unique=False
         )
-        return [
-            partition_index,
-        ]
+        return [partition_index]
 
     def get_sequence_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
         """Trino has no support for sequences. Returns an empty list."""
