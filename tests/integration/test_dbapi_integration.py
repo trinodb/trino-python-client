@@ -153,8 +153,8 @@ def test_execute_many_without_params(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("CREATE TABLE memory.default.test_execute_many_without_param (value varchar)")
     cur.fetchall()
-    cur.executemany("INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", [])
     with pytest.raises(TrinoUserError) as e:
+        cur.executemany("INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", [])
         cur.fetchall()
     assert "Incorrect number of parameters: expected 1 but found 0" in str(e.value)
 
@@ -883,13 +883,12 @@ def test_transaction_autocommit(trino_connection_in_autocommit):
     with trino_connection_in_autocommit as connection:
         connection.start_transaction()
         cur = connection.cursor()
-        cur.execute(
-            """
-            CREATE TABLE memory.default.nation
-            AS SELECT * from tpch.tiny.nation
-            """)
-
         with pytest.raises(TrinoUserError) as transaction_error:
+            cur.execute(
+                """
+                CREATE TABLE memory.default.nation
+                AS SELECT * from tpch.tiny.nation
+                """)
             cur.fetchall()
         assert "Catalog only supports writes using autocommit: memory" \
                in str(transaction_error.value)

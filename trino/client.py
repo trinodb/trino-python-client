@@ -592,29 +592,35 @@ class TrinoResult(object):
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
 
-    def __init__(self, query, rows=None):
+    def __init__(self, query, rows: List[Any]):
         self._query = query
-        self._rows = rows or []
+        # Initial rows from the first POST request
+        self._rows = rows
         self._rownumber = 0
+
+    @property
+    def rows(self):
+        return self._rows
+
+    @rows.setter
+    def rows(self, rows):
+        self._rows = rows
 
     @property
     def rownumber(self) -> int:
         return self._rownumber
 
     def __iter__(self):
-        # Initial fetch from the first POST request
-        for row in self._rows:
-            self._rownumber += 1
-            yield row
-        self._rows = None
-
-        # Subsequent fetches from GET requests until next_uri is empty.
-        while not self._query.finished:
-            rows = self._query.fetch()
-            for row in rows:
+        # A query only transitions to a FINISHED state when the results are fully consumed:
+        # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
+        while not self._query.finished or self._rows is not None:
+            next_rows = self._query.fetch() if not self._query.finished else None
+            for row in self._rows:
                 self._rownumber += 1
                 logger.debug("row %s", row)
                 yield row
+
+            self._rows = next_rows
 
     @property
     def response_headers(self):
@@ -641,7 +647,7 @@ class TrinoQuery(object):
         self._request = request
         self._update_type = None
         self._sql = sql
-        self._result = TrinoResult(self)
+        self._result: Optional[TrinoResult] = None
         self._response_headers = None
         self._experimental_python_types = experimental_python_types
         self._row_mapper: Optional[RowMapper] = None
@@ -652,7 +658,7 @@ class TrinoQuery(object):
             while not self._columns and not self.finished and not self.cancelled:
                 # Columns are not returned immediately after query is submitted.
                 # Continue fetching data until columns information is available and push fetched rows into buffer.
-                self._result._rows += self.fetch()
+                self._result.rows += self.fetch()
         return self._columns
 
     @property
@@ -697,8 +703,11 @@ class TrinoQuery(object):
             self._finished = True
 
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
-
         self._result = TrinoResult(self, rows)
+
+        # Execute should block until at least one row is received
+        while not self.finished and not self.cancelled and len(self._result.rows) == 0:
+            self._result.rows += self.fetch()
         return self._result
 
     def _update_state(self, status):
