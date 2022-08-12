@@ -51,7 +51,7 @@ def test_http_session_is_defaulted_when_not_specified(mock_client):
 
 
 @httprettified
-def test_token_retrieved_once_per_auth_instance(sample_post_response_data):
+def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 
@@ -59,12 +59,19 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data):
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
     post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+    get_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_get_response_data)
 
-    # bind post statement
+    # bind post statement to submit query
     httpretty.register_uri(
         method=httpretty.POST,
         uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
         body=post_statement_callback)
+
+    # bind get statement for result retrieval
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
+        body=get_statement_callback)
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
@@ -108,7 +115,8 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data):
 
 
 @httprettified
-def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post_response_data):
+def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post_response_data,
+                                                                     sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 
@@ -116,12 +124,19 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
     post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+    get_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_get_response_data)
 
-    # bind post statement
+    # bind post statement to submit query
     httpretty.register_uri(
         method=httpretty.POST,
         uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
         body=post_statement_callback)
+
+    # bind get statement for result retrieval
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
+        body=get_statement_callback)
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
@@ -166,7 +181,7 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
 
 
 @httprettified
-def test_token_retrieved_once_when_multithreaded(sample_post_response_data):
+def test_token_retrieved_once_when_multithreaded(sample_post_response_data, sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 
@@ -174,12 +189,19 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data):
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
     post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+    get_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_get_response_data)
 
-    # bind post statement
+    # bind post statement to submit query
     httpretty.register_uri(
         method=httpretty.POST,
         uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
         body=post_statement_callback)
+
+    # bind get statement for result retrieval
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
+        body=get_statement_callback)
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)

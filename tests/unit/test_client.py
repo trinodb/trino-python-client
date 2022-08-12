@@ -892,9 +892,7 @@ def test_trino_result_response_headers():
         'X-Trino-Fake-2': 'two',
     })
 
-    result = TrinoResult(
-        query=mock_trino_query,
-    )
+    result = TrinoResult(query=mock_trino_query, rows=[])
     assert result.response_headers == mock_trino_query.response_headers
 
 

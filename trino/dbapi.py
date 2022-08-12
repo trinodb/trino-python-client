@@ -322,7 +322,7 @@ class Cursor(object):
             operation=operation
         )
 
-        # Send prepare statement. Copy the _request object to avoid poluting the
+        # Send prepare statement. Copy the _request object to avoid polluting the
         # one that is going to be used to execute the actual operation.
         query = trino.client.TrinoQuery(copy.deepcopy(self._request), sql=sql,
                                         experimental_python_types=self._experimental_pyton_types)
