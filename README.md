@@ -89,7 +89,7 @@ rows = connection.execute(select(nodes)).fetchall()
 ```
 
 In order to pass additional connection attributes use [connect_args](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.connect_args) method.
-Attributes can be also passed in connection string.
+Attributes can also be passed in the connection string.
 
 ```python
 from sqlalchemy import create_engine
@@ -112,12 +112,12 @@ engine = create_engine(
 )
 ```
 
-## Authentications
+## Authentication mechanisms
 
-### Basic Authentication
+### Basic authentication
 
 The `BasicAuthentication` class can be used to connect to a Trino cluster configured with
-the [Password file authentication type, LDAP authentication type or Salesforce authentication type](https://trino.io/docs/current/security/authentication-types.html):
+the [Password file, LDAP or Salesforce authentication type](https://trino.io/docs/current/security/authentication-types.html):
 
 - DBAPI
 
@@ -151,7 +151,7 @@ the [Password file authentication type, LDAP authentication type or Salesforce a
     )
     ```
 
-### JWT Authentication
+### JWT authentication
 
 The `JWTAuthentication` class can be used to connect to a Trino cluster configured with
 the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html):
@@ -188,7 +188,7 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
     )
     ```
 
-### OAuth2 Authentication
+### OAuth2 authentication
 
 The `OAuth2Authentication` class can be used to connect to a Trino cluster configured with
 the [OAuth2 authentication type](https://trino.io/docs/current/security/oauth2.html).
@@ -226,7 +226,7 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
     )
     ```
 
-### Certificate Authentication
+### Certificate authentication
 
 `CertificateAuthentication` class can be used to connect to Trino cluster configured with [certificate based authentication](https://trino.io/docs/current/security/certificate.html). `CertificateAuthentication` requires paths to a valid client certificate and private key.
 
@@ -262,7 +262,7 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
     )
     ```
 
-### Kerberos Authentication
+### Kerberos authentication
 
 The `KerberosAuthentication` class can be used to connect to a Trino cluster configured with
 the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerberos.html):
@@ -296,16 +296,16 @@ the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerb
     )
     ```
 
-### User impersonation
+## User impersonation
 
-In the case of user who submit the query is not the same as user who authenticate to Trino server (e.g in Superset),
-you can set `username` to different from `principal_id`. Note that `principal_id` is extracted from `auth`,
-for example `username` in BasicAuthentication, `sub` in JWT token or `service-name` in KerberosAuthentication and
-please make sure that [`principal_id` has permission to impersonate `username`](https://trino.io/docs/current/security/file-system-access-control.html#impersonation-rules).
+In the case where user who submits the query is not the same as user who authenticates to Trino server (e.g in Superset),
+you can set `username` to be different from `principal_id`. Note that `principal_id` is extracted from `auth`,
+for example `username` in BasicAuthentication, `sub` in JWT token or `service-name` in KerberosAuthentication.
+You need to make sure that [`principal_id` has permission to impersonate `username`](https://trino.io/docs/current/security/file-system-access-control.html#impersonation-rules).
 
-### Extra Credential
+### Extra credentials
 
-Send [`extra credentials`](https://trino.io/docs/current/develop/client-protocol.html#client-request-headers):
+[`Extra credentials`](https://trino.io/docs/current/develop/client-protocol.html#client-request-headers) can be sent as:
 
 ```python
 import trino
@@ -412,7 +412,7 @@ assert cur.description[0][1] == "timestamp with time zone"
 
 # Development
 
-## Getting Started With Development
+## Getting started with development
 
 Start by forking the repository and then modify the code in your fork.
 
@@ -441,13 +441,13 @@ applied to the *virtual env*.
 
 When the code is ready, submit a Pull Request.
 
-### Code Style
+### Code style
 
 - For Python code, adhere to PEP 8.
 - Prefer code that is readable over one that is "clever".
 - When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
 
-### Running Tests
+### Running tests
 
 `trino-python-client` uses [pytest](https://pytest.org/) for its tests. To run
 only unit tests, type:
@@ -507,9 +507,9 @@ They pull a Docker image and then run a container with a Trino server:
   ```
 - Send release announcement.
 
-## Need Help?
+## Need help?
 
-Feel free to create an issue as it make your request visible to other users and contributors.
+Feel free to create an issue as it makes your request visible to other users and contributors.
 
 If an interactive discussion would be better or if you just want to hangout and chat about
 the Trino Python client, you can join us on the *#python-client* channel on
