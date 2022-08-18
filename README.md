@@ -381,7 +381,7 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
-# Improved Python types
+## Improved Python types
 
 If you enable the flag `experimental_python_types`, the client will convert the results of the query to the 
 corresponding Python types. For example, if the query returns a `DECIMAL` column, the result will be a `Decimal` object.
@@ -477,7 +477,7 @@ They pull a Docker image and then run a container with a Trino server:
 - the image is named `trinodb/trino:${TRINO_VERSION}`
 - the container is named `trino-python-client-tests-{uuid4()[:7]}`
 
-### Releasing
+## Releasing
 
 - [Set up your development environment](#Getting-Started-With-Development).
 - Check the local workspace is up to date and has no uncommitted changes
@@ -509,7 +509,7 @@ They pull a Docker image and then run a container with a Trino server:
   ```
 - Send release announcement.
 
-## Need help?
+# Need help?
 
 Feel free to create an issue as it makes your request visible to other users and contributors.
 
