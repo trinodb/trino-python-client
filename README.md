@@ -137,10 +137,10 @@ the [Password file, LDAP or Salesforce authentication type](https://trino.io/doc
 
     ```python
     from sqlalchemy import create_engine
-    
+
     engine = create_engine("trino://<username>:<password>@<host>:<port>/<catalog>")
-    
-    # or
+
+    # or as connect_args
     from trino.auth import BasicAuthentication
     engine = create_engine(
         "trino://<username>@<host>:<port>/<catalog>",
@@ -161,7 +161,7 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
     ```python
     from trino.dbapi import connect
     from trino.auth import JWTAuthentication
-    
+
     conn = connect(
         user="<username>",
         auth=JWTAuthentication("<jwt_token>"),
@@ -174,10 +174,10 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
 
     ```python
     from sqlalchemy import create_engine
-    
+
     engine = create_engine("trino://<username>@<host>:<port>/<catalog>/<schema>?access_token=<jwt_token>")
-  
-    # or
+
+    # or as connect_args
     from trino.auth import JWTAuthentication
     engine = create_engine(
         "trino://<username>@<host>:<port>/<catalog>",
@@ -252,7 +252,7 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
 
     engine = create_engine("trino://<username>@<host>:<port>/<catalog>/<schema>?cert=<cert>&key=<key>")
 
-    # or
+    # or as connect_args
     engine = create_engine(
     "trino://<username>@<host>:<port>/<catalog>",
         connect_args={
@@ -272,7 +272,7 @@ the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerb
     ```python
     from trino.dbapi import connect
     from trino.auth import KerberosAuthentication
-    
+
     conn = connect(
         user="<username>",
         auth=KerberosAuthentication(...),
