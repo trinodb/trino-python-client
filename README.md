@@ -487,19 +487,19 @@ $ tox
   ```
 - Create release package and upload it to PyPI
   ```bash
-  . .venv/bin/activate &&
-  pip install twine &&
-  rm -rf dist/ &&
-  ./setup.py sdist bdist_wheel &&
-  twine upload dist/* &&
-  open https://pypi.org/project/trino/ &&
+  . .venv/bin/activate && \
+  pip install twine && \
+  rm -rf dist/ && \
+  ./setup.py sdist bdist_wheel && \
+  twine upload dist/* && \
+  open https://pypi.org/project/trino/ && \
   echo "Released!"
   ```
 - Push the branch and the tag
   ```bash
   git push upstream master 0.123.0
   ```
-- Send release announcement.
+- Send release announcement on the *#python-client* channel on [Trino Slack][trino-slack].
 
 # Need help?
 
@@ -507,4 +507,6 @@ Feel free to create an issue as it makes your request visible to other users and
 
 If an interactive discussion would be better or if you just want to hangout and chat about
 the Trino Python client, you can join us on the *#python-client* channel on
-[Trino Slack](https://trino.io/slack.html).
+[Trino Slack][trino-slack].
+
+[trino-slack]: https://trino.io/slack.html
