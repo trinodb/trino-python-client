@@ -321,6 +321,8 @@ cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 
+## SSL
+
 ### SSL verification
 
 In order to disable SSL verification, set the `verify` parameter to `False`.
