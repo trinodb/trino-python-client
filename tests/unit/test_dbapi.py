@@ -11,7 +11,7 @@
 # limitations under the License.
 import threading
 import uuid
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import httpretty
 from httpretty import httprettified
@@ -20,7 +20,7 @@ from requests import Session
 from tests.unit.oauth_test_utils import _post_statement_requests, _get_token_requests, RedirectHandler, \
     GetTokenCallback, REDIRECT_RESOURCE, TOKEN_RESOURCE, PostStatementCallback, SERVER_ADDRESS
 from trino import constants
-from trino.auth import OAuth2Authentication
+from trino.auth import OAuth2Authentication, OAuth2TokenCache
 from trino.dbapi import connect
 
 
@@ -105,6 +105,53 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data):
         conn2.cursor().execute("SELECT 3")
 
     assert len(_get_token_requests(challenge_id)) == 2
+
+
+@httprettified
+def test_custom_token_cache_is_invoked(sample_post_response_data):
+    host = "coordinator"
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandler()
+
+    custom_cache = MagicMock(OAuth2TokenCache)
+    custom_cache.get_token_from_cache = MagicMock(side_effect=[None, token, token, token])
+    custom_cache.store_token_to_cache = MagicMock()
+
+    with connect(
+            host,
+            user="test",
+            auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler, cache=custom_cache),
+            http_scheme=constants.HTTPS
+    ) as conn:
+        conn.cursor().execute("SELECT 1")
+        conn.cursor().execute("SELECT 2")
+        conn.cursor().execute("SELECT 3")
+
+    assert len(_get_token_requests(challenge_id)) == 1
+    custom_cache.get_token_from_cache.assert_called_with(host)
+    assert custom_cache.get_token_from_cache.call_count == 4
+    custom_cache.store_token_to_cache.assert_called_with(host, token)
+    assert custom_cache.store_token_to_cache.call_count == 1
 
 
 @httprettified

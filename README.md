@@ -226,6 +226,38 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
     )
     ```
 
+A custom caching implementation can be provided by creating a class implementing the `trino.auth.OAuth2TokenCache` abstract class and adding it as in `OAuth2Authentication(cache=my_custom_cache_impl)`. The custom caching implementation enables usage in multi-user environments (notebooks, web applications) in combination with a custom `redirect_auth_url_handler` as explained above.
+
+```python
+from typing import Optional
+
+from trino.auth import OAuth2Authentication, OAuth2TokenCache
+from trino.dbapi import connect
+
+
+class MyCustomCacheImpl(OAuth2TokenCache):
+    def get_token_from_cache(self, host: str) -> Optional[str]:
+        # Retrieve your cached token from a distributed system
+        # and return it
+        pass
+    
+    def store_token_to_cache(self, host: str, token: str) -> None:
+        # Store your cached token in a distributed system
+        pass
+
+
+def my_custom_redirect_handler(url: str) -> None:
+    # Ensure the url is opened by the user that should perform the authentication
+    pass
+
+conn = connect(
+    user="<username>",
+    auth=OAuth2Authentication(cache=MyCustomCacheImpl(), redirect_auth_url_handler=my_custom_redirect_handler),
+    http_scheme="https",
+    ...
+)
+```
+
 ### Certificate authentication
 
 `CertificateAuthentication` class can be used to connect to Trino cluster configured with [certificate based authentication](https://trino.io/docs/current/security/certificate.html). `CertificateAuthentication` requires paths to a valid client certificate and private key.
