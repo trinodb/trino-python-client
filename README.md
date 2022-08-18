@@ -48,7 +48,6 @@ rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 
 **Prerequisite**
 
-- SQLAlchemy >= 1.3
 - Trino server >= 351
 
 **Installation**
