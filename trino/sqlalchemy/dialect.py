@@ -317,7 +317,7 @@ class TrinoDialect(DefaultDialect):
         query = "SELECT version()"
         try:
             res = connection.execute(sql.text(query))
-            version = res.scalar()
+            version = res.scalar_one()
             return tuple([version])
         except exc.ProgrammingError as e:
             logger.debug(f"Failed to get server version: {e.orig.message}")

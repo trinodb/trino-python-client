@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
+import os
 import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, or_, not_
@@ -175,6 +176,22 @@ def test_conjunctions(trino_connection):
     result = conn.execute(query)
     rows = result.fetchall()
     assert len(rows) == 1
+
+
+@pytest.mark.parametrize('trino_connection', ['system'], indirect=True)
+def test_completed_states(trino_connection):
+    _, conn = trino_connection
+    metadata = sqla.MetaData()
+    queries = sqla.Table('queries', metadata, schema='runtime', autoload_with=conn)
+    s = sqla.select(queries.c.state).where(queries.c.query == "SELECT version()")
+    result = conn.execute(s)
+    rows = result.fetchall()
+    assert len(rows) > 0
+    for row in rows:
+        if os.environ.get("TRINO_VERSION") == '351':
+            assert row['state'] == 'FAILED'
+        else:
+            assert row['state'] == 'FINISHED'
 
 
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
