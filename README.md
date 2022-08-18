@@ -418,28 +418,17 @@ assert cur.description[0][1] == "timestamp with time zone"
 
 Start by forking the repository and then modify the code in your fork.
 
-Clone the repository and go inside the code directory. Then you can get the
-version with `./setup.py --version`.
-
 We recommend that you use Python3's `venv` for development:
 
 ```
 $ python3 -m venv .venv
 $ . .venv/bin/activate
-$ pip install .
-```
-
-For development purpose, pip can reference the code you are modifying in a
-*virtual env*:
-
-```
-$ pip install -e .
-# To additionally install all dependencies for development run below command
 $ pip install -e '.[tests]'
 ```
 
-That way, you do not need to run `pip install` again to make your changes
-applied to the *virtual env*.
+With `-e` passed to `pip install` above pip can reference the code you are
+modifying in the *virtual env*. That way, you do not need to run `pip install`
+again to make your changes applied to the *virtual env*.
 
 When the code is ready, submit a Pull Request.
 
@@ -448,6 +437,9 @@ When the code is ready, submit a Pull Request.
 - For Python code, adhere to PEP 8.
 - Prefer code that is readable over one that is "clever".
 - When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+
+See also Trino's [guidelines](https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md).
+Most of them also apply to code in trino-python-client.
 
 ### Running tests
 
@@ -460,13 +452,6 @@ $ pytest tests/unit
 
 Then you can pass options like `--pdb` or anything supported by `pytest --help`.
 
-To run the tests with different versions of Python in managed *virtual envs*,
-use `tox` (see the configuration in `tox.ini`):
-
-```
-$ tox
-```
-
 To run integration tests:
 
 ```
@@ -476,6 +461,13 @@ $ pytest tests/integration
 They pull a Docker image and then run a container with a Trino server:
 - the image is named `trinodb/trino:${TRINO_VERSION}`
 - the container is named `trino-python-client-tests-{uuid4()[:7]}`
+
+To run the tests with different versions of Python in managed *virtual envs*,
+use `tox` (see the configuration in `tox.ini`):
+
+```
+$ tox
+```
 
 ## Releasing
 
