@@ -1,7 +1,6 @@
 ---
 name: Bug report
 description: Report a bug or an issue you've found with Trino Python client
-labels: bug
 body:
   - type: textarea
     attributes:
