@@ -287,7 +287,7 @@ def test_datetime_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp"
+    assert cur.description[0][1] == "timestamp(6)"
 
 
 def test_datetime_with_utc_time_zone_query_param(trino_connection):
@@ -299,7 +299,7 @@ def test_datetime_with_utc_time_zone_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][1] == "timestamp(6) with time zone"
 
 
 def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
@@ -313,7 +313,7 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][1] == "timestamp(6) with time zone"
 
 
 def test_datetime_with_named_time_zone_query_param(trino_connection):
@@ -325,7 +325,7 @@ def test_datetime_with_named_time_zone_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][1] == "timestamp(6) with time zone"
 
 
 def test_datetime_with_trailing_zeros(trino_connection):
@@ -463,6 +463,7 @@ def test_time_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
+    assert cur.description[0][1] == "time(6)"
 
 
 def test_time_with_named_time_zone_query_param(trino_connection):
@@ -492,6 +493,7 @@ def test_time(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == time(1, 2, 3, 456000)
+    assert cur.description[0][1] == "time(3)"
 
 
 def test_null_time(trino_connection):
@@ -512,6 +514,7 @@ def test_time_with_time_zone_negative_offset(trino_connection):
     tz = timezone(-timedelta(hours=8, minutes=0))
 
     assert rows[0][0] == time(1, 2, 3, 456000, tzinfo=tz)
+    assert cur.description[0][1] == "time(3) with time zone"
 
 
 def test_time_with_time_zone_positive_offset(trino_connection):
@@ -523,6 +526,7 @@ def test_time_with_time_zone_positive_offset(trino_connection):
     tz = timezone(timedelta(hours=8, minutes=0))
 
     assert rows[0][0] == time(1, 2, 3, 456000, tzinfo=tz)
+    assert cur.description[0][1] == "time(3) with time zone"
 
 
 def test_null_date_with_time_zone(trino_connection):
