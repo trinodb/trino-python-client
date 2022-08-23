@@ -82,7 +82,8 @@ PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])
 POWERS_OF_TEN: Dict[int, Decimal] = {}
 for i in range(0, 13):
     POWERS_OF_TEN[i] = Decimal(10 ** i)
-MAX_PYTHON_TEMPORAL_PRECISION = POWERS_OF_TEN[6]
+MAX_PYTHON_TEMPORAL_PRECISION_POWER = 6
+MAX_PYTHON_TEMPORAL_PRECISION = POWERS_OF_TEN[MAX_PYTHON_TEMPORAL_PRECISION_POWER]
 
 
 class ClientSession(object):
@@ -435,6 +436,7 @@ class TrinoRequest(object):
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
+        headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME'
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
                 # ``name`` must not contain ``=``
@@ -932,6 +934,7 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
             In case the supplied value exceeds the specified precision,
             the value needs to be rounded.
         """
+        precision = min(precision, MAX_PYTHON_TEMPORAL_PRECISION_POWER)
         remaining_fractional_seconds = self._remaining_fractional_seconds
         digits = abs(remaining_fractional_seconds.as_tuple().exponent)
         if digits > precision:

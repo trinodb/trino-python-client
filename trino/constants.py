@@ -51,3 +51,5 @@ HEADER_DEALLOCATED_PREPARE = 'X-Trino-Deallocated-Prepare'
 
 HEADER_SET_SCHEMA = "X-Trino-Set-Schema"
 HEADER_SET_CATALOG = "X-Trino-Set-Catalog"
+
+HEADER_CLIENT_CAPABILITIES = "X-Trino-Client-Capabilities"

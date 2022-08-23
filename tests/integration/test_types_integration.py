@@ -191,13 +191,13 @@ def test_time(trino_connection):
             python=time(0, 0, 0, 1000))
         .add_field(
             sql="TIME '00:00:00.0001'",
-            python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 100))
         .add_field(
             sql="TIME '00:00:00.00001'",
-            python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 10))
         .add_field(
             sql="TIME '00:00:00.000001'",
-            python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 1))
         # max value for each precision
         .add_field(
             sql="TIME '23:59:59'",
@@ -211,69 +211,74 @@ def test_time(trino_connection):
         .add_field(
             sql="TIME '23:59:59.999'",
             python=time(23, 59, 59, 999000))
-        # TODO: re-enable when Trino 404 is released
-        # .add_field(
-        #     sql="TIME '23:59:59.9999'",
-        #     python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
-        # .add_field(
-        #     sql="TIME '23:59:59.99999'",
-        #     python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
-        # .add_field(
-        #     sql="TIME '23:59:59.999999'",
-        #     python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+        .add_field(
+            sql="TIME '23:59:59.9999'",
+            python=time(23, 59, 59, 999900))
+        .add_field(
+            sql="TIME '23:59:59.99999'",
+            python=time(23, 59, 59, 999990))
+        .add_field(
+            sql="TIME '23:59:59.999999'",
+            python=time(23, 59, 59, 999999))
         # round down
         .add_field(
-            sql="TIME '00:00:00.000100'",
-            python=time(0, 0, 0))
+            sql="TIME '12:34:56.1234561'",
+            python=time(12, 34, 56, 123456))
+        # round down, min value
+        .add_field(
+            sql="TIME '00:00:00.000000000001'",
+            python=time(0, 0, 0, 0))
         .add_field(
             sql="TIME '00:00:00.0000001'",
-            python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql="TIME '12:34:56.1234561'",
-            python=time(12, 34, 56, 123000))  # PARAMETRIC_DATETIME not enabled
-        # TODO: re-enable when Trino 404 is released
-        # .add_field(
-        #     sql="TIME '23:59:59.9999994'",
-        #     python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
-        # .add_field(
-        #     sql="TIME '23:59:59.9999994999'",
-        #     python=time(0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 0))
         # round down, max value
         .add_field(
-            sql="TIME '00:00:00.0004'",
-            python=time(0, 0, 0))
+            sql="TIME '00:00:00.0000004'",
+            python=time(0, 0, 0, 0))
         .add_field(
-            sql="TIME '00:00:00.00049'",
-            python=time(0, 0, 0))
+            sql="TIME '00:00:00.00000049'",
+            python=time(0, 0, 0, 0))
+        .add_field(
+            sql="TIME '00:00:00.0000005'",
+            python=time(0, 0, 0, 0))
+        .add_field(
+            sql="TIME '00:00:00.00000050'",
+            python=time(0, 0, 0, 0))
+        .add_field(
+            sql="TIME '23:59:59.9999994'",
+            python=time(23, 59, 59, 999999))
+        .add_field(
+            sql="TIME '23:59:59.9999994999'",
+            python=time(23, 59, 59, 999999))
+        # round up
+        .add_field(
+            sql="TIME '12:34:56.123456789'",
+            python=time(12, 34, 56, 123457))
         # round up, min value
         .add_field(
-            sql="TIME '00:00:00.0005'",
-            python=time(0, 0, 0, 1000))
-        .add_field(
-            sql="TIME '00:00:00.00050'",
-            python=time(0, 0, 0, 1000))
+            sql="TIME '00:00:00.000000500001'",
+            python=time(0, 0, 0, 1))
         # round up, max value
         .add_field(
-            sql="TIME '00:00:00.0009'",
-            python=time(0, 0, 0, 1000))
+            sql="TIME '00:00:00.0000009'",
+            python=time(0, 0, 0, 1))
         .add_field(
-            sql="TIME '00:00:00.00099'",
-            python=time(0, 0, 0, 1000))
-        # TODO: re-enable when Trino 404 is released
+            sql="TIME '00:00:00.00000099999'",
+            python=time(0, 0, 0, 1))
         # round up to next day, min value
-        # .add_field(
-        #     sql="TIME '23:59:59.9995'",
-        #     python=time(0, 0, 0))
-        # .add_field(
-        #     sql="TIME '23:59:59.99950'",
-        #     python=time(0, 0, 0))
-        # # round up to next day, max value
-        # .add_field(
-        #     sql="TIME '23:59:59.9999'",
-        #     python=time(0, 0, 0))
-        # .add_field(
-        #     sql="TIME '23:59:59.99999'",
-        #     python=time(0, 0, 0))
+        .add_field(
+            sql="TIME '23:59:59.9999995'",
+            python=time(0, 0, 0))
+        .add_field(
+            sql="TIME '23:59:59.999999500001'",
+            python=time(0, 0, 0))
+        # round up to next day, max value
+        .add_field(
+            sql="TIME '23:59:59.9999999'",
+            python=time(0, 0, 0))
+        .add_field(
+            sql="TIME '23:59:59.999999999'",
+            python=time(0, 0, 0))
     ).execute()
 
 
@@ -317,13 +322,13 @@ def query_time_with_timezone(trino_connection, tz_str: str):
             python=time(0, 0, 0, 1000).replace(tzinfo=tz))
         .add_field(
             sql=f"TIME '00:00:00.0001 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 100).replace(tzinfo=tz))
         .add_field(
             sql=f"TIME '00:00:00.00001 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 10).replace(tzinfo=tz))
         .add_field(
             sql=f"TIME '00:00:00.000001 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 1).replace(tzinfo=tz))
         # max value for each precision
         .add_field(
             sql=f"TIME '23:59:59 {tz_str}'",
@@ -337,69 +342,71 @@ def query_time_with_timezone(trino_connection, tz_str: str):
         .add_field(
             sql=f"TIME '23:59:59.999 {tz_str}'",
             python=time(23, 59, 59, 999000).replace(tzinfo=tz))
-        # TODO: re-enable when Trino 404 is released
-        # .add_field(
-        #     sql=f"TIME '23:59:59.9999 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        # .add_field(
-        #     sql=f"TIME '23:59:59.99999 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        # .add_field(
-        #     sql=f"TIME '23:59:59.999999 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+        .add_field(
+            sql=f"TIME '23:59:59.9999 {tz_str}'",
+            python=time(23, 59, 59, 999900).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '23:59:59.99999 {tz_str}'",
+            python=time(23, 59, 59, 999990).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '23:59:59.999999 {tz_str}'",
+            python=time(23, 59, 59, 999999).replace(tzinfo=tz))
         # round down
         .add_field(
-            sql=f"TIME '00:00:00.000100 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIME '12:34:56.1234561 {tz_str}'",
+            python=time(12, 34, 56, 123456).replace(tzinfo=tz))
+        # round down, min value
+        .add_field(
+            sql=f"TIME '00:00:00.000000000001 {tz_str}'",
+            python=time(0, 0, 0, 0).replace(tzinfo=tz))
         .add_field(
             sql=f"TIME '00:00:00.0000001 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql=f"TIME '12:34:56.1234561 {tz_str}'",
-            python=time(12, 34, 56, 123000).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        # TODO: re-enable when Trino 404 is released
-        # .add_field(
-        #     sql=f"TIME '23:59:59.9999994 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        # .add_field(
-        #     sql=f"TIME '23:59:59.9999994999 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=time(0, 0, 0, 0).replace(tzinfo=tz))
         # round down, max value
         .add_field(
-            sql=f"TIME '00:00:00.0004 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIME '00:00:00.0000004 {tz_str}'",
+            python=time(0, 0, 0, 0).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIME '00:00:00.00049 {tz_str}'",
-            python=time(0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIME '00:00:00.00000049 {tz_str}'",
+            python=time(0, 0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '00:00:00.0000005 {tz_str}'",
+            python=time(0, 0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '23:59:59.9999994 {tz_str}'",
+            python=time(23, 59, 59, 999999).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '23:59:59.9999994999 {tz_str}'",
+            python=time(23, 59, 59, 999999).replace(tzinfo=tz))
+        # round up
+        .add_field(
+            sql=f"TIME '12:34:56.123456789 {tz_str}'",
+            python=time(12, 34, 56, 123457).replace(tzinfo=tz))
         # round up, min value
         .add_field(
-            sql=f"TIME '00:00:00.0005 {tz_str}'",
-            python=time(0, 0, 0, 1000).replace(tzinfo=tz))
-        .add_field(
-            sql=f"TIME '00:00:00.00050 {tz_str}'",
-            python=time(0, 0, 0, 1000).replace(tzinfo=tz))
+            sql=f"TIME '00:00:00.000000500001 {tz_str}'",
+            python=time(0, 0, 0, 1).replace(tzinfo=tz))
         # round up, max value
         .add_field(
-            sql=f"TIME '00:00:00.0009 {tz_str}'",
-            python=time(0, 0, 0, 1000).replace(tzinfo=tz))
+            sql=f"TIME '00:00:00.0000009 {tz_str}'",
+            python=time(0, 0, 0, 1).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIME '00:00:00.00099 {tz_str}'",
-            python=time(0, 0, 0, 1000).replace(tzinfo=tz))
-        # TODO: re-enable when Trino 404 is released
-        # # round up to next day, min value
-        # .add_field(
-        #     sql=f"TIME '23:59:59.9995 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))
-        # .add_field(
-        #     sql=f"TIME '23:59:59.99950 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))
-        # # round up to next day, max value
-        # .add_field(
-        #     sql=f"TIME '23:59:59.9999 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))
-        # .add_field(
-        #     sql=f"TIME '23:59:59.99999 {tz_str}'",
-        #     python=time(0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIME '00:00:00.00000099999 {tz_str}'",
+            python=time(0, 0, 0, 1).replace(tzinfo=tz))
+        # round up to next day, min value
+        .add_field(
+            sql=f"TIME '23:59:59.9999995 {tz_str}'",
+            python=time(0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '23:59:59.999999500001 {tz_str}'",
+            python=time(0, 0, 0).replace(tzinfo=tz))
+        # round up to next day, max value
+        .add_field(
+            sql=f"TIME '23:59:59.9999999 {tz_str}'",
+            python=time(0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIME '23:59:59.999999999 {tz_str}'",
+            python=time(0, 0, 0).replace(tzinfo=tz))
     ).execute()
 
 
@@ -435,13 +442,13 @@ def test_timestamp(trino_connection):
             python=datetime(2001, 8, 22, 0, 0, 0, 1000))
         .add_field(
             sql="TIMESTAMP '2001-08-22 00:00:00.0001'",
-            python=datetime(2001, 8, 22, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 100))
         .add_field(
             sql="TIMESTAMP '2001-08-22 00:00:00.00001'",
-            python=datetime(2001, 8, 22, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 10))
         .add_field(
             sql="TIMESTAMP '2001-08-22 00:00:00.000001'",
-            python=datetime(2001, 8, 22, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 1))
         # max value for each precision
         .add_field(
             sql="TIMESTAMP '2001-08-22 23:59:59'",
@@ -457,64 +464,72 @@ def test_timestamp(trino_connection):
             python=datetime(2001, 8, 22, 23, 59, 59, 999000))
         .add_field(
             sql="TIMESTAMP '2001-08-22 23:59:59.9999'",
-            python=datetime(2001, 8, 23, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 23, 59, 59, 999900))
         .add_field(
             sql="TIMESTAMP '2001-08-22 23:59:59.99999'",
-            python=datetime(2001, 8, 23, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 23, 59, 59, 999990))
         .add_field(
             sql="TIMESTAMP '2001-08-22 23:59:59.999999'",
-            python=datetime(2001, 8, 23, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999))
         # round down
         .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.000100'",
-            python=datetime(2001, 8, 22, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 12:34:56.1234561'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123456))
+        # round down, min value
+        .add_field(
+            sql="TIMESTAMP '2001-08-22 00:00:00.000000000001'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0))
         .add_field(
             sql="TIMESTAMP '2001-08-22 00:00:00.0000001'",
-            python=datetime(2001, 8, 22, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql="TIMESTAMP '2001-08-22 12:34:56.1234561'",
-            python=datetime(2001, 8, 22, 12, 34, 56, 123000))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql="TIMESTAMP '2001-08-22 23:59:59.9999994'",
-            python=datetime(2001, 8, 23, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql="TIMESTAMP '2001-08-22 23:59:59.9999994999'",
-            python=datetime(2001, 8, 23, 0, 0, 0))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 0))
         # round down, max value
         .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.0004'",
-            python=datetime(2001, 8, 22, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 00:00:00.0000004'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0))
         .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.00049'",
-            python=datetime(2001, 8, 22, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 00:00:00.00000049'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0))
+        .add_field(
+            sql="TIMESTAMP '2001-08-22 00:00:00.0000005'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0))
+        .add_field(
+            sql="TIMESTAMP '2001-08-22 00:00:00.00000050'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0))
+        .add_field(
+            sql="TIMESTAMP '2001-08-22 23:59:59.9999994'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999))
+        .add_field(
+            sql="TIMESTAMP '2001-08-22 23:59:59.9999994999'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999))
+        # round up
+        .add_field(
+            sql="TIMESTAMP '2001-08-22 12:34:56.123456789'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123457))
         # round up, min value
         .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.0005'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000))
-        .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.00050'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000))
+            sql="TIMESTAMP '2001-08-22 00:00:00.000000500001'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1))
         # round up, max value
         .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.0009'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000))
+            sql="TIMESTAMP '2001-08-22 00:00:00.0000009'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1))
         .add_field(
-            sql="TIMESTAMP '2001-08-22 00:00:00.00099'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000))
+            sql="TIMESTAMP '2001-08-22 00:00:00.00000099999'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1))
         # round up to next day, min value
         .add_field(
-            sql="TIMESTAMP '2001-08-22 23:59:59.9995'",
-            python=datetime(2001, 8, 23, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 23:59:59.9999995'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0))
         .add_field(
-            sql="TIMESTAMP '2001-08-22 23:59:59.99950'",
-            python=datetime(2001, 8, 23, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 23:59:59.999999500001'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0))
         # round up to next day, max value
         .add_field(
-            sql="TIMESTAMP '2001-08-22 23:59:59.9999'",
-            python=datetime(2001, 8, 23, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 23:59:59.9999999'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0))
         .add_field(
-            sql="TIMESTAMP '2001-08-22 23:59:59.99999'",
-            python=datetime(2001, 8, 23, 0, 0, 0))
+            sql="TIMESTAMP '2001-08-22 23:59:59.999999999'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0))
         # ce
         .add_field(
             sql="TIMESTAMP '0001-01-01 01:23:45.123'",
@@ -576,13 +591,13 @@ def query_timestamp_with_timezone(trino_connection, tz_str):
             python=datetime(2001, 8, 22, 0, 0, 0, 1000).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 00:00:00.0001 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 100).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 00:00:00.00001 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 10).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 00:00:00.000001 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 1).replace(tzinfo=tz))
         # max value for each precision
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 23:59:59 {tz_str}'",
@@ -598,65 +613,72 @@ def query_timestamp_with_timezone(trino_connection, tz_str):
             python=datetime(2001, 8, 22, 23, 59, 59, 999000).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 23:59:59.9999 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 23, 59, 59, 999900).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 23:59:59.99999 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 23, 59, 59, 999990).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 23:59:59.999999 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999).replace(tzinfo=tz))
         # round down
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.000100 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 12:34:56.1234561 {tz_str}'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123456).replace(tzinfo=tz))
+        # round down, min value
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.000000000001 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0).replace(tzinfo=tz))
         .add_field(
             sql=f"TIMESTAMP '2001-08-22 00:00:00.0000001 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))
-        # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql=f"TIMESTAMP '2001-08-22 12:34:56.1234561 {tz_str}'",
-            python=datetime(2001, 8, 22, 12, 34, 56, 123000).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
-        .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994999 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))  # PARAMETRIC_DATETIME not enabled
+            python=datetime(2001, 8, 22, 0, 0, 0, 0).replace(tzinfo=tz))
         # round down, max value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.0004 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000004 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.00049 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000049 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000005 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000050 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 0).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999).replace(tzinfo=tz))
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999994999 {tz_str}'",
+            python=datetime(2001, 8, 22, 23, 59, 59, 999999).replace(tzinfo=tz))
+        # round up
+        .add_field(
+            sql=f"TIMESTAMP '2001-08-22 12:34:56.123456789 {tz_str}'",
+            python=datetime(2001, 8, 22, 12, 34, 56, 123457).replace(tzinfo=tz))
         # round up, min value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.0005 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000).replace(tzinfo=tz))
-        .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.00050 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.000000500001 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1).replace(tzinfo=tz))
         # round up, max value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.0009 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.0000009 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 00:00:00.00099 {tz_str}'",
-            python=datetime(2001, 8, 22, 0, 0, 0, 1000).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 00:00:00.00000099999 {tz_str}'",
+            python=datetime(2001, 8, 22, 0, 0, 0, 1).replace(tzinfo=tz))
         # round up to next day, min value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.9995 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999995 {tz_str}'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.99950 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999500001 {tz_str}'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0).replace(tzinfo=tz))
         # round up to next day, max value
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.9999999 {tz_str}'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2001-08-22 23:59:59.99999 {tz_str}'",
-            python=datetime(2001, 8, 23, 0, 0, 0).replace(tzinfo=tz))
+            sql=f"TIMESTAMP '2001-08-22 23:59:59.999999999 {tz_str}'",
+            python=datetime(2001, 8, 23, 0, 0, 0, 0).replace(tzinfo=tz))
         # ce
         .add_field(
             sql=f"TIMESTAMP '0001-01-01 01:23:45.123 {tz_str}'",
@@ -682,13 +704,13 @@ def test_timestamp_with_timezone_dst(trino_connection):
     (
         SqlTest(trino_connection)
         .add_field(
-            sql=f"TIMESTAMP '2022-03-27 01:59:59.999999 {tz_str}'",
+            sql=f"TIMESTAMP '2022-03-27 01:59:59.999999999 {tz_str}'",
             # 2:00:00 (STD) becomes 3:00:00 (DST))
-            python=datetime(2022, 3, 27, 3, 0, 0).replace(tzinfo=tz))
+            python=datetime(2022, 3, 27, 2, 0, 0).replace(tzinfo=tz))
         .add_field(
-            sql=f"TIMESTAMP '2022-10-30 02:59:59.999999 {tz_str}'",
+            sql=f"TIMESTAMP '2022-10-30 02:59:59.999999999 {tz_str}'",
             # 3:00:00 (DST) becomes 2:00:00 (STD))
-            python=datetime(2022, 10, 30, 2, 0, 0).replace(tzinfo=tz))
+            python=datetime(2022, 10, 30, 3, 0, 0).replace(tzinfo=tz))
     ).execute()
 
 
