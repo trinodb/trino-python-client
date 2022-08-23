@@ -283,7 +283,7 @@ def test_datetime_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp"
+    assert cur.description[0][1] == "timestamp(6)"
 
 
 def test_datetime_with_utc_time_zone_query_param(trino_connection):
@@ -295,7 +295,7 @@ def test_datetime_with_utc_time_zone_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][1] == "timestamp(6) with time zone"
 
 
 def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
@@ -309,19 +309,19 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][1] == "timestamp(6) with time zone"
 
 
 def test_datetime_with_named_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
 
-    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
+    params = pytz.timezone('America/Los_Angeles').localize(datetime(2020, 1, 1, 16, 43, 22, 320000))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
     assert rows[0][0] == params
-    assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][1] == "timestamp(6) with time zone"
 
 
 def test_datetime_with_trailing_zeros(trino_connection):
@@ -371,7 +371,7 @@ def test_doubled_datetimes(trino_connection):
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
+    assert rows[0][0] == pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0))
 
     cur = trino_connection.cursor(experimental_python_types=True)
 
@@ -380,7 +380,7 @@ def test_doubled_datetimes(trino_connection):
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
+    assert rows[0][0] == pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0))
 
 
 def test_date_query_param(trino_connection):

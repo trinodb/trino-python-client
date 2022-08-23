@@ -1,5 +1,8 @@
 import math
+import datetime
+from datetime import timedelta
 import pytest
+import pytz
 from decimal import Decimal
 import trino
 
@@ -197,6 +200,159 @@ def test_digest(trino_connection):
         .add_field(sql="make_set_digest(1)", python='AQgAAAACCwEAgANEAAAgAAABAAAASsQF+7cDRAABAA==') \
         .add_field(sql="tdigest_agg(1)",
                    python='AAAAAAAAAPA/AAAAAAAA8D8AAAAAAABZQAAAAAAAAPA/AQAAAAAAAAAAAPA/AAAAAAAA8D8=') \
+        .execute()
+
+
+def test_date(trino_connection):
+    SqlTest(trino_connection) \
+        .add_field(sql="CAST(null AS DATE)", python=None) \
+        .add_field(sql="DATE '2001-08-22'", python=datetime.date(2001, 8, 22)) \
+        .add_field(sql="DATE '0001-01-01'", python=datetime.date(1, 1, 1)) \
+        .add_field(sql="DATE '1582-10-04'", python=datetime.date(1582, 10, 4)) \
+        .add_field(sql="DATE '1582-10-05'", python=datetime.date(1582, 10, 5)) \
+        .add_field(sql="DATE '1582-10-14'", python=datetime.date(1582, 10, 14)) \
+        .execute()
+
+
+def test_time(trino_connection):
+    time_0 = datetime.time(1, 23, 45)
+    time_3 = datetime.time(1, 23, 45, 123000)
+    time_6 = datetime.time(1, 23, 45, 123456)
+    time_round = datetime.time(1, 23, 45, 123457)
+
+    SqlTest(trino_connection) \
+        .add_field(sql="CAST(null AS TIME)", python=None) \
+        .add_field(sql="CAST(null AS TIME(0))", python=None) \
+        .add_field(sql="CAST(null AS TIME(3))", python=None) \
+        .add_field(sql="CAST(null AS TIME(6))", python=None) \
+        .add_field(sql="CAST(null AS TIME(9))", python=None) \
+        .add_field(sql="CAST(null AS TIME(12))", python=None) \
+        .add_field(sql="CAST('01:23:45' AS TIME(0))", python=time_0) \
+        .add_field(sql="TIME '01:23:45.123'", python=time_3) \
+        .add_field(sql="CAST('01:23:45.123' AS TIME(3))", python=time_3) \
+        .add_field(sql="CAST('01:23:45.123456' AS TIME(6))", python=time_6) \
+        .add_field(sql="CAST('01:23:45.123456789' AS TIME(9))", python=time_round) \
+        .add_field(sql="CAST('01:23:45.123456789123' AS TIME(12))", python=time_round) \
+        .execute()
+
+
+def test_time_with_timezone(trino_connection):
+    query_time_with_timezone(trino_connection, '-08:00')
+    query_time_with_timezone(trino_connection, '+08:00')
+    query_time_with_timezone(trino_connection, '+05:30')
+
+
+def query_time_with_timezone(trino_connection, tz_str):
+    tz = datetime.datetime.strptime('+00:00', "%z").tzinfo
+
+    hours_shift = int(tz_str[:3])
+    minutes_shift = int(tz_str[4:])
+    delta = timedelta(hours=hours_shift, minutes=minutes_shift)
+
+    time_0 = (datetime.datetime(2, 1, 1, 11, 23, 45, 0) - delta).time().replace(tzinfo=tz)
+    time_3 = (datetime.datetime(2, 1, 1, 11, 23, 45, 123000) - delta).time().replace(tzinfo=tz)
+    time_6 = (datetime.datetime(2, 1, 1, 11, 23, 45, 123456) - delta).time().replace(tzinfo=tz)
+    time_round = (datetime.datetime(2, 1, 1, 11, 23, 45, 123457) - delta).time().replace(tzinfo=tz)
+
+    SqlTest(trino_connection) \
+        .add_field(sql="CAST(null AS TIME WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIME(0) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIME(3) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIME(6) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIME(9) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIME(12) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST('11:23:45 %s' AS TIME(0) WITH TIME ZONE)" % (tz_str), python=time_0) \
+        .add_field(sql="TIME '11:23:45.123 %s'" % (tz_str), python=time_3) \
+        .add_field(sql="CAST('11:23:45.123 %s' AS TIME(3) WITH TIME ZONE)" % (tz_str), python=time_3) \
+        .add_field(sql="CAST('11:23:45.123456 %s' AS TIME(6) WITH TIME ZONE)" % (tz_str), python=time_6) \
+        .add_field(sql="CAST('11:23:45.123456789 %s' AS TIME(9) WITH TIME ZONE)" % (tz_str), python=time_round) \
+        .add_field(sql="CAST('11:23:45.123456789123 %s' AS TIME(12) WITH TIME ZONE)" % (tz_str), python=time_round) \
+        .execute()
+
+
+def test_timestamp(trino_connection):
+    timestamp_0 = datetime.datetime(2001, 8, 22, 1, 23, 45, 0)
+    timestamp_3 = datetime.datetime(2001, 8, 22, 1, 23, 45, 123000)
+    timestamp_6 = datetime.datetime(2001, 8, 22, 1, 23, 45, 123456)
+    timestamp_round = datetime.datetime(2001, 8, 22, 1, 23, 45, 123457)
+    timestamp_ce = datetime.datetime(1, 1, 1, 1, 23, 45, 123000)
+    timestamp_julian = datetime.datetime(1582, 10, 4, 1, 23, 45, 123000)
+    timestamp_during_switch = datetime.datetime(1582, 10, 5, 1, 23, 45, 123000)
+    timestamp_gregorian = datetime.datetime(1582, 10, 14, 1, 23, 45, 123000)
+
+    SqlTest(trino_connection) \
+        .add_field(sql="CAST(null AS TIMESTAMP)", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(0))", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(3))", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(6))", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(9))", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(12))", python=None) \
+        .add_field(sql="CAST('2001-08-22 01:23:45' AS TIMESTAMP(0))", python=timestamp_0) \
+        .add_field(sql="TIMESTAMP '2001-08-22 01:23:45.123'", python=timestamp_3) \
+        .add_field(sql="TIMESTAMP '0001-01-01 01:23:45.123'", python=timestamp_ce) \
+        .add_field(sql="TIMESTAMP '1582-10-04 01:23:45.123'", python=timestamp_julian) \
+        .add_field(sql="TIMESTAMP '1582-10-05 01:23:45.123'", python=timestamp_during_switch) \
+        .add_field(sql="TIMESTAMP '1582-10-14 01:23:45.123'", python=timestamp_gregorian) \
+        .add_field(sql="CAST('2001-08-22 01:23:45.123' AS TIMESTAMP(3))", python=timestamp_3) \
+        .add_field(sql="CAST('2001-08-22 01:23:45.123456' AS TIMESTAMP(6))", python=timestamp_6) \
+        .add_field(sql="CAST('2001-08-22 01:23:45.123456111' AS TIMESTAMP(9))", python=timestamp_6) \
+        .add_field(sql="CAST('2001-08-22 01:23:45.123456789' AS TIMESTAMP(9))", python=timestamp_round) \
+        .add_field(sql="CAST('2001-08-22 01:23:45.123456111111' AS TIMESTAMP(12))", python=timestamp_6) \
+        .add_field(sql="CAST('2001-08-22 01:23:45.123456789123' AS TIMESTAMP(12))", python=timestamp_round) \
+        .execute()
+
+
+def test_timestamp_with_timezone(trino_connection):
+    query_timestamp_with_timezone(trino_connection, '-08:00')
+    query_timestamp_with_timezone(trino_connection, '+08:00')
+    query_timestamp_with_timezone(trino_connection, '+05:30')
+    query_timestamp_with_timezone(trino_connection, 'US/Eastern')
+    query_timestamp_with_timezone(trino_connection, 'Asia/Kolkata')
+    query_timestamp_with_timezone(trino_connection, 'GMT')
+
+
+def query_timestamp_with_timezone(trino_connection, tz_str):
+    if tz_str.startswith('+') or tz_str.startswith('-'):
+        hours_shift = int(tz_str[:3])
+        minutes_shift = int(tz_str[4:])
+    else:
+        tz = pytz.timezone(tz_str)
+        offset = tz.utcoffset(datetime.datetime.now())
+        offset_seconds = offset.total_seconds()
+        hours_shift = int(offset_seconds / 3600)
+        minutes_shift = offset_seconds % 3600 / 60
+
+    tz = pytz.timezone('Etc/GMT')
+    delta = timedelta(hours=hours_shift, minutes=minutes_shift)
+
+    timestamp_0 = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 0)) - delta
+    timestamp_3 = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 123000)) - delta
+    timestamp_6 = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 123456)) - delta
+    timestamp_round = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 123457)) - delta
+
+    SqlTest(trino_connection) \
+        .add_field(sql="CAST(null AS TIMESTAMP WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(0) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(3) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(6) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(9) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST(null AS TIMESTAMP(12) WITH TIME ZONE)", python=None) \
+        .add_field(sql="CAST('2001-08-22 11:23:45 %s' AS TIMESTAMP(0) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_0) \
+        .add_field(sql="TIMESTAMP '2001-08-22 11:23:45.123 %s'" % (tz_str),
+                   python=timestamp_3) \
+        .add_field(sql="CAST('2001-08-22 11:23:45.123 %s' AS TIMESTAMP(3) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_3) \
+        .add_field(sql="CAST('2001-08-22 11:23:45.123456 %s' AS TIMESTAMP(6) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_6) \
+        .add_field(sql="CAST('2001-08-22 11:23:45.123456111 %s' AS TIMESTAMP(9) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_6) \
+        .add_field(sql="CAST('2001-08-22 11:23:45.123456789 %s' AS TIMESTAMP(9) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_round) \
+        .add_field(sql="CAST('2001-08-22 11:23:45.123456111111 %s' AS TIMESTAMP(12) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_6) \
+        .add_field(sql="CAST('2001-08-22 11:23:45.123456789123 %s' AS TIMESTAMP(12) WITH TIME ZONE)" % (tz_str),
+                   python=timestamp_round) \
         .execute()
 
 
