@@ -1,0 +1,66 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "trino-python-client"
+version = "0.318.0"
+description = "Client for the Trino distributed SQL Engine"
+license = "Apache 2.0"
+authors = ["Trino Team <python-client@trino.io>"]
+readme = "README.md"
+homepage = "https://trino.io"
+repository = "https://github.com/trinodb/trino-python-client"
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Database :: Front-Ends",
+]
+
+packages = [
+    { include = "trino" },
+]
+
+include = ["LICENSE"]
+
+[tool.poetry.dependencies]
+keyring = { version = "*", optional = true }
+python = "^3.7"
+pytz = "*"
+requests = "*"
+requests_kerberos = { version = "*", optional = true }
+sqlalchemy = { version = "~1.4", optional = true }
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "*"
+tox = "*"
+tox-gh-actions = "*"
+
+[tool.poetry.group.test.dependencies]
+click = "*"
+httpretty = "<1.1"
+pytest = "*"
+
+[tool.poetry.extras]
+external-authentication-token-cache = ["keyring"]
+kerberos = ["requests_kerberos"]
+sqlalchemy = ["sqlalchemy"]
+
+[tool.poetry.plugins."sqlalchemy.dialects"]
+trino = "trino.sqlalchemy.dialect:TrinoDialect"

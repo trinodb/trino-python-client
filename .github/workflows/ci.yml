@@ -16,21 +16,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  checks:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout the source code"
-        uses: actions/checkout@v2
-
-      - name: "Install Python"
-        uses: actions/setup-python@v2
-
-      - name: "Install pre-commit"
-        run: pip install pre-commit
-
-      - name: "Run pre-commit checks"
-        run: pre-commit run --all-files
-
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -47,15 +32,13 @@ jobs:
         trino: [
           "latest",
         ]
-        sqlalchemy: [
-          "~=1.4.0"
-        ]
         include:
           # Test with older Trino versions for backward compatibility
-          - { python: "3.10", trino: "351", sqlalchemy: "~=1.4.0" }  # first Trino version
-          # Test with sqlalchemy 1.3
-          - { python: "3.10", trino: "latest", sqlalchemy: "~=1.3.0" }
+          - { python: "3.10", trino: "351" }  # first Trino version
+          # Test with Trino version that requires result set to be fully exhausted
+          - { python: "3.10", trino: "395" }
     env:
+      TOX_PARALLEL_NO_SPINNER: 1
       TRINO_VERSION: "${{ matrix.trino }}"
     steps:
       - uses: actions/checkout@v2
@@ -66,7 +49,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install libkrb5-dev
-          pip install .[tests] sqlalchemy${{ matrix.sqlalchemy }}
-      - name: Run tests
+          sudo curl -sSL https://install.python-poetry.org | python3
+          poetry install --only dev
+      - name: Run tox
         run: |
-          pytest -s tests/
+          poetry run tox --parallel
