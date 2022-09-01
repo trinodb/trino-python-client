@@ -13,3 +13,9 @@ repos:
         additional_dependencies:
           - "types-pytz"
           - "types-requests"
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.6.4
+    hooks:
+      - id: isort
+        args: [ "--profile", "black"]
