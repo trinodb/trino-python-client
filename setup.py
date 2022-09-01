@@ -40,6 +40,9 @@ tests_require = all_require + [
     "pytest-runner",
     "click",
     "sqlalchemy_utils",
+    "pre-commit",
+    "black",
+    "isort",
 ]
 
 setup(
@@ -76,7 +79,7 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    python_requires='>=3.7',
+    python_requires=">=3.7",
     install_requires=["pytz", "requests"],
     extras_require={
         "all": all_require,
