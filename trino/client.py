@@ -650,8 +650,8 @@ class TrinoQuery(object):
     def columns(self):
         if self.query_id:
             while not self._columns and not self.finished and not self.cancelled:
-                # Columns don't return immediate after query is summited.
-                # Continue fetching data until columns are available and push fetched rows into buffer.
+                # Columns are not returned immediately after query is submitted.
+                # Continue fetching data until columns information is available and push fetched rows into buffer.
                 self._result._rows += self.fetch()
         return self._columns
 
