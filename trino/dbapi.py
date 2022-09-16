@@ -110,6 +110,7 @@ class Connection(object):
         http_session=None,
         client_tags=None,
         experimental_python_types=False,
+        roles=None,
     ):
         self.host = host
         self.port = port
@@ -127,7 +128,8 @@ class Connection(object):
             headers=http_headers,
             transaction_id=NO_TRANSACTION,
             extra_credential=extra_credential,
-            client_tags=client_tags
+            client_tags=client_tags,
+            roles=roles,
         )
         # mypy cannot follow module import
         if http_session is None:

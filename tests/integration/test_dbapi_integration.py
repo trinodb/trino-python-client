@@ -1070,6 +1070,19 @@ def test_set_role_trino_351(run_trino):
     assert_role_headers(cur, "tpch=ALL")
 
 
+@pytest.mark.skipif(trino_version() == '351', reason="Newer Trino versions return the system role")
+def test_set_role_in_connection_trino_higher_351(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch", roles={"system": "ALL"}
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SHOW TABLES FROM information_schema')
+    cur.fetchall()
+    assert_role_headers(cur, "system=ALL")
+
+
 def assert_role_headers(cursor, expected_header):
     assert cursor._request.http_headers[constants.HEADER_ROLE] == expected_header
 
