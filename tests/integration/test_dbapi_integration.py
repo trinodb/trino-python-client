@@ -19,6 +19,7 @@ import requests
 
 import trino
 from tests.integration.conftest import trino_version
+from trino import constants
 from trino.exceptions import TrinoQueryError, TrinoUserError, NotSupportedError
 from trino.transaction import IsolationLevel
 
@@ -1045,11 +1046,11 @@ def test_set_role_trino_higher_351(run_trino):
     cur = trino_connection.cursor()
     cur.execute('SHOW TABLES FROM information_schema')
     cur.fetchall()
-    assert cur._request._client_session.role is None
+    assert cur._request._client_session.roles == {}
 
     cur.execute("SET ROLE ALL")
     cur.fetchall()
-    assert cur._request._client_session.role == "system=ALL"
+    assert_role_headers(cur, "system=ALL")
 
 
 @pytest.mark.skipif(trino_version() != '351', reason="Trino 351 returns the role for the current catalog")
@@ -1062,11 +1063,15 @@ def test_set_role_trino_351(run_trino):
     cur = trino_connection.cursor()
     cur.execute('SHOW TABLES FROM information_schema')
     cur.fetchall()
-    assert cur._request._client_session.role is None
+    assert cur._request._client_session.roles == {}
 
     cur.execute("SET ROLE ALL")
     cur.fetchall()
-    assert cur._request._client_session.role == "tpch=ALL"
+    assert_role_headers(cur, "tpch=ALL")
+
+
+def assert_role_headers(cursor, expected_header):
+    assert cursor._request.http_headers[constants.HEADER_ROLE] == expected_header
 
 
 def test_prepared_statements(run_trino):

@@ -13,6 +13,7 @@ import json
 import threading
 import time
 import uuid
+from typing import Optional, Dict
 from unittest import mock
 from urllib.parse import urlparse
 
@@ -92,10 +93,9 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ""
-        assert headers[constants.HEADER_ROLE] is None
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 9
+        assert len(headers.keys()) == 8
 
     req.post("URL")
     _, post_kwargs = post.call_args
@@ -988,10 +988,12 @@ def test_retry_with():
         with_retry(FailerUntil(3).__call__)()
 
 
-def assert_headers_with_role(headers, role):
+def assert_headers_with_roles(headers: Dict[str, str], roles: Optional[str]):
+    if roles is None:
+        assert constants.HEADER_ROLE not in headers
+    else:
+        assert headers[constants.HEADER_ROLE] == roles
     assert headers[constants.HEADER_USER] == "test_user"
-    assert headers[constants.HEADER_ROLE] == role
-    assert len(headers.keys()) == 7
 
 
 def test_request_headers_role_hive_all(mock_get_and_post):
@@ -1001,17 +1003,17 @@ def test_request_headers_role_hive_all(mock_get_and_post):
         port=8080,
         client_session=ClientSession(
             user="test_user",
-            role="hive=ALL",
+            roles={"hive": "ALL"}
         ),
     )
 
     req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers_with_role(post_kwargs["headers"], "hive=ALL")
+    assert_headers_with_roles(post_kwargs["headers"], "hive=ALL")
 
     req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers_with_role(post_kwargs["headers"], "hive=ALL")
+    assert_headers_with_roles(post_kwargs["headers"], "hive=ALL")
 
 
 def test_request_headers_role_admin(mock_get_and_post):
@@ -1022,17 +1024,17 @@ def test_request_headers_role_admin(mock_get_and_post):
         port=8080,
         client_session=ClientSession(
             user="test_user",
-            role="admin",
+            roles={"system": "admin"}
         ),
     )
 
     req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers_with_role(post_kwargs["headers"], "admin")
+    assert_headers_with_roles(post_kwargs["headers"], "system=admin")
 
     req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers_with_role(post_kwargs["headers"], "admin")
+    assert_headers_with_roles(post_kwargs["headers"], "system=admin")
 
 
 def test_request_headers_role_empty(mock_get_and_post):
@@ -1043,14 +1045,14 @@ def test_request_headers_role_empty(mock_get_and_post):
         port=8080,
         client_session=ClientSession(
             user="test_user",
-            role="",
+            roles=None,
         ),
     )
 
     req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers_with_role(post_kwargs["headers"], "")
+    assert_headers_with_roles(post_kwargs["headers"], None)
 
     req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers_with_role(post_kwargs["headers"], "")
+    assert_headers_with_roles(post_kwargs["headers"], None)

@@ -248,11 +248,9 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
 
 @patch("trino.dbapi.trino.client")
 def test_tags_are_set_when_specified(mock_client):
-    # WHEN
     client_tags = ["TAG1", "TAG2"]
     with connect("sample_trino_cluster:443", client_tags=client_tags) as conn:
         conn.cursor().execute("SOME FAKE QUERY")
 
-    # THEN
     _, passed_client_tags = mock_client.ClientSession.call_args
     assert passed_client_tags["client_tags"] == client_tags
