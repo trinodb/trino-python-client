@@ -930,8 +930,7 @@ class RowMapper:
     """
     Maps a row of data given a list of mapping functions
     """
-
-    def __init__(self, columns=[]):
+    def __init__(self, columns):
         self.columns = columns
 
     def map(self, rows):
