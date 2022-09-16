@@ -98,7 +98,7 @@ class ClientSession(object):
     :param extra_credential: extra credentials. as list of ``(key, value)``
                              tuples.
     :param client_tags: Client tags as list of strings.
-    :param role: role for the current session. Some connectors do not
+    :param roles: roles for the current session. Some connectors do not
                  support role management. See connector documentation for more details.
     """
 
@@ -113,7 +113,7 @@ class ClientSession(object):
         transaction_id: str = None,
         extra_credential: List[Tuple[str, str]] = None,
         client_tags: List[str] = None,
-        role: str = None,
+        roles: Dict[str, str] = None,
     ):
         self._user = user
         self._catalog = catalog
@@ -124,7 +124,7 @@ class ClientSession(object):
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
         self._client_tags = client_tags
-        self._role = role
+        self._roles = roles or {}
         self._prepared_statements: Dict[str, str] = {}
         self._object_lock = threading.Lock()
 
@@ -188,24 +188,15 @@ class ClientSession(object):
     def client_tags(self):
         return self._client_tags
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["_object_lock"]
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._object_lock = threading.Lock()
-
     @property
-    def role(self):
+    def roles(self):
         with self._object_lock:
-            return self._role
+            return self._roles
 
-    @role.setter
-    def role(self, role):
+    @roles.setter
+    def roles(self, roles):
         with self._object_lock:
-            self._role = role
+            self._roles = roles
 
     @property
     def prepared_statements(self):
@@ -215,6 +206,15 @@ class ClientSession(object):
     def prepared_statements(self, prepared_statements):
         with self._object_lock:
             self._prepared_statements = prepared_statements
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state["_object_lock"]
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._object_lock = threading.Lock()
 
 
 def get_header_values(headers, header):
@@ -230,6 +230,14 @@ def get_session_property_values(headers, header):
 
 
 def get_prepared_statement_values(headers, header):
+    kvs = get_header_values(headers, header)
+    return [
+        (k.strip(), urllib.parse.unquote_plus(v.strip()))
+        for k, v in (kv.split("=", 1) for kv in kvs)
+    ]
+
+
+def get_roles_values(headers, header):
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
@@ -400,7 +408,12 @@ class TrinoRequest(object):
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
-        headers[constants.HEADER_ROLE] = self._client_session.role
+        if len(self._client_session.roles.values()):
+            headers[constants.HEADER_ROLE] = ",".join(
+                # ``name`` must not contain ``=``
+                "{}={}".format(catalog, urllib.parse.quote(str(role)))
+                for catalog, role in self._client_session.roles.items()
+            )
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
             headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
 
@@ -579,7 +592,10 @@ class TrinoRequest(object):
             self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
 
         if constants.HEADER_SET_ROLE in http_response.headers:
-            self._client_session.role = http_response.headers[constants.HEADER_SET_ROLE]
+            for key, value in get_roles_values(
+                    http_response.headers, constants.HEADER_SET_ROLE
+            ):
+                self._client_session.roles[key] = value
 
         if constants.HEADER_ADDED_PREPARE in http_response.headers:
             for name, statement in get_prepared_statement_values(
