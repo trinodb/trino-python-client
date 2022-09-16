@@ -328,6 +328,20 @@ cur.execute('SELECT * FROM system.runtime.nodes')
 rows = cur.fetchall()
 ```
 
+## Roles
+
+Authorization roles to use for catalogs, specified as a dict with key-value pairs for the catalog and role. For example, `{"catalog1": "roleA", "catalog2": "roleB"}` sets `roleA` for `catalog1` and `roleB` for `catalog2`. See Trino docs.
+
+```python
+import trino
+conn = trino.dbapi.connect(
+    host='localhost',
+    port=443,
+    user='the-user',
+    roles={"catalog1": "roleA", "catalog2": "roleB"},
+)
+```
+
 ## SSL
 
 ### SSL verification

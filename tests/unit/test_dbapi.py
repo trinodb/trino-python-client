@@ -254,3 +254,13 @@ def test_tags_are_set_when_specified(mock_client):
 
     _, passed_client_tags = mock_client.ClientSession.call_args
     assert passed_client_tags["client_tags"] == client_tags
+
+
+@patch("trino.dbapi.trino.client")
+def test_role_is_set_when_specified(mock_client):
+    roles = {"system": "finance"}
+    with connect("sample_trino_cluster:443", roles=roles) as conn:
+        conn.cursor().execute("SOME FAKE QUERY")
+
+    _, passed_role = mock_client.ClientSession.call_args
+    assert passed_role["roles"] == roles
