@@ -107,6 +107,7 @@ engine = create_engine(
       "session_properties": {'query_max_run_time': '1d'},
       "client_tags": ["tag1", "tag2"],
       "experimental_python_types": True,
+      "roles": {"catalog1": "role1"},
     }
 )
 
@@ -115,7 +116,8 @@ engine = create_engine(
     'trino://user@localhost:8080/system?'
     'session_properties={"query_max_run_time": "1d"}'
     '&client_tags=["tag1", "tag2"]'
-    '&experimental_python_types=true',
+    '&experimental_python_types=true'
+    '&roles={"catalog1": "role1"}'
 )
 ```
 

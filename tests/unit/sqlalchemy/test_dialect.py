@@ -63,6 +63,16 @@ class TestTrinoDialect:
                     experimental_python_types=True,
                 ),
             ),
+            (
+                make_url('trino://user@localhost:8080?roles={"hive":"finance","system":"analyst"}'),
+                list(),
+                dict(host="localhost",
+                     port=8080,
+                     catalog="system",
+                     user="user",
+                     roles={"hive": "finance", "system": "analyst"},
+                     source="trino-sqlalchemy"),
+            ),
         ],
     )
     def test_create_connect_args(self, url: URL, expected_args: List[Any], expected_kwargs: Dict[str, Any]):
