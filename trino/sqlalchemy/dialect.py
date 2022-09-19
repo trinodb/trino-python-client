@@ -10,9 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
-from ast import literal_eval
 from textwrap import dedent
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from urllib.parse import unquote_plus
 
 from sqlalchemy import exc, sql
 from sqlalchemy.engine.base import Connection
@@ -80,49 +80,54 @@ class TrinoDialect(DefaultDialect):
 
         db_parts = (url.database or "system").split("/")
         if len(db_parts) == 1:
-            kwargs["catalog"] = db_parts[0]
+            kwargs["catalog"] = unquote_plus(db_parts[0])
         elif len(db_parts) == 2:
-            kwargs["catalog"] = db_parts[0]
-            kwargs["schema"] = db_parts[1]
+            kwargs["catalog"] = unquote_plus(db_parts[0])
+            kwargs["schema"] = unquote_plus(db_parts[1])
         else:
             raise ValueError(f"Unexpected database format {url.database}")
 
         if url.username:
-            kwargs["user"] = url.username
+            kwargs["user"] = unquote_plus(url.username)
 
         if url.password:
             if not url.username:
                 raise ValueError("Username is required when specify password in connection URL")
             kwargs["http_scheme"] = "https"
-            kwargs["auth"] = BasicAuthentication(url.username, url.password)
+            kwargs["auth"] = BasicAuthentication(unquote_plus(url.username), unquote_plus(url.password))
 
         if "access_token" in url.query:
             kwargs["http_scheme"] = "https"
-            kwargs["auth"] = JWTAuthentication(url.query["access_token"])
+            kwargs["auth"] = JWTAuthentication(unquote_plus(url.query["access_token"]))
 
         if "cert" and "key" in url.query:
             kwargs["http_scheme"] = "https"
-            kwargs["auth"] = CertificateAuthentication(url.query['cert'], url.query['key'])
+            kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
 
         if "source" in url.query:
-            kwargs["source"] = url.query["source"]
+            kwargs["source"] = unquote_plus(url.query["source"])
         else:
             kwargs["source"] = "trino-sqlalchemy"
 
         if "session_properties" in url.query:
-            kwargs["session_properties"] = json.loads(url.query["session_properties"])
+            kwargs["session_properties"] = json.loads(unquote_plus(url.query["session_properties"]))
 
         if "http_headers" in url.query:
-            kwargs["http_headers"] = json.loads(url.query["http_headers"])
+            kwargs["http_headers"] = json.loads(unquote_plus(url.query["http_headers"]))
 
         if "extra_credential" in url.query:
-            kwargs["extra_credential"] = literal_eval(url.query["extra_credential"])
+            kwargs["extra_credential"] = [
+                tuple(extra_credential) for extra_credential in json.loads(unquote_plus(url.query["extra_credential"]))
+            ]
 
         if "client_tags" in url.query:
-            kwargs["client_tags"] = json.loads(url.query["client_tags"])
+            kwargs["client_tags"] = json.loads(unquote_plus(url.query["client_tags"]))
 
         if "experimental_python_types" in url.query:
-            kwargs["experimental_python_types"] = json.loads(url.query["experimental_python_types"])
+            kwargs["experimental_python_types"] = json.loads(unquote_plus(url.query["experimental_python_types"]))
+
+        if "verify" in url.query:
+            kwargs["verify"] = json.loads(unquote_plus(url.query["verify"]))
 
         if "roles" in url.query:
             kwargs["roles"] = json.loads(url.query["roles"])
