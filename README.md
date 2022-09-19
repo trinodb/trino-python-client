@@ -100,9 +100,14 @@ Attributes can also be passed in the connection string.
 
 ```python
 from sqlalchemy import create_engine
+from trino.sqlalchemy import URL
 
 engine = create_engine(
-    'trino://user@localhost:8080/system',
+    URL(
+        host="localhost",
+        port=8080,
+        catalog="system"
+    ),
     connect_args={
       "session_properties": {'query_max_run_time': '1d'},
       "client_tags": ["tag1", "tag2"],
@@ -119,6 +124,14 @@ engine = create_engine(
     '&experimental_python_types=true'
     '&roles={"catalog1": "role1"}'
 )
+
+# or using the URL factory method
+engine = create_engine(URL(
+  host="localhost",
+  port=8080,
+  client_tags=["tag1", "tag2"],
+  experimental_python_types=True
+))
 ```
 
 ## Authentication mechanisms
