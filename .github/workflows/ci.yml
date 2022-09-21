@@ -48,6 +48,8 @@ jobs:
         include:
           # Test with older Trino versions for backward compatibility
           - { python: "3.10", trino: "351" }  # first Trino version
+          # Test with Trino version that requires result set to be fully exhausted
+          - { python: "3.10", trino: "395" }
     env:
       TRINO_VERSION: "${{ matrix.trino }}"
     steps:
