@@ -488,7 +488,7 @@ $ tox
 - Create release package and upload it to PyPI
   ```bash
   . .venv/bin/activate && \
-  pip install twine && \
+  pip install twine wheel setuptools && \
   rm -rf dist/ && \
   ./setup.py sdist bdist_wheel && \
   twine upload dist/* && \
