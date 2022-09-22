@@ -202,7 +202,7 @@ class CompositeRedirectHandler(RedirectHandler):
             handler(url)
 
 
-class _OAuth2TokenCache(metaclass=abc.ABCMeta):
+class OAuth2TokenCache(metaclass=abc.ABCMeta):
     """
     Abstract class for OAuth token cache, inherit from this class to implement your own token cache.
     """
@@ -216,7 +216,7 @@ class _OAuth2TokenCache(metaclass=abc.ABCMeta):
         pass
 
 
-class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
+class _OAuth2TokenInMemoryCache(OAuth2TokenCache):
     """
     In-memory token cache implementation. The token is stored per host, so multiple clients can share the same cache.
     """
@@ -231,7 +231,7 @@ class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
         self._cache[host] = token
 
 
-class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
+class _OAuth2KeyRingTokenCache(OAuth2TokenCache):
     """
     Keyring Token Cache implementation
     """
@@ -272,10 +272,9 @@ class _OAuth2TokenBearer(AuthBase):
     MAX_OAUTH_ATTEMPTS = 5
     _BEARER_PREFIX = re.compile(r"bearer", flags=re.IGNORECASE)
 
-    def __init__(self, redirect_auth_url_handler: Callable[[str], None]):
+    def __init__(self, redirect_auth_url_handler: Callable[[str], None], custom_cache: Optional[OAuth2TokenCache]):
         self._redirect_auth_url = redirect_auth_url_handler
-        keyring_cache = _OAuth2KeyRingTokenCache()
-        self._token_cache = keyring_cache if keyring_cache.is_keyring_available() else _OAuth2TokenInMemoryCache()
+        self._token_cache = self._setup_cache(custom_cache)
         self._token_lock = threading.Lock()
         self._inside_oauth_attempt_lock = threading.Lock()
         self._inside_oauth_attempt_blocker = threading.Event()
@@ -290,6 +289,17 @@ class _OAuth2TokenBearer(AuthBase):
         r.register_hook('response', self._authenticate)
 
         return r
+
+    def _setup_cache(self, custom_cache):
+        if custom_cache is not None:
+            if not isinstance(custom_cache, OAuth2TokenCache):
+                raise exceptions.TrinoAuthError("Custom cache does not implement `trino.auth.OAuth2TokenCache` "
+                                                "interface")
+            return custom_cache
+        keyring_cache = _OAuth2KeyRingTokenCache()
+        if keyring_cache.is_keyring_available():
+            return keyring_cache
+        return _OAuth2TokenInMemoryCache()
 
     def _authenticate(self, response, **kwargs):
         if not 400 <= response.status_code < 500:
@@ -396,9 +406,9 @@ class OAuth2Authentication(Authentication):
     def __init__(self, redirect_auth_url_handler=CompositeRedirectHandler([
         WebBrowserRedirectHandler(),
         ConsoleRedirectHandler()
-    ])):
+    ]), cache: Optional[OAuth2TokenCache] = None):
         self._redirect_auth_url = redirect_auth_url_handler
-        self._bearer = _OAuth2TokenBearer(self._redirect_auth_url)
+        self._bearer = _OAuth2TokenBearer(self._redirect_auth_url, custom_cache=cache)
 
     def set_http_session(self, http_session):
         http_session.auth = self._bearer
