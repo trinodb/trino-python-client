@@ -1,6 +1,15 @@
 # Development
 
-## Getting started with development
+Developers should read [the development section of the website](https://trino.io/development),
+which covers things like development philosophy and contribution process.
+
+* [Getting started](#getting-started)
+* [Running tests](#running-tests)
+* [Commits and pull requests](#commits-and-pull-requests)
+* [Code style](#code-style)
+* [Releasing](#releasing)
+
+## Getting started
 
 Start by forking the repository and then modify the code in your fork.
 
@@ -16,18 +25,7 @@ With `-e` passed to `pip install` above pip can reference the code you are
 modifying in the *virtual env*. That way, you do not need to run `pip install`
 again to make your changes applied to the *virtual env*.
 
-When the code is ready, submit a Pull Request.
-
-### Code style
-
-- For Python code, adhere to PEP 8.
-- Prefer code that is readable over one that is "clever".
-- When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
-
-See also Trino's [guidelines](https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md).
-Most of them also apply to code in trino-python-client.
-
-### Running tests
+## Running tests
 
 `trino-python-client` uses [pytest](https://pytest.org/) for its tests. To run
 only unit tests, type:
@@ -55,9 +53,57 @@ use `tox` (see the configuration in `tox.ini`):
 tox
 ```
 
+When the code is ready, submit a Pull Request.
+
+## Commits and pull requests
+
+See [Commits and pull requests](https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md#commits-and-pull-requests) section from Trino.
+
+## Code style
+
+To run linting and formatting checks before opening a PR: `pip install pre-commit && pre-commit run --all-files`
+
+In addition to that you should also adhere to the following:
+
+### Readability
+
+Prefer code that is readable over one that is "clever". The purpose of code
+style rules is to maintain code readability and developer efficiency when
+working with the code. All the code style rules explained below are good
+guidelines to follow but there may be exceptional situations where we
+purposefully depart from them. When readability and code style rule are at
+odds, the readability is more important.
+
+### Consistency
+
+Keep code consistent with surrounding code where possible.
+
+### Avoid mocks where possible
+
+Do not use mocking libraries. These libraries encourage testing specific call
+sequences, interactions, and other internal behavior, which we believe leads to
+fragile tests. They also make it possible to mock complex interfaces or
+classes, which hides the fact that these classes are not (easily) testable. We
+prefer to write mocks by hand, which forces code to be written in a certain
+testable style.
+
+We also acknowledge that there is existing code which uses mocks but that
+should not be taken as a reason increase reliance on mocks.
+
+### Maintain production quality for test code
+
+Maintain the same quality for production and test code.
+
+### Avoid abbreviations
+
+Please avoid abbreviations, slang or inside jokes as this makes harder for
+non-native english speaker to understand the code. Very well known
+abbreviations like `max` or `min` and ones already very commonly used across
+the code base like `ttl` are allowed and encouraged.
+
 ## Releasing
 
-- [Set up your development environment](#Getting-Started-With-Development).
+- [Set up your development environment](#getting-started).
 - Check the local workspace is up to date and has no uncommitted changes
   ```bash
   git fetch -a && git status
