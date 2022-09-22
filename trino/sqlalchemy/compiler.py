@@ -10,17 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from sqlalchemy.sql import compiler
-try:
-    from sqlalchemy.sql.expression import (
-        Alias,
-        CTE,
-        Subquery,
-    )
-except ImportError:
-    # For SQLAlchemy versions < 1.4, the CTE and Subquery classes did not explicitly exist
-    from sqlalchemy.sql.expression import Alias
-    CTE = type(None)
-    Subquery = type(None)
+from sqlalchemy.sql.base import DialectKWArgs
+
 
 # https://trino.io/docs/current/language/reserved.html
 RESERVED_WORDS = {
@@ -122,10 +113,7 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
     @staticmethod
     def add_catalog(sql, table):
-        if table is None:
-            return sql
-
-        if isinstance(table, (Alias, CTE, Subquery)):
+        if table is None or not isinstance(table, DialectKWArgs):
             return sql
 
         if (

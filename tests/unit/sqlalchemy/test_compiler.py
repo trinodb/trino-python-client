@@ -20,11 +20,12 @@ from sqlalchemy import (
     Table,
 )
 from sqlalchemy.schema import CreateTable
+from sqlalchemy.sql import column, table
 
 from trino.sqlalchemy.dialect import TrinoDialect
 
 metadata = MetaData()
-table = Table(
+table_without_catalog = Table(
     'table',
     metadata,
     Column('id', Integer),
@@ -45,26 +46,26 @@ def dialect():
 
 
 def test_limit_offset(dialect):
-    statement = select(table).limit(10).offset(0)
+    statement = select(table_without_catalog).limit(10).offset(0)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nOFFSET :param_1\nLIMIT :param_2'
 
 
 def test_limit(dialect):
-    statement = select(table).limit(10)
+    statement = select(table_without_catalog).limit(10)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nLIMIT :param_1'
 
 
 def test_offset(dialect):
-    statement = select(table).offset(0)
+    statement = select(table_without_catalog).offset(0)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nOFFSET :param_1'
 
 
 def test_cte_insert_order(dialect):
-    cte = select(table).cte('cte')
-    statement = insert(table).from_select(table.columns, cte)
+    cte = select(table_without_catalog).cte('cte')
+    statement = insert(table_without_catalog).from_select(table_without_catalog.columns, cte)
     query = statement.compile(dialect=dialect)
     assert str(query) == \
         'INSERT INTO "table" (id, name) WITH cte AS \n'\
@@ -89,3 +90,9 @@ def test_catalogs_create_table(dialect):
         '\tid INTEGER\n'\
         ')\n'\
         '\n'
+
+
+def test_table_clause(dialect):
+    statement = select(table("user", column("id"), column("name"), column("description")))
+    query = statement.compile(dialect=dialect)
+    assert str(query) == 'SELECT user.id, user.name, user.description \nFROM user'
