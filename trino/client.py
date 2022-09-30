@@ -125,6 +125,7 @@ class ClientSession(object):
         self._extra_credential = extra_credential
         self._client_tags = client_tags
         self._role = role
+        self._prepared_statements: Dict[str, str] = {}
         self._object_lock = threading.Lock()
 
     @property
@@ -206,6 +207,15 @@ class ClientSession(object):
         with self._object_lock:
             self._role = role
 
+    @property
+    def prepared_statements(self):
+        return self._prepared_statements
+
+    @prepared_statements.setter
+    def prepared_statements(self, prepared_statements):
+        with self._object_lock:
+            self._prepared_statements = prepared_statements
+
 
 def get_header_values(headers, header):
     return [val.strip() for val in headers[header].split(",")]
@@ -215,6 +225,14 @@ def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote(v.strip()))
+        for k, v in (kv.split("=", 1) for kv in kvs)
+    ]
+
+
+def get_prepared_statement_values(headers, header):
+    kvs = get_header_values(headers, header)
+    return [
+        (k.strip(), urllib.parse.unquote_plus(v.strip()))
         for k, v in (kv.split("=", 1) for kv in kvs)
     ]
 
@@ -392,6 +410,13 @@ class TrinoRequest(object):
             for name, value in self._client_session.properties.items()
         )
 
+        if len(self._client_session.prepared_statements) != 0:
+            # ``name`` must not contain ``=``
+            headers[constants.HEADER_PREPARED_STATEMENT] = ",".join(
+                "{}={}".format(name, urllib.parse.quote_plus(statement))
+                for name, statement in self._client_session.prepared_statements.items()
+            )
+
         # merge custom http headers
         for key in self._client_session.headers:
             if key in headers.keys():
@@ -556,6 +581,18 @@ class TrinoRequest(object):
         if constants.HEADER_SET_ROLE in http_response.headers:
             self._client_session.role = http_response.headers[constants.HEADER_SET_ROLE]
 
+        if constants.HEADER_ADDED_PREPARE in http_response.headers:
+            for name, statement in get_prepared_statement_values(
+                http_response.headers, constants.HEADER_ADDED_PREPARE
+            ):
+                self._client_session.prepared_statements[name] = statement
+
+        if constants.HEADER_DEALLOCATED_PREPARE in http_response.headers:
+            for name in get_header_values(
+                http_response.headers, constants.HEADER_DEALLOCATED_PREPARE
+            ):
+                self._client_session.prepared_statements.pop(name)
+
         self._next_uri = response.get("nextUri")
 
         return TrinoStatus(
@@ -622,10 +659,6 @@ class TrinoResult(object):
 
             self._rows = next_rows
 
-    @property
-    def response_headers(self):
-        return self._query.response_headers
-
 
 class TrinoQuery(object):
     """Represent the execution of a SQL statement by Trino."""
@@ -648,7 +681,6 @@ class TrinoQuery(object):
         self._update_type = None
         self._sql = sql
         self._result: Optional[TrinoResult] = None
-        self._response_headers = None
         self._experimental_python_types = experimental_python_types
         self._row_mapper: Optional[RowMapper] = None
 
@@ -705,7 +737,7 @@ class TrinoQuery(object):
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
-        # Execute should block until at least one row is received
+        # Execute should block until at least one row is received or query is finished or cancelled
         while not self.finished and not self.cancelled and len(self._result.rows) == 0:
             self._result.rows += self.fetch()
         return self._result
@@ -725,7 +757,6 @@ class TrinoQuery(object):
         status = self._request.process(response)
         self._update_state(status)
         logger.debug(status)
-        self._response_headers = response.headers
         if status.next_uri is None:
             self._finished = True
 
@@ -762,10 +793,6 @@ class TrinoQuery(object):
     @property
     def cancelled(self) -> bool:
         return self._cancelled
-
-    @property
-    def response_headers(self):
-        return self._response_headers
 
 
 def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):

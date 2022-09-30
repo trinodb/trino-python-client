@@ -20,7 +20,6 @@ decide to convert then to a list of tuples.
 from decimal import Decimal
 from typing import Any, List, Optional  # NOQA for mypy types
 
-import copy
 import uuid
 import datetime
 import math
@@ -301,52 +300,25 @@ class Cursor(object):
     def setoutputsize(self, size, column):
         raise trino.exceptions.NotSupportedError
 
-    def _prepare_statement(self, operation, statement_name):
+    def _prepare_statement(self, statement: str, name: str) -> None:
         """
-        Prepends the given `operation` with "PREPARE <statement_name> FROM" and
-        executes as a prepare statement.
+        Registers a prepared statement for the provided `operation` with the
+        `name` assigned to it.
 
-        :param operation: sql to be executed.
-        :param statement_name: name that will be assigned to the prepare
-            statement.
-
-        :raises trino.exceptions.FailedToObtainAddedPrepareHeader: Error raised
-            when unable to find the 'X-Trino-Added-Prepare' for the PREPARE
-            statement request.
-
-        :return: string representing the value of the 'X-Trino-Added-Prepare'
-            header.
+        :param statement: sql to be executed.
+        :param name: name that will be assigned to the prepared statement.
         """
-        sql = 'PREPARE {statement_name} FROM {operation}'.format(
-            statement_name=statement_name,
-            operation=operation
-        )
-
-        # Send prepare statement. Copy the _request object to avoid polluting the
-        # one that is going to be used to execute the actual operation.
-        query = trino.client.TrinoQuery(copy.deepcopy(self._request), sql=sql,
+        sql = f"PREPARE {name} FROM {statement}"
+        query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
                                         experimental_python_types=self._experimental_pyton_types)
-        result = query.execute()
+        query.execute()
 
-        # Iterate until the 'X-Trino-Added-Prepare' header is found or
-        # until there are no more results
-        for _ in result:
-            response_headers = result.response_headers
-
-            if constants.HEADER_ADDED_PREPARE in response_headers:
-                return response_headers[constants.HEADER_ADDED_PREPARE]
-
-        raise trino.exceptions.FailedToObtainAddedPrepareHeader
-
-    def _get_added_prepare_statement_trino_query(
+    def _execute_prepared_statement(
         self,
         statement_name,
         params
     ):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
-
-        # No need to deepcopy _request here because this is the actual request
-        # operation
         return trino.client.TrinoQuery(self._request, sql=sql, experimental_python_types=self._experimental_pyton_types)
 
     def _format_prepared_param(self, param):
@@ -422,28 +394,11 @@ class Cursor(object):
 
         raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 
-    def _deallocate_prepare_statement(self, added_prepare_header, statement_name):
+    def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = 'DEALLOCATE PREPARE ' + statement_name
-
-        # Send deallocate statement. Copy the _request object to avoid poluting the
-        # one that is going to be used to execute the actual operation.
-        query = trino.client.TrinoQuery(copy.deepcopy(self._request), sql=sql,
+        query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
                                         experimental_python_types=self._experimental_pyton_types)
-        result = query.execute(
-            additional_http_headers={
-                constants.HEADER_PREPARED_STATEMENT: added_prepare_header
-            }
-        )
-
-        # Iterate until the 'X-Trino-Deallocated-Prepare' header is found or
-        # until there are no more results
-        for _ in result:
-            response_headers = result.response_headers
-
-            if constants.HEADER_DEALLOCATED_PREPARE in response_headers:
-                return response_headers[constants.HEADER_DEALLOCATED_PREPARE]
-
-        raise trino.exceptions.FailedToObtainDeallocatedPrepareHeader
+        query.execute()
 
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
@@ -456,27 +411,21 @@ class Cursor(object):
             )
 
             statement_name = self._generate_unique_statement_name()
-            # Send prepare statement
-            added_prepare_header = self._prepare_statement(
-                operation, statement_name
-            )
+            self._prepare_statement(operation, statement_name)
 
             try:
                 # Send execute statement and assign the return value to `results`
                 # as it will be returned by the function
-                self._query = self._get_added_prepare_statement_trino_query(
+                self._query = self._execute_prepared_statement(
                     statement_name, params
                 )
-                result = self._query.execute(
-                    additional_http_headers={
-                        constants.HEADER_PREPARED_STATEMENT: added_prepare_header
-                    }
-                )
+                result = self._query.execute()
             finally:
                 # Send deallocate statement
                 # At this point the query can be deallocated since it has already
                 # been executed
-                self._deallocate_prepare_statement(added_prepare_header, statement_name)
+                # TODO: Consider caching prepared statements if requested by caller
+                self._deallocate_prepared_statement(statement_name)
 
         else:
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
