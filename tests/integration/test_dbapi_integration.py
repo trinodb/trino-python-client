@@ -1067,3 +1067,38 @@ def test_set_role_trino_351(run_trino):
     cur.execute("SET ROLE ALL")
     cur.fetchall()
     assert cur._request._client_session.role == "tpch=ALL"
+
+
+def test_prepared_statements(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch",
+    )
+    cur = trino_connection.cursor()
+
+    # Implicit prepared statements must work and deallocate statements on finish
+    assert cur._request._client_session.prepared_statements == {}
+    cur.execute('SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?', (1,))
+    result = cur.fetchall()
+    assert result[0][0] == 1
+    assert cur._request._client_session.prepared_statements == {}
+
+    # Explicit prepared statements must also work
+    cur.execute('PREPARE test_prepared_statements FROM SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?')
+    cur.fetchall()
+    assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
+    cur.execute('EXECUTE test_prepared_statements USING 1')
+    cur.fetchall()
+    assert result[0][0] == 1
+
+    # An implicit prepared statement must not deallocate explicit statements
+    cur.execute('SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?', (1,))
+    result = cur.fetchall()
+    assert result[0][0] == 1
+    assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
+
+    assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
+    cur.execute('DEALLOCATE PREPARE test_prepared_statements')
+    cur.fetchall()
+    assert cur._request._client_session.prepared_statements == {}

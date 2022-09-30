@@ -134,22 +134,6 @@ class TrinoUserError(TrinoQueryError, ProgrammingError):
     pass
 
 
-class FailedToObtainAddedPrepareHeader(Error):
-    """
-    Raise this exception when unable to find the 'X-Trino-Added-Prepare'
-    header in the response of a PREPARE statement request.
-    """
-    pass
-
-
-class FailedToObtainDeallocatedPrepareHeader(Error):
-    """
-    Raise this exception when unable to find the 'X-Trino-Deallocated-Prepare'
-    header in the response of a DEALLOCATED statement request.
-    """
-    pass
-
-
 # client module errors
 class HttpError(Exception):
     pass

@@ -881,21 +881,6 @@ class FakeGatewayResponse(object):
         return http_response
 
 
-def test_trino_result_response_headers():
-    """
-    Validates that the `TrinoResult.response_headers` property returns the
-    headers associated to the TrinoQuery instance provided to the `TrinoResult`
-    class.
-    """
-    mock_trino_query = mock.Mock(respone_headers={
-        'X-Trino-Fake-1': 'one',
-        'X-Trino-Fake-2': 'two',
-    })
-
-    result = TrinoResult(query=mock_trino_query, rows=[])
-    assert result.response_headers == mock_trino_query.response_headers
-
-
 def test_trino_query_response_headers(sample_get_response_data):
     """
     Validates that the `TrinoQuery.execute` function can take addtional headers
