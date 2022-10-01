@@ -6,7 +6,7 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
-## Trino Python client 0.317.0
+## Release 0.317.0
 
 * Add support for creating tables containing `JSON` columns and reading and
   writing to them with SQLAlchemy.
@@ -41,7 +41,7 @@ and the [PyPI page](https://pypi.org/project/trino/).
   and terminated on the server.
   ([#232](https://github.com/trinodb/trino-python-client/issues/232))
 
-## Trino Python client 0.316.0
+## Release 0.316.0
 
 * Add support for SQLAlchemy queries to access multiple catalogs by specifying
   a `trino_catalog` argument to SQLAlchemy `Table` objects.
