@@ -224,7 +224,7 @@ def get_header_values(headers, header):
 def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
     return [
-        (k.strip(), urllib.parse.unquote(v.strip()))
+        (k.strip(), urllib.parse.unquote_plus(v.strip()))
         for k, v in (kv.split("=", 1) for kv in kvs)
     ]
 
