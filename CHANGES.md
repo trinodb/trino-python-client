@@ -6,6 +6,15 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.318.0
+
+* Fix the SQLAlchemy dialect to be compatible with SQLAlchemy 1.3.x versions.
+  ([#250](https://github.com/trinodb/trino-python-client/issues/250))
+* Fix possible `KeyError` when using prepared statements.
+  ([#249](https://github.com/trinodb/trino-python-client/issues/249))
+* Fix failure when calling `get_table_comment` using SQLAlchemy.
+  ([#253](https://github.com/trinodb/trino-python-client/issues/253))
+
 ## Release 0.317.0
 
 * Add support for creating tables containing `JSON` columns and reading and
