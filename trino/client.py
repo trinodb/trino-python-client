@@ -119,12 +119,12 @@ class ClientSession(object):
         self._catalog = catalog
         self._schema = schema
         self._source = source
-        self._properties = properties or {}
-        self._headers = headers or {}
+        self._properties = properties.copy() if properties is not None else {}
+        self._headers = headers.copy() if headers is not None else {}
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
-        self._client_tags = client_tags
-        self._roles = roles or {}
+        self._client_tags = client_tags.copy() if client_tags is not None else list()
+        self._roles = roles.copy() if roles is not None else {}
         self._prepared_statements: Dict[str, str] = {}
         self._object_lock = threading.Lock()
 
