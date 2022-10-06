@@ -607,7 +607,7 @@ class TrinoRequest(object):
             for name in get_header_values(
                 http_response.headers, constants.HEADER_DEALLOCATED_PREPARE
             ):
-                self._client_session.prepared_statements.pop(name)
+                self._client_session.prepared_statements.pop(name, None)
 
         self._next_uri = response.get("nextUri")
 
