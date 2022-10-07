@@ -362,6 +362,24 @@ conn = trino.dbapi.connect(
 )
 ```
 
+## Timezone
+
+The time zone for the session can be explicitly set using the IANA time zone
+name. When not set the time zone defaults to the client side local timezone.
+
+```python
+import trino
+conn = trino.dbapi.connect(
+    host='localhost',
+    port=443,
+    user='username',
+    timezone='Europe/Brussels',
+)
+```
+
+> **NOTE: The behaviour till version 0.320.0 was the same as setting session timezone to UTC.**
+> **To preserve that behaviour pass `timezone='UTC'` when creating the connection.**
+
 ## SSL
 
 ### SSL verification

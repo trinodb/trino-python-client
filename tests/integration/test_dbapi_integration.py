@@ -16,6 +16,7 @@ from decimal import Decimal
 import pytest
 import pytz
 import requests
+from tzlocal import get_localzone_name  # type: ignore
 
 import trino
 from tests.integration.conftest import trino_version
@@ -1107,3 +1108,31 @@ def test_prepared_statements(run_trino):
     cur.execute('DEALLOCATE PREPARE test_prepared_statements')
     cur.fetchall()
     assert cur._request._client_session.prepared_statements == {}
+
+
+def test_set_timezone_in_connection(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch", timezone="Europe/Brussels"
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SELECT current_timezone()')
+    res = cur.fetchall()
+    assert res[0][0] == "Europe/Brussels"
+
+
+def test_connection_without_timezone(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch"
+    )
+    cur = trino_connection.cursor()
+    cur.execute('SELECT current_timezone()')
+    res = cur.fetchall()
+    session_tz = res[0][0]
+    localzone = get_localzone_name()
+    assert session_tz == localzone or \
+        (session_tz == "UTC" and localzone == "Etc/UTC") \
+        # Workaround for difference between Trino timezone and tzlocal for UTC

@@ -79,8 +79,8 @@ setup(
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    python_requires=">=3.7",
-    install_requires=["pytz", "requests"],
+    python_requires='>=3.7',
+    install_requires=["pytz", "requests", "tzlocal"],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
