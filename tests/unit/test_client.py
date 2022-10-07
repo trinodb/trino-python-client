@@ -22,6 +22,7 @@ import pytest
 import requests
 from httpretty import httprettified
 from requests_kerberos.exceptions import KerberosExchangeError
+from tzlocal import get_localzone_name  # type: ignore
 
 import trino.exceptions
 from tests.unit.oauth_test_utils import (
@@ -47,6 +48,11 @@ from trino.client import (
     _retry_with,
     _RetryWithExponentialBackoff,
 )
+
+try:
+    from zoneinfo import ZoneInfoNotFoundError  # type: ignore
+except ModuleNotFoundError:
+    from backports.zoneinfo._common import ZoneInfoNotFoundError  # type: ignore
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -81,6 +87,7 @@ def test_request_headers(mock_get_and_post):
     schema = "test_schema"
     user = "test_user"
     source = "test_source"
+    timezone = "Europe/Brussels"
     accept_encoding_header = "accept-encoding"
     accept_encoding_value = "identity,deflate,gzip"
     client_info_header = constants.HEADER_CLIENT_INFO
@@ -94,6 +101,7 @@ def test_request_headers(mock_get_and_post):
             source=source,
             catalog=catalog,
             schema=schema,
+            timezone=timezone,
             headers={
                 accept_encoding_header: accept_encoding_value,
                 client_info_header: client_info_value,
@@ -109,9 +117,10 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_TIMEZONE] == timezone
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 8
+        assert len(headers.keys()) == 9
 
     req.post("URL")
     _, post_kwargs = post.call_args
@@ -1113,3 +1122,62 @@ def test_request_headers_role_empty(mock_get_and_post):
     req.get("URL")
     _, get_kwargs = get.call_args
     assert_headers_with_roles(post_kwargs["headers"], None)
+
+
+def assert_headers_timezone(headers: Dict[str, str], timezone: str):
+    assert headers[constants.HEADER_TIMEZONE] == timezone
+
+
+def test_request_headers_with_timezone(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            timezone="Europe/Brussels"
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_timezone(post_kwargs["headers"], "Europe/Brussels")
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_timezone(post_kwargs["headers"], "Europe/Brussels")
+
+
+def test_request_headers_without_timezone(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+        ),
+    )
+    localzone = get_localzone_name()
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert_headers_timezone(post_kwargs["headers"], localzone)
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert_headers_timezone(post_kwargs["headers"], localzone)
+
+
+def test_request_with_invalid_timezone(mock_get_and_post):
+    with pytest.raises(ZoneInfoNotFoundError) as zinfo_error:
+        TrinoRequest(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(
+                user="test_user",
+                timezone="INVALID_TIMEZONE"
+            ),
+        )
+    assert str(zinfo_error.value).startswith("'No time zone found with key")

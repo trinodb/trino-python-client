@@ -50,9 +50,17 @@ from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 import pytz
 import requests
 from pytz.tzinfo import BaseTzInfo
+from tzlocal import get_localzone_name  # type: ignore
 
 import trino.logging
 from trino import constants, exceptions
+
+try:
+    from zoneinfo import ZoneInfo  # type: ignore
+
+except ModuleNotFoundError:
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
 
 __all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 
@@ -107,6 +115,7 @@ class ClientSession(object):
     :param client_tags: Client tags as list of strings.
     :param roles: roles for the current session. Some connectors do not
                  support role management. See connector documentation for more details.
+    :param timezone: The timezone for query processing. Defaults to the system's local timezone.
     """
 
     def __init__(
@@ -121,6 +130,7 @@ class ClientSession(object):
         extra_credential: List[Tuple[str, str]] = None,
         client_tags: List[str] = None,
         roles: Dict[str, str] = None,
+        timezone: str = None,
     ):
         self._user = user
         self._catalog = catalog
@@ -134,6 +144,9 @@ class ClientSession(object):
         self._roles = roles.copy() if roles is not None else {}
         self._prepared_statements: Dict[str, str] = {}
         self._object_lock = threading.Lock()
+        self._timezone = timezone or get_localzone_name()
+        if timezone:  # Check timezone validity
+            ZoneInfo(timezone)
 
     @property
     def user(self):
@@ -213,6 +226,11 @@ class ClientSession(object):
     def prepared_statements(self, prepared_statements):
         with self._object_lock:
             self._prepared_statements = prepared_statements
+
+    @property
+    def timezone(self):
+        with self._object_lock:
+            return self._timezone
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -415,6 +433,7 @@ class TrinoRequest(object):
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
+        headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
                 # ``name`` must not contain ``=``
