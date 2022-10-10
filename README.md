@@ -57,6 +57,10 @@ rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 
 - Trino server >= 351
 
+**Compatibility**
+
+`trino.sqlalchemy` is compatible with 1.3.x and 1.4.x SQLAlchemy versions. Unit and integrations tests against latest versions of both versions.
+
 **Installation**
 
 ```
