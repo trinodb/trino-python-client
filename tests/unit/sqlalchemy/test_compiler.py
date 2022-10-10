@@ -22,6 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
 
+from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.dialect import TrinoDialect
 
 metadata = MetaData()
@@ -45,24 +46,40 @@ def dialect():
     return TrinoDialect()
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 def test_limit_offset(dialect):
     statement = select(table_without_catalog).limit(10).offset(0)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nOFFSET :param_1\nLIMIT :param_2'
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 def test_limit(dialect):
     statement = select(table_without_catalog).limit(10)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nLIMIT :param_1'
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 def test_offset(dialect):
     statement = select(table_without_catalog).offset(0)
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT "table".id, "table".name \nFROM "table"\nOFFSET :param_1'
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 def test_cte_insert_order(dialect):
     cte = select(table_without_catalog).cte('cte')
     statement = insert(table_without_catalog).from_select(table_without_catalog.columns, cte)
@@ -75,6 +92,10 @@ def test_cte_insert_order(dialect):
         'FROM cte'
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 def test_catalogs_argument(dialect):
     statement = select(table_with_catalog)
     query = statement.compile(dialect=dialect)
@@ -92,6 +113,10 @@ def test_catalogs_create_table(dialect):
         '\n'
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 def test_table_clause(dialect):
     statement = select(table("user", column("id"), column("name"), column("description")))
     query = statement.compile(dialect=dialect)
