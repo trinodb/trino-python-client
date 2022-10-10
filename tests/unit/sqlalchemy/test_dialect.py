@@ -195,14 +195,14 @@ class TestTrinoDialect:
                     source="trino-sqlalchemy",
                 ),
             ),
-        ]
+        ],
     )
     def test_create_connect_args(
-            self,
-            url: URL,
-            generated_url: str,
-            expected_args: List[Any],
-            expected_kwargs: Dict[str, Any]
+        self,
+        url: URL,
+        generated_url: str,
+        expected_args: List[Any],
+        expected_kwargs: Dict[str, Any]
     ):
         assert repr(url) == generated_url
 

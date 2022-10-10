@@ -270,3 +270,8 @@ def mock_get_and_post():
         mock_requests.Session.return_value.post = post
 
         yield get, post
+
+
+def sqlalchemy_version() -> str:
+    import sqlalchemy
+    return sqlalchemy.__version__

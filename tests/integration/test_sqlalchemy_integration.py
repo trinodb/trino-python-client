@@ -13,6 +13,7 @@ import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, or_, not_
 
+from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.datatype import JSON
 
 
@@ -24,6 +25,10 @@ def trino_connection(run_trino, request):
     yield engine, engine.connect()
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_select_query(trino_connection):
     _, conn = trino_connection
@@ -49,6 +54,10 @@ def assert_column(table, column_name, column_type):
     assert isinstance(getattr(table.c, column_name).type, column_type)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['system'], indirect=True)
 def test_select_specific_columns(trino_connection):
     _, conn = trino_connection
@@ -65,6 +74,10 @@ def test_select_specific_columns(trino_connection):
         assert isinstance(row['state'], str)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_define_and_create_table(trino_connection):
     engine, conn = trino_connection
@@ -88,6 +101,10 @@ def test_define_and_create_table(trino_connection):
         metadata.drop_all(engine)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_insert(trino_connection):
     engine, conn = trino_connection
@@ -114,6 +131,10 @@ def test_insert(trino_connection):
         metadata.drop_all(engine)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_insert_multiple_statements(trino_connection):
     engine, conn = trino_connection
@@ -145,6 +166,10 @@ def test_insert_multiple_statements(trino_connection):
     metadata.drop_all(engine)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_operators(trino_connection):
     _, conn = trino_connection
@@ -161,6 +186,10 @@ def test_operators(trino_connection):
         assert isinstance(row['comment'], str)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_conjunctions(trino_connection):
     _, conn = trino_connection
@@ -197,6 +226,10 @@ def test_textual_sql(trino_connection):
         assert isinstance(row['comment'], str)
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_alias(trino_connection):
     _, conn = trino_connection
@@ -216,6 +249,10 @@ def test_alias(trino_connection):
     assert len(rows) == 5
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_subquery(trino_connection):
     _, conn = trino_connection
@@ -230,6 +267,10 @@ def test_subquery(trino_connection):
     assert len(rows) == 15
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_joins(trino_connection):
     _, conn = trino_connection
@@ -245,6 +286,10 @@ def test_joins(trino_connection):
     assert len(rows) == 15
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_cte(trino_connection):
     _, conn = trino_connection
@@ -259,6 +304,10 @@ def test_cte(trino_connection):
     assert len(rows) == 15
 
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize(
     'trino_connection,json_object',
     [
