@@ -2,8 +2,7 @@ from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
-from sqlalchemy.engine import make_url
-from sqlalchemy.engine.url import URL
+from sqlalchemy.engine.url import make_url, URL
 
 from trino.auth import BasicAuthentication
 from trino.dbapi import Connection
@@ -24,7 +23,7 @@ class TestTrinoDialect:
                     user="user",
                     host="localhost",
                 )),
-                'trino://user@localhost:8080?source=trino-sqlalchemy',
+                'trino://user@localhost:8080/?source=trino-sqlalchemy',
                 list(),
                 dict(host="localhost", catalog="system", user="user", port=8080, source="trino-sqlalchemy"),
             ),
@@ -34,7 +33,7 @@ class TestTrinoDialect:
                     host="localhost",
                     port=443,
                 )),
-                'trino://user@localhost:443?source=trino-sqlalchemy',
+                'trino://user@localhost:443/?source=trino-sqlalchemy',
                 list(),
                 dict(host="localhost", port=443, catalog="system", user="user", source="trino-sqlalchemy"),
             ),
@@ -45,7 +44,7 @@ class TestTrinoDialect:
                     host="localhost",
                     source="trino-rulez",
                 )),
-                'trino://user:***@localhost:8080?source=trino-rulez',
+                'trino://user:***@localhost:8080/?source=trino-rulez',
                 list(),
                 dict(
                     host="localhost",
@@ -64,7 +63,7 @@ class TestTrinoDialect:
                     cert="/my/path/to/cert",
                     key="afdlsdfk%4#'",
                 )),
-                'trino://user@localhost:8080'
+                'trino://user@localhost:8080/'
                 '?cert=%2Fmy%2Fpath%2Fto%2Fcert'
                 '&key=afdlsdfk%254%23%27'
                 '&source=trino-sqlalchemy',
@@ -85,7 +84,7 @@ class TestTrinoDialect:
                     host="localhost",
                     access_token="afdlsdfk%4#'",
                 )),
-                'trino://user@localhost:8080'
+                'trino://user@localhost:8080/'
                 '?access_token=afdlsdfk%254%23%27'
                 '&source=trino-sqlalchemy',
                 list(),
@@ -109,7 +108,7 @@ class TestTrinoDialect:
                     client_tags=["1", "sql"],
                     experimental_python_types=True,
                 )),
-                'trino://user@localhost:8080'
+                'trino://user@localhost:8080/'
                 '?client_tags=%5B%221%22%2C+%22sql%22%5D'
                 '&experimental_python_types=true'
                 '&extra_credential=%5B%5B%22a%22%2C+%22b%22%5D%2C+%5B%22c%22%2C+%22d%22%5D%5D'
@@ -145,7 +144,7 @@ class TestTrinoDialect:
                     client_tags=["1 @& /\"", "sql"],
                     verify=False,
                 )),
-                'trino://user%40test.org%2Fmy_role:***@localhost:8080'
+                'trino://user%40test.org%2Fmy_role:***@localhost:8080/'
                 '?client_tags=%5B%221+%40%26+%2F%5C%22%22%2C+%22sql%22%5D'
                 '&experimental_python_types=true'
                 '&extra_credential=%5B%5B%22user1%40test.org%2Fmy_role%22%2C+'
@@ -184,7 +183,7 @@ class TestTrinoDialect:
                         "system": "analyst",
                     }
                 )),
-                'trino://user@localhost:8080'
+                'trino://user@localhost:8080/'
                 '?roles=%7B%22hive%22%3A+%22finance%22%2C+%22system%22%3A+%22analyst%22%7D&source=trino-sqlalchemy',
                 list(),
                 dict(
@@ -196,14 +195,14 @@ class TestTrinoDialect:
                     source="trino-sqlalchemy",
                 ),
             ),
-        ],
+        ]
     )
     def test_create_connect_args(
-        self,
-        url: URL,
-        generated_url: str,
-        expected_args: List[Any],
-        expected_kwargs: Dict[str, Any]
+            self,
+            url: URL,
+            generated_url: str,
+            expected_args: List[Any],
+            expected_kwargs: Dict[str, Any]
     ):
         assert repr(url) == generated_url
 
