@@ -239,7 +239,7 @@ class TrinoDialect(DefaultDialect):
         """
         ).strip()
         res = connection.execute(sql.text(query), schema=schema, view=view_name)
-        return res.scalar_one_or_none()
+        return res.scalar()
 
     def get_indexes(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
         if not self.has_table(connection, table_name, schema):
@@ -292,7 +292,7 @@ class TrinoDialect(DefaultDialect):
                 sql.text(query),
                 catalog_name=catalog_name, schema_name=schema_name, table_name=table_name
             )
-            return dict(text=res.scalar_one_or_none())
+            return dict(text=res.scalar())
         except error.TrinoQueryError as e:
             if e.error_name in (
                 error.PERMISSION_DENIED,
@@ -334,7 +334,7 @@ class TrinoDialect(DefaultDialect):
         query = "SELECT version()"
         try:
             res = connection.execute(sql.text(query))
-            version = res.scalar_one()
+            version = res.scalar()
             return tuple([version])
         except exc.ProgrammingError as e:
             logger.debug(f"Failed to get server version: {e.orig.message}")
