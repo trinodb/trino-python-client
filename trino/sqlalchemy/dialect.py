@@ -11,10 +11,11 @@
 # limitations under the License.
 import json
 from textwrap import dedent
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from urllib.parse import unquote_plus
 
 from sqlalchemy import exc, sql
+from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
@@ -340,12 +341,17 @@ class TrinoDialect(DefaultDialect):
             logger.debug(f"Failed to get server version: {e.orig.message}")
             return None
 
+    def _raw_connection(self, connection: Union[Engine, Connection]) -> trino_dbapi.Connection:
+        if isinstance(connection, Engine):
+            return connection.raw_connection()
+        return connection.connection
+
     def _get_default_catalog_name(self, connection: Connection) -> Optional[str]:
-        dbapi_connection: trino_dbapi.Connection = connection.connection
+        dbapi_connection: trino_dbapi.Connection = self._raw_connection(connection)
         return dbapi_connection.catalog
 
     def _get_default_schema_name(self, connection: Connection) -> Optional[str]:
-        dbapi_connection: trino_dbapi.Connection = connection.connection
+        dbapi_connection: trino_dbapi.Connection = self._raw_connection(connection)
         return dbapi_connection.schema
 
     def do_execute(
