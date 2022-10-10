@@ -52,10 +52,10 @@ def _url(
     if not port:
         raise exc.ArgumentError("port must be specified.")
 
-    trino_url += f":{port}"
+    trino_url += f":{port}/"
 
     if catalog is not None:
-        trino_url += f"/{quote_plus(catalog)}"
+        trino_url += f"{quote_plus(catalog)}"
 
     if schema is not None:
         if catalog is None:
