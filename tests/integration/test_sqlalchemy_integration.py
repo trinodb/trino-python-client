@@ -295,3 +295,27 @@ def test_json_column(trino_connection, json_object):
         assert rows[0] == (1, json_object)
     finally:
         metadata.drop_all(engine)
+
+
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_get_table_comment(trino_connection):
+    engine, conn = trino_connection
+
+    if not engine.dialect.has_schema(engine, "test"):
+        engine.execute(sqla.schema.CreateSchema("test"))
+    metadata = sqla.MetaData()
+
+    try:
+        sqla.Table(
+            'table_with_id',
+            metadata,
+            sqla.Column('id', sqla.Integer),
+            schema="test",
+            # comment="This is a comment" TODO: Support comment creation through sqlalchemy api
+        )
+        metadata.create_all(engine)
+        insp = sqla.inspect(engine)
+        actual = insp.get_table_comment(table_name='table_with_id', schema="test")
+        assert actual['text'] is None
+    finally:
+        metadata.drop_all(engine)
