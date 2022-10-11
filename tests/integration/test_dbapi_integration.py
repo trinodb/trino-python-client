@@ -1056,8 +1056,7 @@ def test_set_role(run_trino):
         assert_role_headers(cur, "system=ALL")
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="Newer Trino versions return the system role")
-def test_set_role_in_connection_trino_higher_351(run_trino):
+def test_set_role_in_connection(run_trino):
     _, host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
