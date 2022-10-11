@@ -1036,8 +1036,7 @@ def test_use_schema(run_trino):
     assert result[0][1] == 'sf1'
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="Newer Trino versions return the system role")
-def test_set_role_trino_higher_351(run_trino):
+def test_set_role(run_trino):
     _, host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
@@ -1050,24 +1049,11 @@ def test_set_role_trino_higher_351(run_trino):
 
     cur.execute("SET ROLE ALL")
     cur.fetchall()
-    assert_role_headers(cur, "system=ALL")
-
-
-@pytest.mark.skipif(trino_version() != '351', reason="Trino 351 returns the role for the current catalog")
-def test_set_role_trino_351(run_trino):
-    _, host, port = run_trino
-
-    trino_connection = trino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch"
-    )
-    cur = trino_connection.cursor()
-    cur.execute('SHOW TABLES FROM information_schema')
-    cur.fetchall()
-    assert cur._request._client_session.roles == {}
-
-    cur.execute("SET ROLE ALL")
-    cur.fetchall()
-    assert_role_headers(cur, "tpch=ALL")
+    if trino_version() == "351":
+        assert_role_headers(cur, "tpch=ALL")
+    else:
+        # Newer Trino versions return the system role
+        assert_role_headers(cur, "system=ALL")
 
 
 @pytest.mark.skipif(trino_version() == '351', reason="Newer Trino versions return the system role")
