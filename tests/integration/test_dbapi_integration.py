@@ -1009,7 +1009,7 @@ def test_use_catalog_schema(trino_connection):
 
 
 @pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
-def test_use_catalog(run_trino):
+def test_use_schema(run_trino):
     _, host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
