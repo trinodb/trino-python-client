@@ -12,6 +12,7 @@
 import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy_utils import create_view
 
 from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.datatype import JSON
@@ -368,3 +369,43 @@ def test_get_table_comment(trino_connection):
         assert actual['text'] is None
     finally:
         metadata.drop_all(engine)
+
+
+@pytest.mark.parametrize('trino_connection', ['memory/test'], indirect=True)
+@pytest.mark.parametrize('schema', [None, 'test'])
+def test_get_table_names(trino_connection, schema):
+    engine, conn = trino_connection
+    name = schema or engine.dialect._get_default_schema_name(conn)
+    metadata = sqla.MetaData(schema=name)
+
+    if not engine.dialect.has_schema(conn, name):
+        engine.execute(sqla.schema.CreateSchema(name))
+
+    try:
+        create_view(
+            'my_view',
+            sqla.select(
+                [
+                    sqla.Table(
+                        'my_table',
+                        metadata,
+                        sqla.Column('id', sqla.Integer),
+                    ),
+                ],
+            ),
+            metadata,
+            cascade_on_drop=False,
+        )
+
+        metadata.create_all(engine)
+        assert sqla.inspect(engine).get_table_names(schema) == ['my_table']
+    finally:
+        metadata.drop_all(engine)
+
+
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_get_table_names_raises(trino_connection):
+    engine, _ = trino_connection
+
+    with pytest.raises(sqla.exc.NoSuchTableError):
+        sqla.inspect(engine).get_table_names(None)
