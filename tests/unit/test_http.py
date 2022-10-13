@@ -11,7 +11,12 @@
 # limitations under the License.
 
 from trino import constants
-from trino.client import get_header_values, get_session_property_values
+from trino.client import (
+    get_header_values,
+    get_prepared_statement_values,
+    get_roles_values,
+    get_session_property_values,
+)
 
 
 def test_get_header_values():
@@ -24,3 +29,21 @@ def test_get_session_property_values():
     headers = {constants.HEADER_SET_SESSION: "a=1, b=2, c=more%3Dv1%2Cv2"}
     values = get_session_property_values(headers, constants.HEADER_SET_SESSION)
     assert values == [("a", "1"), ("b", "2"), ("c", "more=v1,v2")]
+
+
+def test_get_session_property_values_ignores_empty_values():
+    headers = {constants.HEADER_SET_SESSION: ""}
+    values = get_session_property_values(headers, constants.HEADER_SET_SESSION)
+    assert len(values) == 0
+
+
+def test_get_prepared_statement_values_ignores_empty_values():
+    headers = {constants.HEADER_SET_SESSION: ""}
+    values = get_prepared_statement_values(headers, constants.HEADER_SET_SESSION)
+    assert len(values) == 0
+
+
+def test_get_roles_values_ignores_empty_values():
+    headers = {constants.HEADER_SET_SESSION: ""}
+    values = get_roles_values(headers, constants.HEADER_SET_SESSION)
+    assert len(values) == 0
