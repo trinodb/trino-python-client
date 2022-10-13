@@ -215,11 +215,14 @@ class TrinoDialect(DefaultDialect):
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
+
+        # Querying the information_schema.views table is subpar as it compiles the view definitions.
         query = dedent(
             """
             SELECT "table_name"
-            FROM "information_schema"."views"
+            FROM "information_schema"."tables"
             WHERE "table_schema" = :schema
+              AND "table_type" = 'VIEW'
         """
         ).strip()
         res = connection.execute(sql.text(query), schema=schema)
