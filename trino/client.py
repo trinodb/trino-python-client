@@ -225,7 +225,7 @@ def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs)
+        for k, v in (kv.split("=", 1) for kv in kvs if kv)
     ]
 
 
@@ -233,7 +233,7 @@ def get_prepared_statement_values(headers, header):
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs)
+        for k, v in (kv.split("=", 1) for kv in kvs if kv)
     ]
 
 
@@ -241,7 +241,7 @@ def get_roles_values(headers, header):
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs)
+        for k, v in (kv.split("=", 1) for kv in kvs if kv)
     ]
 
 
