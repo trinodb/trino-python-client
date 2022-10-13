@@ -39,6 +39,7 @@ tests_require = all_require + [
     "pytest",
     "pytest-runner",
     "click",
+    "sqlalchemy_utils",
 ]
 
 setup(
