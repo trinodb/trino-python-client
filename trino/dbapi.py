@@ -405,7 +405,7 @@ class Cursor(object):
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation, params=None):
+    def execute(self, operation, params=None, additional_http_headers=None):
         if params:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
@@ -421,7 +421,7 @@ class Cursor(object):
                 self._query = self._execute_prepared_statement(
                     statement_name, params
                 )
-                result = self._query.execute()
+                result = self._query.execute(additional_http_headers=additional_http_headers)
             finally:
                 # Send deallocate statement
                 # At this point the query can be deallocated since it has already
@@ -432,7 +432,7 @@ class Cursor(object):
         else:
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
                                                   experimental_python_types=self._experimental_pyton_types)
-            result = self._query.execute()
+            result = self._query.execute(additional_http_headers=additional_http_headers)
         self._iterator = iter(result)
         return result
 
