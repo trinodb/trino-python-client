@@ -81,7 +81,7 @@ def test_select_specific_columns(trino_connection):
 @pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_define_and_create_table(trino_connection):
     engine, conn = trino_connection
-    if not engine.dialect.has_schema(engine, "test"):
+    if not engine.dialect.has_schema(conn, "test"):
         engine.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
     try:
@@ -109,7 +109,7 @@ def test_define_and_create_table(trino_connection):
 def test_insert(trino_connection):
     engine, conn = trino_connection
 
-    if not engine.dialect.has_schema(engine, "test"):
+    if not engine.dialect.has_schema(conn, "test"):
         engine.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
     try:
@@ -138,7 +138,7 @@ def test_insert(trino_connection):
 @pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_insert_multiple_statements(trino_connection):
     engine, conn = trino_connection
-    if not engine.dialect.has_schema(engine, "test"):
+    if not engine.dialect.has_schema(conn, "test"):
         engine.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
     users = sqla.Table('users',
@@ -322,7 +322,7 @@ def test_cte(trino_connection):
 def test_json_column(trino_connection, json_object):
     engine, conn = trino_connection
 
-    if not engine.dialect.has_schema(engine, "test"):
+    if not engine.dialect.has_schema(conn, "test"):
         engine.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
 
@@ -350,7 +350,7 @@ def test_json_column(trino_connection, json_object):
 def test_get_table_comment(trino_connection):
     engine, conn = trino_connection
 
-    if not engine.dialect.has_schema(engine, "test"):
+    if not engine.dialect.has_schema(conn, "test"):
         engine.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
 
