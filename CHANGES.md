@@ -6,6 +6,18 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.319.0
+
+* Improve the performance of `get_view_names` in SQLAlchemy. 
+  ([#267](https://github.com/trinodb/trino-python-client/issues/267))
+* Fix possible `ValueError` when client receives empty HTTP headers.
+  ([#262](https://github.com/trinodb/trino-python-client/issues/262))
+* Fix a compatibility issue with `_rfc_1738_quote` in SQLAlchemy v1.4.42.
+  ([#273](https://github.com/trinodb/trino-python-client/issues/273))
+* Return only tables in SQLAlchemy `get_table_names`. Previously, it 
+  also contained views. 
+  ([#266](https://github.com/trinodb/trino-python-client/issues/266))
+
 ## Release 0.318.0
 
 * Fix the SQLAlchemy dialect to be compatible with SQLAlchemy 1.3.x versions.
