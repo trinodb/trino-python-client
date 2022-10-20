@@ -43,7 +43,7 @@ tests_require = all_require + [
 
 setup(
     name="trino",
-    author="Trino Team",
+    author="Trino Team2",
     author_email="python-client@trino.io",
     version=version,
     url="https://github.com/trinodb/trino-python-client",

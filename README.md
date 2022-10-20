@@ -1,4 +1,4 @@
-# Trino Python client
+# Trino Python client2
 
 A [Trino](https://trino.io/) client for the [Python](https://www.python.org/) programming language.
 It supports Python>=3.7 and pypy.
