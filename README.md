@@ -424,12 +424,12 @@ exits the *with* context and the queries succeed, otherwise
 
 ## Improved Python types
 
-If you enable the flag `experimental_python_types`, the client will convert the results of the query to the 
+If you enable the flag `experimental_python_types`, the client will convert the results of the query to the
 corresponding Python types. For example, if the query returns a `DECIMAL` column, the result will be a `Decimal` object.
 
-Limitations of the Python types are described in the 
-[Python types documentation](https://docs.python.org/3/library/datatypes.html). These limitations will generate an 
-exception `trino.exceptions.DataError` if the query returns a value that cannot be converted to the corresponding Python 
+Limitations of the Python types are described in the
+[Python types documentation](https://docs.python.org/3/library/datatypes.html). These limitations will generate an
+exception `trino.exceptions.DataError` if the query returns a value that cannot be converted to the corresponding Python
 type.
 
 ```python
@@ -457,7 +457,95 @@ assert cur.description[0][1] == "timestamp with time zone"
 
 Feel free to create an issue as it makes your request visible to other users and contributors.
 
+## Getting Started With Development
+
+Start by forking the repository and then modify the code in your fork.
+
+Clone the repository and go inside the code directory.
+
+Python dependencies are managed using [Poetry](https://python-poetry.org/) which helps to ensure the project is managed in a deterministic way. Poetry [creates a virtual environment](https://python-poetry.org/docs/managing-environments/) to aid with the process. Poetry should be installed via:
+
+```
+$ curl -sSL https://install.python-poetry.org | python3
+```
+
+When the code is ready, submit a Pull Request.
+
+### Code Style
+
+- For Python code, adhere to PEP 8.
+- Prefer code that is readable over one that is "clever".
+- When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+
+### Running Tests
+
+`trino-python-client` uses [tox](https://tox.wiki/en/latest/)—a tool for standardizing testing in Python—which leverages the [pytest](https://pytest.org/) testing framework. To run
+only unit tests, type:
+
+```
+$ poetry run tox -e <environment> -- tests/unit
+```
+
+Similarly to run only integration tests, type:
+
+```
+$ poetry run tox -e <environment> -- tests/integration
+```
+
+where `<environment>` denotes the Python environment (see the configuration in `tox.ini`).
+
+Then you can pass options like `--pdb` or anything supported by `pytest --help`.
+
+They pull a Docker image and then run a container with a Trino server:
+- the image is named `trinodb/trino:${TRINO_VERSION}`
+- the container is named `trino-python-client-tests-{uuid4()[:7]}`
+
+### pre-commit
+
+`trino-python-client` leverages [pre-commit](https://pre-commit.com/) to help identify simple issues before submission to code review. Checks include the validity of the `pyproject.toml` file, type checks via [Mypy](https://github.com/python/mypy), etc. To enable `pre-commit` run:
+
+```
+poetry run pre-commit install
+```
+
+which will run on every commit.  You can also run it anytime using:
+
+```
+poetry run tox -e pre-commit
+```
+
+### Releasing
+
+- [Set up your development environment](#Getting-Started-With-Development).
+- Check the local workspace is up to date and has no uncommitted changes
+  ```bash
+  git fetch -a && git status
+  ```
+- Change version in `trino/pyproject.toml` to a new version, e.g. `0.123.0`.
+- Commit
+  ```bash
+  git commit -a -m "Bump version to 0.123.0"
+  ```
+- Create an annotated tag
+  ```bash
+  git tag -m "" 0.123.0
+  ```
+- Create release package and upload it to PyPI
+  ```bash
+  poetry publish --build &&
+  open https://pypi.org/project/trino/ &&
+  echo "Released!"
+  ```
+- Push the branch and the tag
+  ```bash
+  git push upstream master 0.123.0
+  ```
+- Send release announcement.
+
+## Need Help?
+
+Feel free to create an issue as it make your request visible to other users and contributors.
+
 If an interactive discussion would be better or if you just want to hangout and chat about
 the Trino Python client, you can join us on the *#python-client* channel on
 [Trino Slack](https://trino.io/slack.html).
-
