@@ -1,9 +1,13 @@
 import json
+import re
 from urllib.parse import quote_plus
 
 from typing import Optional, Dict, List, Union, Tuple
 from sqlalchemy import exc
-from sqlalchemy.engine.url import _rfc_1738_quote  # noqa
+
+
+def _rfc_1738_quote(text):
+    return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
 
 
 def _url(
