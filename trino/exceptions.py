@@ -98,7 +98,7 @@ class TrinoQueryError(Error):
 
     @property
     def message(self):
-        return self._error.get("message", "Trino did no return an error message")
+        return self._error.get("message", "Trino did not return an error message")
 
     @property
     def error_location(self):
