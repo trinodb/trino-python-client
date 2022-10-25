@@ -1105,3 +1105,16 @@ def test_prepared_statements(run_trino):
     cur.execute('DEALLOCATE PREPARE test_prepared_statements')
     cur.fetchall()
     assert cur._request._client_session.prepared_statements == {}
+
+
+def test_optional_semicolon(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch"
+    )
+
+    query = 'SELECT 1; \n '
+    cur = trino_connection.cursor()
+    cur.execute(query)
+    assert cur._query._sql == query.replace(';', '')

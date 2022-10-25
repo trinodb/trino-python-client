@@ -302,6 +302,22 @@ class Cursor(object):
     def setoutputsize(self, size, column):
         raise trino.exceptions.NotSupportedError
 
+    def _remove_trailing_semicolon(self, statement: str) -> str:
+        """
+        Remove a trailing semicolon from sql statement if present
+
+        :param statement: sql statement
+        :return: modified sql statement
+        """
+        if ';' not in statement:
+            return statement
+
+        remove_ws = statement.rstrip()
+        remove_semi = remove_ws.rstrip(';')
+
+        # return statement without trailing semicolon (if present), add trailing whitespace back.
+        return remove_semi + statement[len(remove_ws): len(statement)]
+
     def _prepare_statement(self, statement: str, name: str) -> None:
         """
         Registers a prepared statement for the provided `operation` with the
@@ -406,6 +422,7 @@ class Cursor(object):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
     def execute(self, operation, params=None):
+        operation = self._remove_trailing_semicolon(operation)
         if params:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
