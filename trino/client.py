@@ -915,62 +915,93 @@ class RowMapperFactory:
 
     def _timestamp_map_func(self, column, col_type):
         datetime_default_size = len('YYYY-MM-DD HH:MM:SS.')
-        pattern = "%Y-%m-%d %H:%M:%S"
-        millis_length, millis_div = self._get_number_of_millis_digits(column)
+        timestamp_format = "%Y-%m-%d %H:%M:%S"
+        millis_length = self._get_number_of_millis_digits(column)
+        millis_to_trim_div = self._get_number_of_millis_digits_to_trim(column, millis_length)
         if millis_length > 0:
-            pattern += ".%f"
+            timestamp_format += ".%f"
 
         timestamp_length = datetime_default_size
         dt_tz_offset = datetime_default_size + millis_length
         if 'with time zone' in col_type:
-            if millis_div > 1:
-                return lambda val: \
-                    [datetime.strptime(val[:timestamp_length]
-                     + str(round(int(val[timestamp_length:dt_tz_offset]) / millis_div))
-                     + val[dt_tz_offset:], pattern + ' %z')
-                        if tz.startswith('+') or tz.startswith('-')
-                        else pytz.timezone(tz).localize(datetime.strptime(dt[:timestamp_length]
-                                                        + str(round(int(val[timestamp_length:dt_tz_offset])
-                                                                    / millis_div))
-                                                        + dt[dt_tz_offset:], pattern))
-                        for dt, tz in [val.rsplit(' ', 1)]][0]
+            if millis_to_trim_div > 1:
+                return self._map_timestamp_timezone_trim_millis_digits(timestamp_length, dt_tz_offset,
+                                                                       millis_to_trim_div, timestamp_format)
             else:
-                return lambda val: [datetime.strptime(val, pattern + ' %z')
-                                    if tz.startswith('+') or tz.startswith('-')
-                                    else pytz.timezone(tz).localize(datetime.strptime(dt, pattern))
-                                    for dt, tz in [val.rsplit(' ', 1)]][0]
+                return self._map_timestamp_timezone(timestamp_format)
 
-        if millis_div > 1:
-            return lambda val: datetime.strptime(val[:timestamp_length]
-                                                 + str(round(int(val[timestamp_length:dt_tz_offset]) / millis_div))
-                                                 + val[dt_tz_offset:], pattern)
+        if millis_to_trim_div > 1:
+            return self._map_timestamp_trim_millis_digits(timestamp_length, dt_tz_offset,
+                                                          millis_to_trim_div, timestamp_format)
         else:
-            return lambda val: datetime.strptime(val, pattern)
+            return self._map_timestamp(timestamp_format)
+
+    def _map_timestamp_timezone_trim_millis_digits(self, timestamp_length, dt_tz_offset,
+                                                   millis_to_trim_div, timestamp_format):
+        return lambda val: \
+            [datetime.strptime(val[:timestamp_length]
+             + str(round(int(val[timestamp_length:dt_tz_offset]) / millis_to_trim_div))
+             + val[dt_tz_offset:], timestamp_format + ' %z')
+             if tz.startswith('+') or tz.startswith('-')
+             else pytz.timezone(tz).localize(datetime.strptime(dt[:timestamp_length]
+                                             + str(round(int(val[timestamp_length:dt_tz_offset])
+                                                         / millis_to_trim_div))
+                                             + dt[dt_tz_offset:], timestamp_format))
+             for dt, tz in [val.rsplit(' ', 1)]][0]
+
+    def _map_timestamp_timezone(self, timestamp_format):
+        return lambda val: [datetime.strptime(val, timestamp_format + ' %z')
+                            if tz.startswith('+') or tz.startswith('-')
+                            else pytz.timezone(tz).localize(datetime.strptime(dt, timestamp_format))
+                            for dt, tz in [val.rsplit(' ', 1)]][0]
+
+    def _map_timestamp_trim_millis_digits(self, timestamp_length, dt_tz_offset, millis_to_trim_div, timestamp_format):
+        return lambda val: datetime.strptime(val[:timestamp_length]
+                                             + str(round(int(val[timestamp_length:dt_tz_offset]) / millis_to_trim_div))
+                                             + val[dt_tz_offset:], timestamp_format)
+
+    def _map_timestamp(self, timestamp_format):
+        return lambda val: datetime.strptime(val, timestamp_format)
 
     def _time_map_func(self, column, col_type):
         datetime_default_size = 9  # size of 'HH:MM:SS.'
-        pattern = "%H:%M:%S"
-        millis_length, millis_div = self._get_number_of_millis_digits(column)
+        time_format = "%H:%M:%S"
+        millis_length = self._get_number_of_millis_digits(column)
+        millis_to_trim_div = self._get_number_of_millis_digits_to_trim(column, millis_length)
+
         if millis_length > 0:
-            pattern += ".%f"
+            time_format += ".%f"
 
         time_size = datetime_default_size + millis_length
 
         if 'with time zone' in col_type:
-            if millis_div > 1:
-                return lambda val: self._get_time_with_timezone_round_ms(val,
-                                                                         datetime_default_size,
-                                                                         millis_div,
-                                                                         pattern)
+            if millis_to_trim_div > 1:
+                return self._map_time_timezone_trim_millis_digits(datetime_default_size, millis_to_trim_div,
+                                                                  time_format)
             else:
-                return lambda val: self._get_time_with_timezone(val, time_size, pattern)
+                return self._map_time_timezone(time_size, time_format)
         else:
-            if millis_div > 1:
-                return lambda val: datetime.strptime(val[:datetime_default_size]
-                                                     + str(round(int(val[datetime_default_size:]) / millis_div)),
-                                                     pattern).time()
+            if millis_to_trim_div > 1:
+                return self._map_time_trim_millis_digits(datetime_default_size, millis_to_trim_div, time_format)
             else:
-                return lambda val: datetime.strptime(val[:time_size], pattern).time()
+                return self._map_time(time_size, time_format)
+
+    def _map_time_timezone_trim_millis_digits(self, datetime_default_size, millis_to_trim_div, time_format):
+        return lambda val: self._get_time_with_timezone_round_ms(val,
+                                                                 datetime_default_size,
+                                                                 millis_to_trim_div,
+                                                                 time_format)
+
+    def _map_time_timezone(self, time_size, time_format):
+        return lambda val: self._get_time_with_timezone(val, time_size, time_format)
+
+    def _map_time_trim_millis_digits(self, datetime_default_size, millis_to_trim_div, time_format):
+        return lambda val: datetime.strptime(val[:datetime_default_size]
+                                             + str(round(int(val[datetime_default_size:]) / millis_to_trim_div)),
+                                             time_format).time()
+
+    def _map_time(self, time_size, time_format):
+        return lambda val: datetime.strptime(val[:time_size], time_format).time()
 
     def _get_time_with_timezone(self, value, time_size, pattern):
         matches = re.match(r'^(?P<time>.*)(?P<sign>[\+\-])(?P<hours>\d{2}):(?P<minutes>\d{2})$', value)
@@ -982,7 +1013,7 @@ class RowMapperFactory:
             tz = timedelta(hours=int(matches.group('hours')), minutes=int(matches.group('minutes')))
         return datetime.strptime(matches.group('time')[:time_size], pattern).time().replace(tzinfo=timezone(tz))
 
-    def _get_time_with_timezone_round_ms(self, value, time_size, ms_div, pattern):
+    def _get_time_with_timezone_round_ms(self, value, time_size, millis_digits_to_trim, time_format):
         matches = re.match(r'^(?P<time>.*)(?P<sign>[\+\-])(?P<hours>\d{2}):(?P<minutes>\d{2})$', value)
         assert matches is not None
         assert len(matches.groups()) == 4
@@ -991,18 +1022,23 @@ class RowMapperFactory:
         else:
             tz = timedelta(hours=int(matches.group('hours')), minutes=int(matches.group('minutes')))
         time_str = matches.group('time')[:time_size]
-        millis_str = str(round(int(matches.group('time')[time_size:]) / ms_div))
-        return datetime.strptime(time_str + millis_str, pattern).time().replace(tzinfo=timezone(tz))
+        millis_str = str(round(int(matches.group('time')[time_size:]) / millis_digits_to_trim))
+        return datetime.strptime(time_str + millis_str, time_format).time().replace(tzinfo=timezone(tz))
 
-    def _get_number_of_millis_digits(self, column):
+    def _get_number_of_millis_digits(self, column) -> int:
         args = column['arguments']
         if len(args) == 0:
-            return 3, 1
+            return 3
         ms_size = column['arguments'][0]['value']
         if ms_size == 0:
-            return -1, 1
-        ms_to_trim = ms_size - min(ms_size, 6)
-        return ms_size, 10 ** ms_to_trim
+            return -1
+        return ms_size
+
+    def _get_number_of_millis_digits_to_trim(self, column, number_millis_digits) -> int:
+        args = column['arguments']
+        if len(args) == 0:
+            return 1
+        return (10 ** (number_millis_digits - min(number_millis_digits, 6)))
 
 
 class RowMapper:
