@@ -20,7 +20,8 @@ from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
 
-from trino import dbapi as trino_dbapi, logging
+from trino import dbapi as trino_dbapi
+from trino import logging
 from trino.auth import BasicAuthentication, CertificateAuthentication, JWTAuthentication
 from trino.dbapi import Cursor
 from trino.sqlalchemy import compiler, datatype, error

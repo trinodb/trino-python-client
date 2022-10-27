@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
-from datetime import datetime, time, date, timezone, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 
 import pytest
@@ -20,7 +20,7 @@ import requests
 import trino
 from tests.integration.conftest import trino_version
 from trino import constants
-from trino.exceptions import TrinoQueryError, TrinoUserError, NotSupportedError
+from trino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
 from trino.transaction import IsolationLevel
 
 

@@ -12,7 +12,6 @@
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql.base import DialectKWArgs
 
-
 # https://trino.io/docs/current/language/reserved.html
 RESERVED_WORDS = {
     "alter",

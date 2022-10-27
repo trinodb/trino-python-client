@@ -11,7 +11,7 @@
 # limitations under the License.
 import json
 import re
-from typing import Iterator, List, Optional, Tuple, Type, Union, Dict, Any
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
 
 from sqlalchemy import util
 from sqlalchemy.sql import sqltypes

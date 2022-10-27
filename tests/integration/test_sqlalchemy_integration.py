@@ -11,7 +11,7 @@
 # limitations under the License
 import pytest
 import sqlalchemy as sqla
-from sqlalchemy.sql import and_, or_, not_
+from sqlalchemy.sql import and_, not_, or_
 from sqlalchemy_utils import create_view
 
 from tests.unit.conftest import sqlalchemy_version

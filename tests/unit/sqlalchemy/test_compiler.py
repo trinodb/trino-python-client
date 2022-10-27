@@ -10,15 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from sqlalchemy import (
-    Column,
-    insert,
-    Integer,
-    MetaData,
-    select,
-    String,
-    Table,
-)
+from sqlalchemy import Column, Integer, MetaData, String, Table, insert, select
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
 

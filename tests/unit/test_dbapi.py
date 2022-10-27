@@ -17,8 +17,16 @@ import httpretty
 from httpretty import httprettified
 from requests import Session
 
-from tests.unit.oauth_test_utils import _post_statement_requests, _get_token_requests, RedirectHandler, \
-    GetTokenCallback, REDIRECT_RESOURCE, TOKEN_RESOURCE, PostStatementCallback, SERVER_ADDRESS
+from tests.unit.oauth_test_utils import (
+    REDIRECT_RESOURCE,
+    SERVER_ADDRESS,
+    TOKEN_RESOURCE,
+    GetTokenCallback,
+    PostStatementCallback,
+    RedirectHandler,
+    _get_token_requests,
+    _post_statement_requests,
+)
 from trino import constants
 from trino.auth import OAuth2Authentication
 from trino.dbapi import connect

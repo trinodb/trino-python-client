@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from trino.client import get_header_values, get_session_property_values
 from trino import constants
+from trino.client import get_header_values, get_session_property_values
 
 
 def test_get_header_values():
