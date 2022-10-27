@@ -1,6 +1,5 @@
 import math
-import datetime
-from datetime import timedelta
+from datetime import timedelta, datetime, date, time
 import pytest
 import pytz
 from decimal import Decimal
@@ -206,19 +205,19 @@ def test_digest(trino_connection):
 def test_date(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS DATE)", python=None) \
-        .add_field(sql="DATE '2001-08-22'", python=datetime.date(2001, 8, 22)) \
-        .add_field(sql="DATE '0001-01-01'", python=datetime.date(1, 1, 1)) \
-        .add_field(sql="DATE '1582-10-04'", python=datetime.date(1582, 10, 4)) \
-        .add_field(sql="DATE '1582-10-05'", python=datetime.date(1582, 10, 5)) \
-        .add_field(sql="DATE '1582-10-14'", python=datetime.date(1582, 10, 14)) \
+        .add_field(sql="DATE '2001-08-22'", python=date(2001, 8, 22)) \
+        .add_field(sql="DATE '0001-01-01'", python=date(1, 1, 1)) \
+        .add_field(sql="DATE '1582-10-04'", python=date(1582, 10, 4)) \
+        .add_field(sql="DATE '1582-10-05'", python=date(1582, 10, 5)) \
+        .add_field(sql="DATE '1582-10-14'", python=date(1582, 10, 14)) \
         .execute()
 
 
 def test_time(trino_connection):
-    time_0 = datetime.time(1, 23, 45)
-    time_3 = datetime.time(1, 23, 45, 123000)
-    time_6 = datetime.time(1, 23, 45, 123456)
-    time_round = datetime.time(1, 23, 45, 123457)
+    time_0 = time(1, 23, 45)
+    time_3 = time(1, 23, 45, 123000)
+    time_6 = time(1, 23, 45, 123456)
+    time_round = time(1, 23, 45, 123457)
 
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS TIME)", python=None) \
@@ -243,16 +242,16 @@ def test_time_with_timezone(trino_connection):
 
 
 def query_time_with_timezone(trino_connection, tz_str):
-    tz = datetime.datetime.strptime('+00:00', "%z").tzinfo
+    tz = datetime.strptime('+00:00', "%z").tzinfo
 
     hours_shift = int(tz_str[:3])
     minutes_shift = int(tz_str[4:])
     delta = timedelta(hours=hours_shift, minutes=minutes_shift)
 
-    time_0 = (datetime.datetime(2, 1, 1, 11, 23, 45, 0) - delta).time().replace(tzinfo=tz)
-    time_3 = (datetime.datetime(2, 1, 1, 11, 23, 45, 123000) - delta).time().replace(tzinfo=tz)
-    time_6 = (datetime.datetime(2, 1, 1, 11, 23, 45, 123456) - delta).time().replace(tzinfo=tz)
-    time_round = (datetime.datetime(2, 1, 1, 11, 23, 45, 123457) - delta).time().replace(tzinfo=tz)
+    time_0 = (datetime(2, 1, 1, 11, 23, 45, 0) - delta).time().replace(tzinfo=tz)
+    time_3 = (datetime(2, 1, 1, 11, 23, 45, 123000) - delta).time().replace(tzinfo=tz)
+    time_6 = (datetime(2, 1, 1, 11, 23, 45, 123456) - delta).time().replace(tzinfo=tz)
+    time_round = (datetime(2, 1, 1, 11, 23, 45, 123457) - delta).time().replace(tzinfo=tz)
 
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS TIME WITH TIME ZONE)", python=None) \
@@ -271,14 +270,14 @@ def query_time_with_timezone(trino_connection, tz_str):
 
 
 def test_timestamp(trino_connection):
-    timestamp_0 = datetime.datetime(2001, 8, 22, 1, 23, 45, 0)
-    timestamp_3 = datetime.datetime(2001, 8, 22, 1, 23, 45, 123000)
-    timestamp_6 = datetime.datetime(2001, 8, 22, 1, 23, 45, 123456)
-    timestamp_round = datetime.datetime(2001, 8, 22, 1, 23, 45, 123457)
-    timestamp_ce = datetime.datetime(1, 1, 1, 1, 23, 45, 123000)
-    timestamp_julian = datetime.datetime(1582, 10, 4, 1, 23, 45, 123000)
-    timestamp_during_switch = datetime.datetime(1582, 10, 5, 1, 23, 45, 123000)
-    timestamp_gregorian = datetime.datetime(1582, 10, 14, 1, 23, 45, 123000)
+    timestamp_0 = datetime(2001, 8, 22, 1, 23, 45, 0)
+    timestamp_3 = datetime(2001, 8, 22, 1, 23, 45, 123000)
+    timestamp_6 = datetime(2001, 8, 22, 1, 23, 45, 123456)
+    timestamp_round = datetime(2001, 8, 22, 1, 23, 45, 123457)
+    timestamp_ce = datetime(1, 1, 1, 1, 23, 45, 123000)
+    timestamp_julian = datetime(1582, 10, 4, 1, 23, 45, 123000)
+    timestamp_during_switch = datetime(1582, 10, 5, 1, 23, 45, 123000)
+    timestamp_gregorian = datetime(1582, 10, 14, 1, 23, 45, 123000)
 
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS TIMESTAMP)", python=None) \
@@ -317,7 +316,7 @@ def query_timestamp_with_timezone(trino_connection, tz_str):
         minutes_shift = int(tz_str[4:])
     else:
         tz = pytz.timezone(tz_str)
-        offset = tz.utcoffset(datetime.datetime.now())
+        offset = tz.utcoffset(datetime.now())
         offset_seconds = offset.total_seconds()
         hours_shift = int(offset_seconds / 3600)
         minutes_shift = offset_seconds % 3600 / 60
@@ -325,10 +324,10 @@ def query_timestamp_with_timezone(trino_connection, tz_str):
     tz = pytz.timezone('Etc/GMT')
     delta = timedelta(hours=hours_shift, minutes=minutes_shift)
 
-    timestamp_0 = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 0)) - delta
-    timestamp_3 = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 123000)) - delta
-    timestamp_6 = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 123456)) - delta
-    timestamp_round = tz.localize(datetime.datetime(2001, 8, 22, 11, 23, 45, 123457)) - delta
+    timestamp_0 = tz.localize(datetime(2001, 8, 22, 11, 23, 45, 0)) - delta
+    timestamp_3 = tz.localize(datetime(2001, 8, 22, 11, 23, 45, 123000)) - delta
+    timestamp_6 = tz.localize(datetime(2001, 8, 22, 11, 23, 45, 123456)) - delta
+    timestamp_round = tz.localize(datetime(2001, 8, 22, 11, 23, 45, 123457)) - delta
 
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS TIMESTAMP WITH TIME ZONE)", python=None) \
