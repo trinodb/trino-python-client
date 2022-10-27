@@ -11,18 +11,18 @@
 # limitations under the License.
 
 import abc
+import importlib
 import json
 import os
 import re
 import threading
 import webbrowser
-from typing import Optional, List, Callable
+from typing import Callable, List, Optional
 from urllib.parse import urlparse
 
 from requests import Request
 from requests.auth import AuthBase, extract_cookies_to_jar
 from requests.utils import parse_dict_header
-import importlib
 
 import trino.logging
 from trino.client import exceptions

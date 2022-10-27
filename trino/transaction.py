@@ -12,11 +12,10 @@
 from enum import Enum, unique
 from typing import Iterable
 
-from trino import constants
 import trino.client
 import trino.exceptions
 import trino.logging
-
+from trino import constants
 
 logger = trino.logging.get_logger(__name__)
 

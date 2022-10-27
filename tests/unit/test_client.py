@@ -13,7 +13,7 @@ import json
 import threading
 import time
 import uuid
-from typing import Optional, Dict
+from typing import Dict, Optional
 from unittest import mock
 from urllib.parse import urlparse
 
@@ -24,13 +24,28 @@ from httpretty import httprettified
 from requests_kerberos.exceptions import KerberosExchangeError
 
 import trino.exceptions
-from tests.unit.oauth_test_utils import RedirectHandler, GetTokenCallback, PostStatementCallback, \
-    MultithreadedTokenServer, _post_statement_requests, _get_token_requests, REDIRECT_RESOURCE, TOKEN_RESOURCE, \
-    SERVER_ADDRESS
+from tests.unit.oauth_test_utils import (
+    REDIRECT_RESOURCE,
+    SERVER_ADDRESS,
+    TOKEN_RESOURCE,
+    GetTokenCallback,
+    MultithreadedTokenServer,
+    PostStatementCallback,
+    RedirectHandler,
+    _get_token_requests,
+    _post_statement_requests,
+)
 from trino import constants
 from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
-from trino.client import TrinoQuery, TrinoRequest, TrinoResult, ClientSession, _DelayExponential, _retry_with, \
-    _RetryWithExponentialBackoff
+from trino.client import (
+    ClientSession,
+    TrinoQuery,
+    TrinoRequest,
+    TrinoResult,
+    _DelayExponential,
+    _retry_with,
+    _RetryWithExponentialBackoff,
+)
 
 
 @mock.patch("trino.client.TrinoRequest.http")

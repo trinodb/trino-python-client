@@ -2,13 +2,17 @@ from typing import Any, Dict, List
 from unittest import mock
 
 import pytest
-from sqlalchemy.engine.url import make_url, URL
+from sqlalchemy.engine.url import URL, make_url
 
 from trino.auth import BasicAuthentication
 from trino.dbapi import Connection
-from trino.sqlalchemy.dialect import CertificateAuthentication, JWTAuthentication, TrinoDialect
-from trino.transaction import IsolationLevel
 from trino.sqlalchemy import URL as trino_url
+from trino.sqlalchemy.dialect import (
+    CertificateAuthentication,
+    JWTAuthentication,
+    TrinoDialect,
+)
+from trino.transaction import IsolationLevel
 
 
 class TestTrinoDialect:

@@ -10,8 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from trino.transaction import IsolationLevel
 import pytest
+
+from trino.transaction import IsolationLevel
 
 
 def test_isolation_level_levels() -> None:

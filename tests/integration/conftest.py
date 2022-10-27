@@ -18,11 +18,11 @@ from contextlib import closing
 from uuid import uuid4
 
 import click
-import trino.logging
 import pytest
-from trino.client import TrinoQuery, TrinoRequest, ClientSession
-from trino.constants import DEFAULT_PORT
 
+import trino.logging
+from trino.client import ClientSession, TrinoQuery, TrinoRequest
+from trino.constants import DEFAULT_PORT
 
 logger = trino.logging.get_logger(__name__)
 

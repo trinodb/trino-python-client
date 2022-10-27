@@ -1,6 +1,8 @@
 import math
-import pytest
 from decimal import Decimal
+
+import pytest
+
 import trino
 
 

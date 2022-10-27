@@ -1,8 +1,8 @@
 import json
 import re
+from typing import Dict, List, Optional, Tuple, Union
 from urllib.parse import quote_plus
 
-from typing import Optional, Dict, List, Union, Tuple
 from sqlalchemy import exc
 
 

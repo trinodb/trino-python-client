@@ -17,30 +17,29 @@ https://www.python.org/dev/peps/pep-0249/ .
 Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
+import datetime
+import math
+import uuid
 from decimal import Decimal
 from typing import Any, List, Optional  # NOQA for mypy types
 
-import uuid
-import datetime
-import math
-
-from trino import constants
-import trino.exceptions
 import trino.client
+import trino.exceptions
 import trino.logging
-from trino.transaction import Transaction, IsolationLevel, NO_TRANSACTION
+from trino import constants
 from trino.exceptions import (
-    Warning,
-    Error,
-    InterfaceError,
     DatabaseError,
     DataError,
-    OperationalError,
+    Error,
     IntegrityError,
+    InterfaceError,
     InternalError,
-    ProgrammingError,
     NotSupportedError,
+    OperationalError,
+    ProgrammingError,
+    Warning,
 )
+from trino.transaction import NO_TRANSACTION, IsolationLevel, Transaction
 
 __all__ = [
     # https://www.python.org/dev/peps/pep-0249/#globals
