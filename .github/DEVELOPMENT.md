@@ -63,6 +63,8 @@ See [Commits and pull requests](https://github.com/trinodb/trino/blob/master/.gi
 
 To run linting and formatting checks before opening a PR: `pip install pre-commit && pre-commit run --all-files`
 
+Code can also be automatically checked on commit by a [pre-commit](https://pre-commit.com/) git hook by executing `pre-commit install`.
+
 In addition to that you should also adhere to the following:
 
 ### Readability
