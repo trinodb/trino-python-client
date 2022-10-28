@@ -41,9 +41,10 @@ import re
 import threading
 import time
 import urllib.parse
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time as tim
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Callable
 
 import pytz
 import requests
@@ -865,7 +866,7 @@ class RowMapperFactory:
     """
     no_op_row_mapper = NoOpRowMapper()
 
-    def create(self, columns, experimental_python_types):
+    def create(self, columns: List[Dict[str, Any]], experimental_python_types: bool) -> Any:
         assert columns is not None
 
         if experimental_python_types:
@@ -886,9 +887,9 @@ class RowMapperFactory:
         elif col_type.startswith('double') or col_type.startswith('real'):
             return self._double_map_func()
         elif col_type.startswith('timestamp'):
-            return TimestampRowMapperFactory().create(column, col_type)
+            return TimestampValueMapperFactory().create(column, col_type)
         elif col_type.startswith('time'):
-            return TimeRowMapperFactory().create(column, col_type)
+            return TimeValueMapperFactory().create(column, col_type)
         elif col_type == 'date':
             return lambda val: datetime.strptime(val, '%Y-%m-%d').date()
         else:
@@ -914,8 +915,8 @@ class RowMapperFactory:
             else float(val)
 
 
-class AbstractTemporalRowMapperFactory:
-    def _get_number_of_millis_digits(self, column) -> int:
+class AbstractTemporalValueMapperFactory:
+    def _get_number_of_millis_digits(self, column: Dict[str, Any]) -> int:
         args = column['arguments']
         if len(args) == 0:
             return 3
@@ -924,15 +925,15 @@ class AbstractTemporalRowMapperFactory:
             return -1
         return ms_size
 
-    def _get_number_of_millis_digits_to_trim(self, column, number_millis_digits) -> int:
+    def _get_number_of_millis_digits_to_trim(self, column: Dict[str, Any], number_millis_digits: int) -> int:
         args = column['arguments']
         if len(args) == 0:
             return 1
         return (10 ** (number_millis_digits - min(number_millis_digits, 6)))
 
 
-class TimeRowMapperFactory(AbstractTemporalRowMapperFactory):
-    def create(self, column, col_type):
+class TimeValueMapperFactory(AbstractTemporalValueMapperFactory):
+    def create(self, column: Dict[str, Any], col_type: str) -> Callable[[Any], tim]:
         datetime_default_size = 9  # size of 'HH:MM:SS.'
         time_format = "%H:%M:%S"
         millis_length = self._get_number_of_millis_digits(column)
@@ -955,24 +956,26 @@ class TimeRowMapperFactory(AbstractTemporalRowMapperFactory):
             else:
                 return self._map_time(time_size, time_format)
 
-    def _map_time_timezone_trim_millis_digits(self, datetime_default_size, millis_to_trim_div, time_format):
+    def _map_time_timezone_trim_millis_digits(self, datetime_default_size: int, millis_to_trim_div: int,
+                                              time_format: str) -> Callable[[Any], tim]:
         return lambda val: self._get_time_with_timezone_round_ms(val,
                                                                  datetime_default_size,
                                                                  millis_to_trim_div,
                                                                  time_format)
 
-    def _map_time_timezone(self, time_size, time_format):
+    def _map_time_timezone(self, time_size: int, time_format: str) -> Callable[[Any], tim]:
         return lambda val: self._get_time_with_timezone(val, time_size, time_format)
 
-    def _map_time_trim_millis_digits(self, datetime_default_size, millis_to_trim_div, time_format):
+    def _map_time_trim_millis_digits(self, datetime_default_size: int, millis_to_trim_div: int,
+                                     time_format: str) -> Callable[[Any], tim]:
         return lambda val: datetime.strptime(val[:datetime_default_size]
                                              + str(round(int(val[datetime_default_size:]) / millis_to_trim_div)),
                                              time_format).time()
 
-    def _map_time(self, time_size, time_format):
+    def _map_time(self, time_size: int, time_format: str) -> Callable[[Any], tim]:
         return lambda val: datetime.strptime(val[:time_size], time_format).time()
 
-    def _get_time_with_timezone(self, value, time_size, pattern):
+    def _get_time_with_timezone(self, value: str, time_size: int, pattern: str) -> tim:
         matches = re.match(r'^(?P<time>.*)(?P<sign>[\+\-])(?P<hours>\d{2}):(?P<minutes>\d{2})$', value)
         assert matches is not None
         assert len(matches.groups()) == 4
@@ -982,7 +985,8 @@ class TimeRowMapperFactory(AbstractTemporalRowMapperFactory):
             tz = timedelta(hours=int(matches.group('hours')), minutes=int(matches.group('minutes')))
         return datetime.strptime(matches.group('time')[:time_size], pattern).time().replace(tzinfo=timezone(tz))
 
-    def _get_time_with_timezone_round_ms(self, value, time_size, millis_digits_to_trim, time_format):
+    def _get_time_with_timezone_round_ms(self, value: str, time_size: int, millis_digits_to_trim: int,
+                                         time_format: str) -> tim:
         matches = re.match(r'^(?P<time>.*)(?P<sign>[\+\-])(?P<hours>\d{2}):(?P<minutes>\d{2})$', value)
         assert matches is not None
         assert len(matches.groups()) == 4
@@ -995,8 +999,8 @@ class TimeRowMapperFactory(AbstractTemporalRowMapperFactory):
         return datetime.strptime(time_str + millis_str, time_format).time().replace(tzinfo=timezone(tz))
 
 
-class TimestampRowMapperFactory(AbstractTemporalRowMapperFactory):
-    def create(self, column, col_type):
+class TimestampValueMapperFactory(AbstractTemporalValueMapperFactory):
+    def create(self, column: Dict[str, Any], col_type: str) -> Callable[[Any], datetime]:
         datetime_default_size = len('YYYY-MM-DD HH:MM:SS.')
         timestamp_format = "%Y-%m-%d %H:%M:%S"
         millis_length = self._get_number_of_millis_digits(column)
@@ -1019,8 +1023,9 @@ class TimestampRowMapperFactory(AbstractTemporalRowMapperFactory):
         else:
             return self._map_timestamp(timestamp_format)
 
-    def _map_timestamp_timezone_trim_millis_digits(self, timestamp_length, dt_tz_offset,
-                                                   millis_to_trim_div, timestamp_format):
+    def _map_timestamp_timezone_trim_millis_digits(self, timestamp_length: int, dt_tz_offset: int,
+                                                   millis_to_trim_div: int,
+                                                   timestamp_format: str) -> Callable[[Any], datetime]:
         return lambda val: \
             [datetime.strptime(val[:timestamp_length]
              + str(round(int(val[timestamp_length:dt_tz_offset]) / millis_to_trim_div))
@@ -1032,18 +1037,19 @@ class TimestampRowMapperFactory(AbstractTemporalRowMapperFactory):
                                              + dt[dt_tz_offset:], timestamp_format))
              for dt, tz in [val.rsplit(' ', 1)]][0]
 
-    def _map_timestamp_timezone(self, timestamp_format):
+    def _map_timestamp_timezone(self, timestamp_format: str) -> Callable[[Any], datetime]:
         return lambda val: [datetime.strptime(val, timestamp_format + ' %z')
                             if tz.startswith('+') or tz.startswith('-')
                             else pytz.timezone(tz).localize(datetime.strptime(dt, timestamp_format))
                             for dt, tz in [val.rsplit(' ', 1)]][0]
 
-    def _map_timestamp_trim_millis_digits(self, timestamp_length, dt_tz_offset, millis_to_trim_div, timestamp_format):
+    def _map_timestamp_trim_millis_digits(self, timestamp_length: int, dt_tz_offset: int, millis_to_trim_div: int,
+                                          timestamp_format: str) -> Callable[[Any], datetime]:
         return lambda val: datetime.strptime(val[:timestamp_length]
                                              + str(round(int(val[timestamp_length:dt_tz_offset]) / millis_to_trim_div))
                                              + val[dt_tz_offset:], timestamp_format)
 
-    def _map_timestamp(self, timestamp_format):
+    def _map_timestamp(self, timestamp_format: str) -> Callable[[Any], datetime]:
         return lambda val: datetime.strptime(val, timestamp_format)
 
 
