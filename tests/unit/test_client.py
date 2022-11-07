@@ -32,6 +32,7 @@ from tests.unit.oauth_test_utils import (
     MultithreadedTokenServer,
     PostStatementCallback,
     RedirectHandler,
+    RedirectHandlerWithException,
     _get_token_requests,
     _post_statement_requests,
 )
@@ -384,6 +385,48 @@ def test_oauth2_authentication_flow(attempts, sample_post_response_data):
     assert len(_get_token_requests(challenge_id)) == attempts
 
 
+@httprettified
+def test_oauth2_refresh_token_flow(sample_post_response_data):
+    token = str(uuid.uuid4())
+    challenge_id = str(uuid.uuid4())
+
+    token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+
+    post_statement_callback = PostStatementCallback(None, token_server, [token], sample_post_response_data)
+
+    # bind post statement
+    httpretty.register_uri(
+        method=httpretty.POST,
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
+        body=post_statement_callback)
+
+    # bind get token
+    get_token_callback = GetTokenCallback(token_server, token)
+    httpretty.register_uri(
+        method=httpretty.GET,
+        uri=token_server,
+        body=get_token_callback)
+
+    redirect_handler = RedirectHandlerWithException(
+        trino.exceptions.TrinoAuthError(
+            "Do not use redirect handler when there is no redirect_uri in the response"))
+
+    request = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        client_session=ClientSession(
+            user="test",
+        ),
+        http_scheme=constants.HTTPS,
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+
+    response = request.post("select 1")
+
+    assert response.request.headers['Authorization'] == f"Bearer {token}"
+    assert get_token_callback.attempts == 0
+    assert len(_post_statement_requests()) == 2
+
+
 @pytest.mark.parametrize("attempts", [6, 10])
 @httprettified
 def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
@@ -430,10 +473,9 @@ def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
 
 @pytest.mark.parametrize("header,error", [
     ("", "Error: header WWW-Authenticate not available in the response."),
-    ('Bearer"', 'Error: header info didn\'t have x_redirect_server'),
+    ('Bearer"', 'Error: header info didn\'t have x_token_server'),
     ('x_redirect_server="redirect_server", x_token_server="token_server"', 'Error: header info didn\'t match x_redirect_server="redirect_server", x_token_server="token_server"'),  # noqa: E501
     ('Bearer x_redirect_server="redirect_server"', 'Error: header info didn\'t have x_token_server'),
-    ('Bearer x_token_server="token_server"', 'Error: header info didn\'t have x_redirect_server'),
 ])
 @httprettified
 def test_oauth2_authentication_missing_headers(header, error):

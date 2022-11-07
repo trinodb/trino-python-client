@@ -34,6 +34,14 @@ class RedirectHandler:
         self.redirect_server += url
 
 
+class RedirectHandlerWithException:
+    def __init__(self, exception):
+        self.exception = exception
+
+    def __call__(self, url):
+        raise self.exception
+
+
 class PostStatementCallback:
     def __init__(self, redirect_server, token_server, tokens, sample_post_response_data):
         self.redirect_server = redirect_server
@@ -45,6 +53,9 @@ class PostStatementCallback:
         authorization = request.headers.get("Authorization")
         if authorization and authorization.replace("Bearer ", "") in self.tokens:
             return [200, response_headers, json.dumps(self.sample_post_response_data)]
+        elif self.redirect_server is None and self.token_server is not None:
+            return [401, {'Www-Authenticate': f'Bearer x_token_server="{self.token_server}"',
+                          'Basic realm': '"Trino"'}, ""]
         return [401, {'Www-Authenticate': f'Bearer x_redirect_server="{self.redirect_server}", '
                                           f'x_token_server="{self.token_server}"',
                       'Basic realm': '"Trino"'}, ""]

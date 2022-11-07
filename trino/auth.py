@@ -322,15 +322,13 @@ class _OAuth2TokenBearer(AuthBase):
         auth_info_headers = parse_dict_header(_OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))
 
         auth_server = auth_info_headers.get('x_redirect_server')
-        if auth_server is None:
-            raise exceptions.TrinoAuthError("Error: header info didn't have x_redirect_server")
-
         token_server = auth_info_headers.get('x_token_server')
         if token_server is None:
             raise exceptions.TrinoAuthError("Error: header info didn't have x_token_server")
 
-        # tell app that use this url to proceed with the authentication
-        self._redirect_auth_url(auth_server)
+        if auth_server is not None:
+            # tell app that use this url to proceed with the authentication
+            self._redirect_auth_url(auth_server)
 
         # Consume content and release the original connection
         # to allow our new request to reuse the same one.
