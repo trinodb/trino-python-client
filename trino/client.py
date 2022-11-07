@@ -39,10 +39,10 @@ import os
 import random
 import re
 import threading
-import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pytz
@@ -295,7 +295,7 @@ class _RetryWithExponentialBackoff(object):
 
     def retry(self, func, args, kwargs, err, attempt):
         delay = self._get_delay(attempt)
-        time.sleep(delay)
+        sleep(delay)
 
 
 class TrinoRequest(object):
