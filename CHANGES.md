@@ -6,6 +6,15 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.320.0
+
+* Fix handling of expired access tokens when using OAuth 2 authentication.
+  ([#284](https://github.com/trinodb/trino-python-client/issues/284))
+* Support `None` values in array, map and row types when `experimental_python_types` is enabled.
+  ([#269](https://github.com/trinodb/trino-python-client/issues/269))
+* Expose query id of most recently executed query on a cursor as `Cursor.query_id`.
+  ([#295](https://github.com/trinodb/trino-python-client/issues/295))
+
 ## Release 0.319.0
 
 * Improve the performance of `get_view_names` in SQLAlchemy. 
