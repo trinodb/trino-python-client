@@ -840,7 +840,7 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
 
 class ValueMapper(abc.ABC, Generic[T]):
     @abc.abstractmethod
-    def map(self, value: Any) -> T:
+    def map(self, value: Any) -> Optional[T]:
         pass
 
 
@@ -850,12 +850,16 @@ class NoOpValueMapper(ValueMapper[Any]):
 
 
 class DecimalValueMapper(ValueMapper[Decimal]):
-    def map(self, value) -> Decimal:
+    def map(self, value) -> Optional[Decimal]:
+        if value is None:
+            return None
         return Decimal(value)
 
 
 class DoubleValueMapper(ValueMapper[float]):
-    def map(self, value) -> float:
+    def map(self, value) -> Optional[float]:
+        if value is None:
+            return None
         if value == 'Infinity':
             return float("inf")
         if value == '-Infinity':
@@ -886,14 +890,18 @@ class TimeValueMapper(ValueMapper[time], TemporalValueMapper):
         self.pattern = pattern
         self.time_size = 9 + ms_size - ms_to_trim
 
-    def map(self, value) -> time:
+    def map(self, value) -> Optional[time]:
+        if value is None:
+            return None
         return datetime.strptime(value[:self.time_size], self.pattern).time()
 
 
 class TimeWithTimeZoneValueMapper(TimeValueMapper):
     PATTERN = r'^(.*)([\+\-])(\d{2}):(\d{2})$'
 
-    def map(self, value) -> time:
+    def map(self, value) -> Optional[time]:
+        if value is None:
+            return None
         matches = re.match(TimeWithTimeZoneValueMapper.PATTERN, value)
         assert matches is not None
         assert len(matches.groups()) == 4
@@ -905,7 +913,9 @@ class TimeWithTimeZoneValueMapper(TimeValueMapper):
 
 
 class DateValueMapper(ValueMapper[date]):
-    def map(self, value) -> date:
+    def map(self, value) -> Optional[date]:
+        if value is None:
+            return None
         return datetime.strptime(value, '%Y-%m-%d').date()
 
 
@@ -920,12 +930,16 @@ class TimestampValueMapper(ValueMapper[datetime], TemporalValueMapper):
         self.dt_size = datetime_default_size + ms_size - ms_to_trim
         self.dt_tz_offset = datetime_default_size + ms_size
 
-    def map(self, value) -> datetime:
+    def map(self, value) -> Optional[datetime]:
+        if value is None:
+            return None
         return datetime.strptime(value[:self.dt_size] + value[self.dt_tz_offset:], self.pattern)
 
 
 class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
-    def map(self, value) -> datetime:
+    def map(self, value) -> Optional[datetime]:
+        if value is None:
+            return None
         dt, tz = value.rsplit(' ', 1)
         if tz.startswith('+') or tz.startswith('-'):
             return datetime.strptime(value[:self.dt_size] + value[self.dt_tz_offset:], self.pattern + ' %z')
@@ -933,11 +947,13 @@ class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
         return datetime.strptime(date_str, self.pattern).replace(tzinfo=pytz.timezone(tz))
 
 
-class ArrayValueMapper(ValueMapper[List[Any]]):
+class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
     def __init__(self, mapper: ValueMapper[Any]):
         self.mapper = mapper
 
-    def map(self, values: List[Any]) -> List[Any]:
+    def map(self, values: List[Any]) -> Optional[List[Any]]:
+        if values is None:
+            return None
         return [self.mapper.map(value) for value in values]
 
 
@@ -945,16 +961,20 @@ class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
     def __init__(self, mappers: List[ValueMapper[Any]]):
         self.mappers = mappers
 
-    def map(self, values: List[Any]) -> Tuple[Any, ...]:
+    def map(self, values: List[Any]) -> Optional[Tuple[Optional[Any], ...]]:
+        if values is None:
+            return None
         return tuple(self.mappers[index].map(value) for index, value in enumerate(values))
 
 
-class MapValueMapper(ValueMapper[Dict[Any, Any]]):
+class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
     def __init__(self, key_mapper: ValueMapper[Any], value_mapper: ValueMapper[Any]):
         self.key_mapper = key_mapper
         self.value_mapper = value_mapper
 
-    def map(self, values: Any) -> Dict[Any, Any]:
+    def map(self, values: Any) -> Optional[Dict[Any, Optional[Any]]]:
+        if values is None:
+            return None
         return {
             self.key_mapper.map(key): self.value_mapper.map(value) for key, value in values.items()
         }
@@ -1032,9 +1052,6 @@ class RowMapper:
         return [self._map_value(value, self.columns[index]) for index, value in enumerate(row)]
 
     def _map_value(self, value, value_mapper: ValueMapper[T]) -> Optional[T]:
-        if value is None:
-            return None
-
         try:
             return value_mapper.map(value)
         except ValueError as e:

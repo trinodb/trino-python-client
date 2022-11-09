@@ -156,6 +156,8 @@ def test_array(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS ARRAY(VARCHAR))", python=None) \
         .add_field(sql="ARRAY['a', 'b', null]", python=['a', 'b', None]) \
+        .add_field(sql="ARRAY[1.2, 2.4, null]", python=[Decimal("1.2"), Decimal("2.4"), None]) \
+        .add_field(sql="ARRAY[CAST(4.9E-324 AS DOUBLE), null]", python=[5e-324, None]) \
         .execute()
 
 
@@ -163,13 +165,16 @@ def test_map(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS MAP(VARCHAR, INTEGER))", python=None) \
         .add_field(sql="MAP(ARRAY['a', 'b'], ARRAY[1, null])", python={'a': 1, 'b': None}) \
+        .add_field(sql="MAP(ARRAY['a', 'b'], ARRAY[2.4, null])", python={'a': Decimal("2.4"), 'b': None}) \
+        .add_field(sql="MAP(ARRAY[2.4, 4.8], ARRAY[CAST(4.9E-324 AS DOUBLE), null])",
+                   python={Decimal("2.4"): 5e-324, Decimal("4.8"): None}) \
         .execute()
 
 
 def test_row(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS ROW(x BIGINT, y DOUBLE))", python=None) \
-        .add_field(sql="CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE))", python=(1, 2.0)) \
+        .add_field(sql="CAST(ROW(1, 2e0, null) AS ROW(x BIGINT, y DOUBLE, z DOUBLE))", python=(1, 2.0, None)) \
         .execute()
 
 
