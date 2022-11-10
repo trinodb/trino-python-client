@@ -32,6 +32,8 @@ The main interface is :class:`TrinoQuery`: ::
     >> query =  TrinoQuery(request, sql)
     >> rows = list(query.execute())
 """
+from __future__ import annotations
+
 import abc
 import copy
 import functools
@@ -40,13 +42,14 @@ import random
 import re
 import threading
 import urllib.parse
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from time import sleep
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 import pytz
 import requests
+from pytz.tzinfo import BaseTzInfo
 
 import trino.logging
 from trino import constants, exceptions
@@ -65,6 +68,12 @@ else:
 _HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
 
 T = TypeVar("T")
+
+PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])
+POWERS_OF_TEN: Dict[int, Decimal] = {}
+for i in range(0, 13):
+    POWERS_OF_TEN[i] = Decimal(10 ** i)
+MAX_PYTHON_TEMPORAL_PRECISION = POWERS_OF_TEN[6]
 
 
 class ClientSession(object):
@@ -869,82 +878,179 @@ class DoubleValueMapper(ValueMapper[float]):
         return float(value)
 
 
-class TemporalValueMapper():
-    def _get_number_of_digits(self, column):
-        args = column['arguments']
-        if len(args) == 0:
-            return 3, 0
-        ms_size = args[0]['value']
-        if ms_size == 0:
-            return -1, 0
-        ms_to_trim = ms_size - min(ms_size, 6)
-        return ms_size, ms_to_trim
+def _create_tzinfo(timezone_str: str) -> tzinfo:
+    if timezone_str.startswith("+") or timezone_str.startswith("-"):
+        hours = timezone_str[1:3]
+        minutes = timezone_str[4:6]
+        if timezone_str.startswith("-"):
+            return timezone(-timedelta(hours=int(hours), minutes=int(minutes)))
+        return timezone(timedelta(hours=int(hours), minutes=int(minutes)))
+    else:
+        return pytz.timezone(timezone_str)
 
 
-class TimeValueMapper(ValueMapper[time], TemporalValueMapper):
-    def __init__(self, column):
-        pattern = "%H:%M:%S"
-        ms_size, ms_to_trim = self._get_number_of_digits(column)
-        if ms_size > 0:
-            pattern += ".%f"
-        self.pattern = pattern
-        self.time_size = 9 + ms_size - ms_to_trim
+def _fraction_to_decimal(fractional_str: str) -> Decimal:
+    return Decimal(fractional_str or 0) / POWERS_OF_TEN[len(fractional_str)]
+
+
+class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
+    def __init__(self, whole_python_temporal_value: PythonTemporalType, remaining_fractional_seconds: Decimal):
+        self._whole_python_temporal_value = whole_python_temporal_value
+        self._remaining_fractional_seconds = remaining_fractional_seconds
+
+    @abc.abstractmethod
+    def new_instance(self, value: PythonTemporalType, fraction: Decimal) -> TemporalType[PythonTemporalType]:
+        pass
+
+    @abc.abstractmethod
+    def to_python_type(self) -> PythonTemporalType:
+        pass
+
+    def round_to(self, precision: int) -> TemporalType:
+        """
+            Python datetime and time only support up to microsecond precision
+            In case the supplied value exceeds the specified precision,
+            the value needs to be rounded.
+        """
+        remaining_fractional_seconds = self._remaining_fractional_seconds
+        digits = abs(remaining_fractional_seconds.as_tuple().exponent)
+        if digits > precision:
+            rounding_factor = POWERS_OF_TEN[precision]
+            rounded = remaining_fractional_seconds.quantize(Decimal(1 / rounding_factor))
+            if rounded == rounding_factor:
+                return self.new_instance(
+                    self.normalize(self.add_time_delta(timedelta(seconds=1))),
+                    Decimal(0)
+                )
+            return self.new_instance(self._whole_python_temporal_value, rounded)
+        return self
+
+    @abc.abstractmethod
+    def add_time_delta(self, time_delta: timedelta) -> PythonTemporalType:
+        """
+            This method shall be overriden to implement fraction arithmetics.
+        """
+        pass
+
+    def normalize(self, value: PythonTemporalType) -> PythonTemporalType:
+        """
+            If `add_time_delta` results in value crossing DST boundaries, this method should
+            return a normalized version of the value to account for it, for example,
+            using `pytz.timezone.normalize`.
+        """
+        return value
+
+
+class Time(TemporalType[time]):
+    def new_instance(self, value: time, fraction: Decimal) -> TemporalType[time]:
+        return Time(value, fraction)
+
+    def to_python_type(self) -> time:
+        if self._remaining_fractional_seconds > 0:
+            time_delta = timedelta(microseconds=int(self._remaining_fractional_seconds * MAX_PYTHON_TEMPORAL_PRECISION))
+            return self.add_time_delta(time_delta)
+        return self._whole_python_temporal_value
+
+    def add_time_delta(self, time_delta: timedelta) -> time:
+        time_delta_added = datetime.combine(datetime(1, 1, 1), self._whole_python_temporal_value) + time_delta
+        return time_delta_added.time().replace(tzinfo=self._whole_python_temporal_value.tzinfo)
+
+
+class TimeWithTimeZone(Time, TemporalType[time]):
+    def new_instance(self, value: time, fraction: Decimal) -> TemporalType[time]:
+        return TimeWithTimeZone(value, fraction)
+
+
+class Timestamp(TemporalType[datetime]):
+    def new_instance(self, value: datetime, fraction: Decimal) -> Timestamp:
+        return Timestamp(value, fraction)
+
+    def to_python_type(self) -> datetime:
+        if self._remaining_fractional_seconds > 0:
+            time_delta = timedelta(microseconds=int(self._remaining_fractional_seconds * MAX_PYTHON_TEMPORAL_PRECISION))
+            return self.add_time_delta(time_delta)
+        return self._whole_python_temporal_value
+
+    def add_time_delta(self, time_delta: timedelta) -> datetime:
+        return self._whole_python_temporal_value + time_delta
+
+
+class TimestampWithTimeZone(Timestamp, TemporalType[datetime]):
+    def new_instance(self, value: datetime, fraction: Decimal) -> TimestampWithTimeZone:
+        return TimestampWithTimeZone(value, fraction)
+
+    def normalize(self, value: datetime) -> datetime:
+        if isinstance(self._whole_python_temporal_value.tzinfo, BaseTzInfo):
+            return self._whole_python_temporal_value.tzinfo.normalize(value)
+        return value
+
+
+class TimeValueMapper(ValueMapper[time]):
+    def __init__(self, precision):
+        self.time_default_size = 8  # size of 'HH:MM:SS'
+        self.precision = precision
 
     def map(self, value) -> Optional[time]:
         if value is None:
             return None
-        return datetime.strptime(value[:self.time_size], self.pattern).time()
+        whole_python_temporal_value = value[:self.time_default_size]
+        remaining_fractional_seconds = value[self.time_default_size + 1:]
+        return Time(
+            time.fromisoformat(whole_python_temporal_value),
+            _fraction_to_decimal(remaining_fractional_seconds)
+        ).round_to(self.precision).to_python_type()
+
+    def _add_second(self, time_value: time) -> time:
+        return (datetime.combine(datetime(1, 1, 1), time_value) + timedelta(seconds=1)).time()
 
 
 class TimeWithTimeZoneValueMapper(TimeValueMapper):
-    PATTERN = r'^(.*)([\+\-])(\d{2}):(\d{2})$'
-
     def map(self, value) -> Optional[time]:
         if value is None:
             return None
-        matches = re.match(TimeWithTimeZoneValueMapper.PATTERN, value)
-        assert matches is not None
-        assert len(matches.groups()) == 4
-        if matches.group(2) == '-':
-            tz = -timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
-        else:
-            tz = timedelta(hours=int(matches.group(3)), minutes=int(matches.group(4)))
-        return datetime.strptime(matches.group(1)[:self.time_size], self.pattern).time().replace(tzinfo=timezone(tz))
+        whole_python_temporal_value = value[:self.time_default_size]
+        remaining_fractional_seconds = value[self.time_default_size + 1:len(value) - 6]
+        timezone_part = value[len(value) - 6:]
+        return TimeWithTimeZone(
+            time.fromisoformat(whole_python_temporal_value).replace(tzinfo=_create_tzinfo(timezone_part)),
+            _fraction_to_decimal(remaining_fractional_seconds),
+        ).round_to(self.precision).to_python_type()
 
 
 class DateValueMapper(ValueMapper[date]):
     def map(self, value) -> Optional[date]:
         if value is None:
             return None
-        return datetime.strptime(value, '%Y-%m-%d').date()
+        return date.fromisoformat(value)
 
 
-class TimestampValueMapper(ValueMapper[datetime], TemporalValueMapper):
-    def __init__(self, column):
-        datetime_default_size = 20  # size of 'YYYY-MM-DD HH:MM:SS.' (the datetime string up to the milliseconds)
-        pattern = "%Y-%m-%d %H:%M:%S"
-        ms_size, ms_to_trim = self._get_number_of_digits(column)
-        if ms_size > 0:
-            pattern += ".%f"
-        self.pattern = pattern
-        self.dt_size = datetime_default_size + ms_size - ms_to_trim
-        self.dt_tz_offset = datetime_default_size + ms_size
+class TimestampValueMapper(ValueMapper[datetime]):
+    def __init__(self, precision):
+        self.datetime_default_size = 19  # size of 'YYYY-MM-DD HH:MM:SS' (the datetime string up to the seconds)
+        self.precision = precision
 
     def map(self, value) -> Optional[datetime]:
         if value is None:
             return None
-        return datetime.strptime(value[:self.dt_size] + value[self.dt_tz_offset:], self.pattern)
+        whole_python_temporal_value = value[:self.datetime_default_size]
+        remaining_fractional_seconds = value[self.datetime_default_size + 1:]
+        return Timestamp(
+            datetime.fromisoformat(whole_python_temporal_value),
+            _fraction_to_decimal(remaining_fractional_seconds),
+        ).round_to(self.precision).to_python_type()
 
 
 class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
     def map(self, value) -> Optional[datetime]:
         if value is None:
             return None
-        dt, tz = value.rsplit(' ', 1)
-        if tz.startswith('+') or tz.startswith('-'):
-            return datetime.strptime(value[:self.dt_size] + value[self.dt_tz_offset:], self.pattern + ' %z')
-        date_str = dt[:self.dt_size] + dt[self.dt_tz_offset:]
-        return datetime.strptime(date_str, self.pattern).replace(tzinfo=pytz.timezone(tz))
+        datetime_with_fraction, timezone_part = value.rsplit(' ', 1)
+        whole_python_temporal_value = datetime_with_fraction[:self.datetime_default_size]
+        remaining_fractional_seconds = datetime_with_fraction[self.datetime_default_size + 1:]
+        return TimestampWithTimeZone(
+            datetime.fromisoformat(whole_python_temporal_value).replace(tzinfo=_create_tzinfo(timezone_part)),
+            _fraction_to_decimal(remaining_fractional_seconds),
+        ).round_to(self.precision).to_python_type()
 
 
 class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
@@ -1023,17 +1129,23 @@ class RowMapperFactory:
         elif col_type.startswith('double') or col_type.startswith('real'):
             return DoubleValueMapper()
         elif col_type.startswith('timestamp') and 'with time zone' in col_type:
-            return TimestampWithTimeZoneValueMapper(column)
+            return TimestampWithTimeZoneValueMapper(self._get_precision(column))
         elif col_type.startswith('timestamp'):
-            return TimestampValueMapper(column)
+            return TimestampValueMapper(self._get_precision(column))
         elif col_type.startswith('time') and 'with time zone' in col_type:
-            return TimeWithTimeZoneValueMapper(column)
+            return TimeWithTimeZoneValueMapper(self._get_precision(column))
         elif col_type.startswith('time'):
-            return TimeValueMapper(column)
+            return TimeValueMapper(self._get_precision(column))
         elif col_type == 'date':
             return DateValueMapper()
         else:
             return NoOpValueMapper()
+
+    def _get_precision(self, column: Dict[str, Any]):
+        args = column['arguments']
+        if len(args) == 0:
+            return 3
+        return args[0]['value']
 
 
 class RowMapper:
