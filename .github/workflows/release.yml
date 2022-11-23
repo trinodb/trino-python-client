@@ -53,5 +53,5 @@ jobs:
           twine upload --non-interactive dist/trino-${{env.NEXT_VERSION_NUMBER}}-py3-none-any.whl dist/trino-${{env.NEXT_VERSION_NUMBER}}.tar.gz
 
       - name: Finalize release
-        run: |  
+        run: |
           git push origin master "${{ env.NEXT_VERSION_NUMBER }}""
