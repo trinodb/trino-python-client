@@ -17,10 +17,10 @@ import os
 import re
 import threading
 import webbrowser
-from typing import Callable, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
-from requests import Request
+from requests import PreparedRequest, Request, Response, Session
 from requests.auth import AuthBase, extract_cookies_to_jar
 from requests.utils import parse_dict_header
 
@@ -32,10 +32,10 @@ logger = trino.logging.get_logger(__name__)
 
 class Authentication(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def set_http_session(self, http_session):
+    def set_http_session(self, http_session: Session) -> Session:
         pass
 
-    def get_exceptions(self):
+    def get_exceptions(self) -> Tuple[Any, ...]:
         return tuple()
 
 
@@ -43,7 +43,7 @@ class KerberosAuthentication(Authentication):
     def __init__(
         self,
         config: Optional[str] = None,
-        service_name: str = None,
+        service_name: Optional[str] = None,
         mutual_authentication: bool = False,
         force_preemptive: bool = False,
         hostname_override: Optional[str] = None,
@@ -62,7 +62,7 @@ class KerberosAuthentication(Authentication):
         self._delegate = delegate
         self._ca_bundle = ca_bundle
 
-    def set_http_session(self, http_session):
+    def set_http_session(self, http_session: Session) -> Session:
         try:
             import requests_kerberos
         except ImportError:
@@ -84,15 +84,15 @@ class KerberosAuthentication(Authentication):
             http_session.verify = self._ca_bundle
         return http_session
 
-    def get_exceptions(self):
+    def get_exceptions(self) -> Tuple[Any, ...]:
         try:
             from requests_kerberos.exceptions import KerberosExchangeError
 
-            return (KerberosExchangeError,)
+            return KerberosExchangeError,
         except ImportError:
             raise RuntimeError("unable to import requests_kerberos")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, KerberosAuthentication):
             return False
         return (self._config == other._config
@@ -107,11 +107,11 @@ class KerberosAuthentication(Authentication):
 
 
 class BasicAuthentication(Authentication):
-    def __init__(self, username, password):
+    def __init__(self, username: str, password: str):
         self._username = username
         self._password = password
 
-    def set_http_session(self, http_session):
+    def set_http_session(self, http_session: Session) -> Session:
         try:
             import requests.auth
         except ImportError:
@@ -120,10 +120,10 @@ class BasicAuthentication(Authentication):
         http_session.auth = requests.auth.HTTPBasicAuth(self._username, self._password)
         return http_session
 
-    def get_exceptions(self):
+    def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, BasicAuthentication):
             return False
         return self._username == other._username and self._password == other._password
@@ -134,27 +134,27 @@ class _BearerAuth(AuthBase):
     Custom implementation of Authentication class for bearer token
     """
 
-    def __init__(self, token):
+    def __init__(self, token: str):
         self.token = token
 
-    def __call__(self, r):
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
         r.headers["Authorization"] = "Bearer " + self.token
         return r
 
 
 class JWTAuthentication(Authentication):
 
-    def __init__(self, token):
+    def __init__(self, token: str):
         self.token = token
 
-    def set_http_session(self, http_session):
+    def set_http_session(self, http_session: Session) -> Session:
         http_session.auth = _BearerAuth(self.token)
         return http_session
 
-    def get_exceptions(self):
+    def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, JWTAuthentication):
             return False
         return self.token == other.token
@@ -197,7 +197,7 @@ class CompositeRedirectHandler(RedirectHandler):
     def __init__(self, handlers: List[Callable[[str], None]]):
         self.handlers = handlers
 
-    def __call__(self, url: str):
+    def __call__(self, url: str) -> None:
         for handler in self.handlers:
             handler(url)
 
@@ -208,11 +208,11 @@ class _OAuth2TokenCache(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def get_token_from_cache(self, host: str) -> Optional[str]:
+    def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
         pass
 
     @abc.abstractmethod
-    def store_token_to_cache(self, host: str, token: str) -> None:
+    def store_token_to_cache(self, host: Optional[str], token: str) -> None:
         pass
 
 
@@ -221,13 +221,13 @@ class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
     In-memory token cache implementation. The token is stored per host, so multiple clients can share the same cache.
     """
 
-    def __init__(self):
-        self._cache = {}
+    def __init__(self) -> None:
+        self._cache: Dict[Optional[str], str] = {}
 
-    def get_token_from_cache(self, host: str) -> Optional[str]:
+    def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
         return self._cache.get(host)
 
-    def store_token_to_cache(self, host: str, token: str) -> None:
+    def store_token_to_cache(self, host: Optional[str], token: str) -> None:
         self._cache[host] = token
 
 
@@ -236,18 +236,18 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
     Keyring Token Cache implementation
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         try:
             self._keyring = importlib.import_module("keyring")
         except ImportError:
-            self._keyring = None
+            self._keyring = None  # type: ignore
             logger.info("keyring module not found. OAuth2 token will not be stored in keyring.")
 
     def is_keyring_available(self) -> bool:
         return self._keyring is not None
 
-    def get_token_from_cache(self, host: str) -> Optional[str]:
+    def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
         try:
             return self._keyring.get_password(host, "token")
         except self._keyring.errors.NoKeyringError as e:
@@ -255,7 +255,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
                                                      "detected, check https://pypi.org/project/keyring/ for more "
                                                      "information.") from e
 
-    def store_token_to_cache(self, host: str, token: str) -> None:
+    def store_token_to_cache(self, host: Optional[str], token: str) -> None:
         try:
             # keyring is installed, so we can store the token for reuse within multiple threads
             self._keyring.set_password(host, "token", token)
@@ -280,18 +280,18 @@ class _OAuth2TokenBearer(AuthBase):
         self._inside_oauth_attempt_lock = threading.Lock()
         self._inside_oauth_attempt_blocker = threading.Event()
 
-    def __call__(self, r):
+    def __call__(self, r: PreparedRequest) -> PreparedRequest:
         host = self._determine_host(r.url)
         token = self._get_token_from_cache(host)
 
         if token is not None:
             r.headers['Authorization'] = "Bearer " + token
 
-        r.register_hook('response', self._authenticate)
+        r.register_hook('response', self._authenticate)  # type: ignore
 
         return r
 
-    def _authenticate(self, response, **kwargs):
+    def _authenticate(self, response: Response, **kwargs: Any) -> Optional[Response]:
         if not 400 <= response.status_code < 500:
             return response
 
@@ -310,7 +310,7 @@ class _OAuth2TokenBearer(AuthBase):
 
         return self._retry_request(response, **kwargs)
 
-    def _attempt_oauth(self, response, **kwargs):
+    def _attempt_oauth(self, response: Response, **kwargs: Any) -> None:
         # we have to handle the authentication, may be token the token expired, or it wasn't there at all
         auth_info = response.headers.get('WWW-Authenticate')
         if not auth_info:
@@ -319,7 +319,8 @@ class _OAuth2TokenBearer(AuthBase):
         if not _OAuth2TokenBearer._BEARER_PREFIX.search(auth_info):
             raise exceptions.TrinoAuthError(f"Error: header info didn't match {auth_info}")
 
-        auth_info_headers = parse_dict_header(_OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))
+        auth_info_headers = parse_dict_header(
+            _OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))  # type: ignore
 
         auth_server = auth_info_headers.get('x_redirect_server')
         token_server = auth_info_headers.get('x_token_server')
@@ -341,23 +342,26 @@ class _OAuth2TokenBearer(AuthBase):
         host = self._determine_host(request.url)
         self._store_token_to_cache(host, token)
 
-    def _retry_request(self, response, **kwargs):
+    def _retry_request(self, response: Response, **kwargs: Any) -> Optional[Response]:
         request = response.request.copy()
-        extract_cookies_to_jar(request._cookies, response.request, response.raw)
-        request.prepare_cookies(request._cookies)
+        extract_cookies_to_jar(request._cookies, response.request, response.raw)  # type: ignore
+        request.prepare_cookies(request._cookies)  # type: ignore
 
         host = self._determine_host(response.request.url)
-        request.headers['Authorization'] = "Bearer " + self._get_token_from_cache(host)
-        retry_response = response.connection.send(request, **kwargs)
+        token = self._get_token_from_cache(host)
+        if token is not None:
+            request.headers['Authorization'] = "Bearer " + token
+        retry_response = response.connection.send(request, **kwargs)  # type: ignore
         retry_response.history.append(response)
         retry_response.request = request
         return retry_response
 
-    def _get_token(self, token_server, response, **kwargs):
+    def _get_token(self, token_server: str, response: Response, **kwargs: Any) -> str:
         attempts = 0
         while attempts < self.MAX_OAUTH_ATTEMPTS:
             attempts += 1
-            with response.connection.send(Request(method='GET', url=token_server).prepare(), **kwargs) as response:
+            with response.connection.send(Request(  # type: ignore
+                    method='GET', url=token_server).prepare(), **kwargs) as response:
                 if response.status_code == 200:
                     token_response = json.loads(response.text)
                     token = token_response.get('token')
@@ -377,53 +381,53 @@ class _OAuth2TokenBearer(AuthBase):
 
         raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
 
-    def _get_token_from_cache(self, host: str) -> Optional[str]:
+    def _get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
         with self._token_lock:
             return self._token_cache.get_token_from_cache(host)
 
-    def _store_token_to_cache(self, host: str, token: str) -> None:
+    def _store_token_to_cache(self, host: Optional[str], token: str) -> None:
         with self._token_lock:
             self._token_cache.store_token_to_cache(host, token)
 
     @staticmethod
-    def _determine_host(url) -> Optional[str]:
+    def _determine_host(url: Optional[str]) -> Any:
         return urlparse(url).hostname
 
 
 class OAuth2Authentication(Authentication):
-    def __init__(self, redirect_auth_url_handler=CompositeRedirectHandler([
+    def __init__(self, redirect_auth_url_handler: CompositeRedirectHandler = CompositeRedirectHandler([
         WebBrowserRedirectHandler(),
         ConsoleRedirectHandler()
     ])):
         self._redirect_auth_url = redirect_auth_url_handler
         self._bearer = _OAuth2TokenBearer(self._redirect_auth_url)
 
-    def set_http_session(self, http_session):
+    def set_http_session(self, http_session: Session) -> Session:
         http_session.auth = self._bearer
         return http_session
 
-    def get_exceptions(self):
+    def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, OAuth2Authentication):
             return False
         return self._redirect_auth_url == other._redirect_auth_url
 
 
 class CertificateAuthentication(Authentication):
-    def __init__(self, cert, key):
+    def __init__(self, cert: str, key: str):
         self._cert = cert
         self._key = key
 
-    def set_http_session(self, http_session):
+    def set_http_session(self, http_session: Session) -> Session:
         http_session.cert = (self._cert, self._key)
         return http_session
 
-    def get_exceptions(self):
+    def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, CertificateAuthentication):
             return False
         return self._cert == other._cert and self._key == other._key
