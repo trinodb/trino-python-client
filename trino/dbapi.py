@@ -170,9 +170,8 @@ class Connection(object):
             self.close()
 
     def close(self):
-        """Trino does not have anything to close"""
         # TODO cancel outstanding queries?
-        pass
+        self._http_session.close()
 
     def start_transaction(self):
         self._transaction = Transaction(self._create_request())
