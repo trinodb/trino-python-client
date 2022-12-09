@@ -21,7 +21,7 @@ import datetime
 import math
 import uuid
 from decimal import Decimal
-from typing import Any, List, Optional  # NOQA for mypy types
+from typing import Any, Dict, List, Optional  # NOQA for mypy types
 
 import trino.client
 import trino.exceptions
@@ -287,6 +287,12 @@ class Cursor(object):
     def stats(self):
         if self._query is not None:
             return self._query.stats
+        return None
+
+    @property
+    def query_id(self) -> Optional[str]:
+        if self._query is not None:
+            return self._query.query_id
         return None
 
     @property

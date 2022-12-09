@@ -77,6 +77,8 @@ def test_select_query(trino_connection):
     assert columns["node_version"] == "varchar"
     assert columns["coordinator"] == "boolean"
     assert columns["state"] == "varchar"
+    assert cur.query_id is not None
+    assert cur.stats is not None
 
 
 def test_select_query_result_iteration(trino_connection):
