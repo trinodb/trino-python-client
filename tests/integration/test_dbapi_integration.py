@@ -117,6 +117,12 @@ def test_none_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] is None
+    assert cur.description[0][1] == "unknown"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_string_query_param(trino_connection):
@@ -126,6 +132,12 @@ def test_string_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == "six'"
+    assert cur.description[0][1] == "varchar"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] == 4
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_execute_many(trino_connection):
@@ -231,10 +243,16 @@ def test_experimental_python_types_with_connection_and_cursor(
 def test_decimal_query_param(trino_connection):
     cur = trino_connection.cursor(experimental_python_types=True)
 
-    cur.execute("SELECT ?", params=(Decimal('0.142857'),))
+    cur.execute("SELECT ?", params=(Decimal('1112.142857'),))
     rows = cur.fetchall()
 
-    assert rows[0][0] == Decimal('0.142857')
+    assert rows[0][0] == Decimal('1112.142857')
+    assert cur.description[0][1] == "decimal"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] == 10
+    assert cur.description[0][5] == 6
+    assert cur.description[0][6] is None
 
 
 def test_null_decimal(trino_connection):
@@ -244,6 +262,13 @@ def test_null_decimal(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] is None
+    assert cur.description[0][0] is not None
+    assert cur.description[0][1] == "decimal"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] == 38
+    assert cur.description[0][5] == 0
+    assert cur.description[0][6] is None
 
 
 def test_biggest_decimal(trino_connection):
@@ -286,6 +311,11 @@ def test_datetime_query_param(trino_connection):
 
     assert rows[0][0] == params
     assert cur.description[0][1] == "timestamp"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_datetime_with_utc_time_zone_query_param(trino_connection):
@@ -298,6 +328,11 @@ def test_datetime_with_utc_time_zone_query_param(trino_connection):
 
     assert rows[0][0] == params
     assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
@@ -312,6 +347,11 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
 
     assert rows[0][0] == params
     assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_datetime_with_named_time_zone_query_param(trino_connection):
@@ -324,6 +364,11 @@ def test_datetime_with_named_time_zone_query_param(trino_connection):
 
     assert rows[0][0] == params
     assert cur.description[0][1] == "timestamp with time zone"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_datetime_with_trailing_zeros(trino_connection):
@@ -394,6 +439,12 @@ def test_date_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
+    assert cur.description[0][1] == "date"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_null_date(trino_connection):
@@ -403,6 +454,12 @@ def test_null_date(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] is None
+    assert cur.description[0][1] == "date"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_unsupported_python_dates(trino_connection):
@@ -461,6 +518,12 @@ def test_time_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == params
+    assert cur.description[0][1] == "time"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 def test_time_with_named_time_zone_query_param(trino_connection):
@@ -694,6 +757,11 @@ def test_float_nan_query_param(trino_connection):
     rows = cur.fetchall()
 
     assert cur.description[0][1] == "double"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
     assert isinstance(rows[0][0], float)
     assert math.isnan(rows[0][0])
 
@@ -718,12 +786,22 @@ def test_int_query_param(trino_connection):
 
     assert rows[0][0] == 3
     assert cur.description[0][1] == "integer"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
     cur.execute("SELECT ?", params=(9223372036854775807,))
     rows = cur.fetchall()
 
     assert rows[0][0] == 9223372036854775807
     assert cur.description[0][1] == "bigint"
+    assert cur.description[0][2] is None
+    assert cur.description[0][3] is None
+    assert cur.description[0][4] is None
+    assert cur.description[0][5] is None
+    assert cur.description[0][6] is None
 
 
 @pytest.mark.parametrize('params', [

@@ -50,3 +50,7 @@ HEADER_DEALLOCATED_PREPARE = 'X-Trino-Deallocated-Prepare'
 
 HEADER_SET_SCHEMA = "X-Trino-Set-Schema"
 HEADER_SET_CATALOG = "X-Trino-Set-Catalog"
+
+LENGTH_TYPES = ["varchar"]
+PRECISION_TYPES = ["time", "time with time zone", "timestamp", "timestamp with time zone", "decimal"]
+SCALE_TYPES = ["decimal"]
