@@ -53,3 +53,7 @@ HEADER_SET_SCHEMA = "X-Trino-Set-Schema"
 HEADER_SET_CATALOG = "X-Trino-Set-Catalog"
 
 HEADER_CLIENT_CAPABILITIES = "X-Trino-Client-Capabilities"
+
+LENGTH_TYPES = ["char", "varchar"]
+PRECISION_TYPES = ["time", "time with time zone", "timestamp", "timestamp with time zone", "decimal"]
+SCALE_TYPES = ["decimal"]
