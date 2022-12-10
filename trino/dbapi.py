@@ -28,6 +28,7 @@ import trino.client
 import trino.exceptions
 import trino.logging
 from trino import constants
+from trino.constants import LENGTH_TYPES, PRECISION_TYPES, SCALE_TYPES
 from trino.exceptions import (
     DatabaseError,
     DataError,
@@ -237,6 +238,31 @@ class DescribeOutput(NamedTuple):
         return cls(*row)
 
 
+class ColumnDescription(NamedTuple):
+    name: str
+    type_code: int
+    display_size: int
+    internal_size: int
+    precision: int
+    scale: int
+    null_ok: bool
+
+    @classmethod
+    def from_column(cls, column: Dict[str, Any]):
+        type_signature = column["typeSignature"]
+        raw_type = type_signature["rawType"]
+        arguments = type_signature["arguments"]
+        return cls(
+            column["name"],  # name
+            column["type"],  # type_code
+            None,  # display_size
+            arguments[0]["value"] if raw_type in LENGTH_TYPES else None,  # internal_size
+            arguments[0]["value"] if raw_type in PRECISION_TYPES else None,  # precision
+            arguments[1]["value"] if raw_type in SCALE_TYPES else None,  # scale
+            None  # null_ok
+        )
+
+
 class Cursor(object):
     """Database cursor.
 
@@ -278,14 +304,13 @@ class Cursor(object):
         return None
 
     @property
-    def description(self):
+    def description(self) -> List[ColumnDescription]:
         if self._query.columns is None:
             return None
 
         # [ (name, type_code, display_size, internal_size, precision, scale, null_ok) ]
         return [
-            (col["name"], col["type"], None, None, None, None, None)
-            for col in self._query.columns
+            ColumnDescription.from_column(col) for col in self._query.columns
         ]
 
     @property
