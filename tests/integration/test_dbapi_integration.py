@@ -533,6 +533,25 @@ def test_null_date_with_time_zone(trino_connection):
     assert rows[0][0] is None
 
 
+@pytest.mark.parametrize(
+    "binary_input",
+    [
+        bytearray("a", "utf-8"),
+        bytearray("a", "ascii"),
+        bytearray(b'\x00\x00\x00\x00'),
+        bytearray(4),
+        bytearray([1, 2, 3]),
+    ],
+)
+def test_binary_query_param(trino_connection, binary_input):
+    cur = trino_connection.cursor(experimental_python_types=True)
+
+    cur.execute("SELECT ?", params=(binary_input,))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == binary_input
+
+
 def test_array_query_param(trino_connection):
     cur = trino_connection.cursor()
 

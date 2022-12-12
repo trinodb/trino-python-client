@@ -17,6 +17,7 @@ https://www.python.org/dev/peps/pep-0249/ .
 Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
+import binascii
 import datetime
 import math
 import uuid
@@ -399,6 +400,9 @@ class Cursor(object):
 
         if isinstance(param, Decimal):
             return "DECIMAL '%s'" % param
+
+        if isinstance(param, (bytes, bytearray)):
+            return "X'%s'" % binascii.hexlify(param).decode("utf-8")
 
         raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 

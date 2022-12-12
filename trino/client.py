@@ -35,6 +35,7 @@ The main interface is :class:`TrinoQuery`: ::
 from __future__ import annotations
 
 import abc
+import base64
 import copy
 import functools
 import os
@@ -1072,6 +1073,13 @@ class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
         ).round_to(self.precision).to_python_type()
 
 
+class BinaryValueMapper(ValueMapper[bytes]):
+    def map(self, value) -> Optional[bytes]:
+        if value is None:
+            return None
+        return base64.b64decode(value.encode("utf8"))
+
+
 class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
     def __init__(self, mapper: ValueMapper[Any]):
         self.mapper = mapper
@@ -1157,6 +1165,8 @@ class RowMapperFactory:
             return TimeValueMapper(self._get_precision(column))
         elif col_type == 'date':
             return DateValueMapper()
+        elif col_type == 'varbinary':
+            return BinaryValueMapper()
         else:
             return NoOpValueMapper()
 

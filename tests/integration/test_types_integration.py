@@ -121,10 +121,9 @@ def test_char(trino_connection):
 
 def test_varbinary(trino_connection):
     SqlTest(trino_connection) \
-        .add_field(sql="X'65683F'", python='ZWg/') \
-        .add_field(sql="X''", python='') \
-        .add_field(sql="CAST('' AS VARBINARY)", python='') \
-        .add_field(sql="from_utf8(CAST('😂😂😂😂😂😂' AS VARBINARY))", python='😂😂😂😂😂😂') \
+        .add_field(sql="X'65683F'", python=b'eh?') \
+        .add_field(sql="X''", python=b'') \
+        .add_field(sql="CAST('' AS VARBINARY)", python=b'') \
         .add_field(sql="CAST(null AS VARBINARY)", python=None) \
         .execute()
 
