@@ -24,6 +24,8 @@ jobs:
 
       - name: "Install Python"
         uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
       - name: "Install pre-commit"
         run: pip install pre-commit
@@ -41,8 +43,9 @@ jobs:
           "3.8",
           "3.9",
           "3.10",
-          "pypy-3.7",
+          "3.11",
           "pypy-3.8",
+          "pypy-3.9",
         ]
         trino: [
           "latest",
@@ -52,9 +55,9 @@ jobs:
         ]
         include:
           # Test with older Trino versions for backward compatibility
-          - { python: "3.10", trino: "351", sqlalchemy: "~=1.4.0" }  # first Trino version
+          - { python: "3.11", trino: "351", sqlalchemy: "~=1.4.0" }  # first Trino version
           # Test with sqlalchemy 1.3
-          - { python: "3.10", trino: "latest", sqlalchemy: "~=1.3.0" }
+          - { python: "3.11", trino: "latest", sqlalchemy: "~=1.3.0" }
     env:
       TRINO_VERSION: "${{ matrix.trino }}"
     steps:
