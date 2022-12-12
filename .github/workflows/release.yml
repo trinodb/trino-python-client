@@ -24,10 +24,14 @@ jobs:
 
       - name: Set release version
         run: |
-          echo "VERSION_NUMBER=$(./setup.py --version)" >> $GITHUB_ENV
-          echo "NEXT_VERSION_NUMBER=$(echo ${{ env.VERSION_NUMBER }} | awk -F. -v OFS=. '{$2 += 1 ; print}')" >> $GITHUB_ENV
-          echo Next version number: ${{ env.NEXT_VERSION_NUMBER }}
-          sed -i 's/${{ env.VERSION_NUMBER }}/${{ env.NEXT_VERSION_NUMBER }}/' trino/__init__.py
+          VERSION_NUMBER="$(./setup.py --version)"
+          NEXT_VERSION_NUMBER="$(echo ${VERSION_NUMBER} | awk -F. -v OFS=. '{$2 += 1 ; print}')"
+          echo "Current version: ${VERSION_NUMBER}; Next version number: ${NEXT_VERSION_NUMBER}"
+          sed -i "s/${VERSION_NUMBER}/${NEXT_VERSION_NUMBER}/g" trino/__init__.py
+
+          # Export for use in next steps
+          echo "VERSION_NUMBER=${VERSION_NUMBER}" >> $GITHUB_ENV
+          echo "NEXT_VERSION_NUMBER=${NEXT_VERSION_NUMBER}" >> $GITHUB_ENV
 
       - name: Prepare release
         run: |
