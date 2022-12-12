@@ -54,6 +54,8 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: |
+          # twin is installed in the venv in "Test release"
+          . .venv/bin/activate
           twine upload --non-interactive dist/trino-${{env.NEXT_VERSION_NUMBER}}-py3-none-any.whl dist/trino-${{env.NEXT_VERSION_NUMBER}}.tar.gz
 
       - name: Finalize release
