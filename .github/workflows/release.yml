@@ -60,4 +60,4 @@ jobs:
 
       - name: Finalize release
         run: |
-          git push origin master "${{ env.NEXT_VERSION_NUMBER }}""
+          git push origin master "${{ env.NEXT_VERSION_NUMBER }}"
