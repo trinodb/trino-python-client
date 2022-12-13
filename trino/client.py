@@ -850,7 +850,7 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
 class ValueMapper(abc.ABC, Generic[T]):
     @abc.abstractmethod
     def map(self, value: Any) -> Optional[T]:
-        pass
+        raise NotImplementedError
 
 
 class NoOpValueMapper(ValueMapper[Any]):
@@ -900,11 +900,11 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def new_instance(self, value: PythonTemporalType, fraction: Decimal) -> TemporalType[PythonTemporalType]:
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def to_python_type(self) -> PythonTemporalType:
-        pass
+        raise NotImplementedError
 
     def round_to(self, precision: int) -> TemporalType:
         """
@@ -930,7 +930,7 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
         """
             This method shall be overriden to implement fraction arithmetics.
         """
-        pass
+        raise NotImplementedError
 
     def normalize(self, value: PythonTemporalType) -> PythonTemporalType:
         """
