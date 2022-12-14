@@ -22,7 +22,7 @@ import datetime
 import math
 import uuid
 from decimal import Decimal
-from typing import Any, Dict, List, Optional  # NOQA for mypy types
+from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
 
 import trino.client
 import trino.exceptions
@@ -221,6 +221,20 @@ class Connection(object):
             # if experimental_python_types is not explicitly set in Cursor, take from Connection
             experimental_python_types if experimental_python_types is not None else self.experimental_python_types
         )
+
+
+class DescribeOutput(NamedTuple):
+    name: str
+    catalog: str
+    schema: str
+    table: str
+    type: str
+    type_size: int
+    aliased: bool
+
+    @classmethod
+    def from_row(cls, row: List[Any]):
+        return cls(*row)
 
 
 class Cursor(object):
@@ -522,6 +536,28 @@ class Cursor(object):
             result.append(row)
 
         return result
+
+    def describe(self, sql: str) -> List[DescribeOutput]:
+        """
+        List the output columns of a SQL statement, including the column name (or alias), catalog, schema, table, type,
+        type size in bytes, and a boolean indicating if the column is aliased.
+
+        :param sql: SQL statement
+        """
+        statement_name = self._generate_unique_statement_name()
+        self._prepare_statement(sql, statement_name)
+        try:
+            sql = f"DESCRIBE OUTPUT {statement_name}"
+            self._query = trino.client.TrinoQuery(
+                self._request,
+                sql=sql,
+                experimental_python_types=self._experimental_pyton_types,
+            )
+            result = self._query.execute()
+        finally:
+            self._deallocate_prepared_statement(statement_name)
+
+        return list(map(lambda x: DescribeOutput.from_row(x), result))
 
     def genall(self):
         return self._query.result

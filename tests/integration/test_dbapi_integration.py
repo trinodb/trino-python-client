@@ -21,6 +21,7 @@ from tzlocal import get_localzone_name  # type: ignore
 import trino
 from tests.integration.conftest import trino_version
 from trino import constants
+from trino.dbapi import DescribeOutput
 from trino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
 from trino.transaction import IsolationLevel
 
@@ -1155,3 +1156,69 @@ def test_connection_without_timezone(run_trino):
     assert session_tz == localzone or \
         (session_tz == "UTC" and localzone == "Etc/UTC") \
         # Workaround for difference between Trino timezone and tzlocal for UTC
+
+
+def test_describe(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch",
+    )
+    cur = trino_connection.cursor()
+
+    result = cur.describe("SELECT 1, DECIMAL '1.0' as a")
+
+    assert result == [
+        DescribeOutput(name='_col0', catalog='', schema='', table='', type='integer', type_size=4, aliased=False),
+        DescribeOutput(name='a', catalog='', schema='', table='', type='decimal(2,1)', type_size=8, aliased=True)
+    ]
+
+
+def test_describe_table_query(run_trino):
+    _, host, port = run_trino
+
+    trino_connection = trino.dbapi.Connection(
+        host=host, port=port, user="test", catalog="tpch",
+    )
+    cur = trino_connection.cursor()
+
+    result = cur.describe("SELECT * from tpch.tiny.nation")
+
+    assert result == [
+        DescribeOutput(
+            name='nationkey',
+            catalog='tpch',
+            schema='tiny',
+            table='nation',
+            type='bigint',
+            type_size=8,
+            aliased=False,
+        ),
+        DescribeOutput(
+            name='name',
+            catalog='tpch',
+            schema='tiny',
+            table='nation',
+            type='varchar(25)',
+            type_size=0,
+            aliased=False,
+        ),
+        DescribeOutput(
+            name='regionkey',
+            catalog='tpch',
+            schema='tiny',
+            table='nation',
+            type='bigint',
+            type_size=8,
+            aliased=False,
+        ),
+        DescribeOutput(
+            name='comment',
+            catalog='tpch',
+            schema='tiny',
+            table='nation',
+            type='varchar(152)',
+            type_size=0,
+            aliased=False,
+        )
+    ]
