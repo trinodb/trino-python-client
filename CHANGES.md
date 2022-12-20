@@ -6,6 +6,43 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.321.0
+
+* Add support for SQLAlchemy 2.0.
+  ([#307](https://github.com/trinodb/trino-python-client/issues/307))
+* Add support for `varbinary` query parameters.
+  ([#299](https://github.com/trinodb/trino-python-client/issues/299))
+* Add `Cursor.describe` method to return some metadata about the results of a
+  query.
+  ([#302](https://github.com/trinodb/trino-python-client/issues/302))
+* Add `internal_size`, `precision` and `scale` in `Cursor.description`.
+  ([#315](https://github.com/trinodb/trino-python-client/issues/315))
+* Add support for chaining methods on `Cursor.execute`.
+  ([#279](https://github.com/trinodb/trino-python-client/issues/279))
+* Fix bug where passing `roles` to `Connection` did not enable the provided roles.
+  ([#311](https://github.com/trinodb/trino-python-client/issues/311))
+
+### Breaking Changes
+
+* The client now maps query results to Python types by default. In older
+  versions this could be enabled explicitly by passing
+  `experimental_python_types=True` to the `trino.dbapi.connect` method. To
+  restore the old behaviour of mapping results to primitive types you can pass
+  `legacy_primitive_types=True` to the `trino.dbapi.connect` method. See the
+  [documentation](https://github.com/trinodb/trino-python-client#legacy-primitive-types)
+  to learn more.
+  ([#305](https://github.com/trinodb/trino-python-client/issues/305))
+* Add support for setting the session timezone. When not set explicitly it
+  defaults to the client side local timezone. This changes the behaviour of the
+  client in backward-incompatible way. To preserve the behaviour from client
+  versions older than 0.321.0 you can explicitly pass `timezone='UTC'` to
+  `trino.dbapi.connect` when creating the connection.
+  ([#27](https://github.com/trinodb/trino-python-client/issues/27))
+* Add support for variable precision datetime types. This change makes temporal
+  types contain the correct precision as computed by Trino instead of being
+  always limited to millisecond precision.
+  ([#300](https://github.com/trinodb/trino-python-client/issues/300))
+
 ## Release 0.320.0
 
 * Fix handling of expired access tokens when using OAuth 2 authentication.
