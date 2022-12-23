@@ -109,7 +109,7 @@ class Connection(object):
         verify=True,
         http_session=None,
         client_tags=None,
-        experimental_python_types=False,
+        legacy_primitive_types=False,
         roles=None,
         timezone=None,
     ):
@@ -151,7 +151,7 @@ class Connection(object):
         self._isolation_level = isolation_level
         self._request = None
         self._transaction = None
-        self.experimental_python_types = experimental_python_types
+        self.legacy_primitive_types = legacy_primitive_types
 
     @property
     def isolation_level(self):
@@ -206,7 +206,7 @@ class Connection(object):
             self.request_timeout,
         )
 
-    def cursor(self, experimental_python_types: bool = None):
+    def cursor(self, legacy_primitive_types: bool = None):
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
@@ -218,8 +218,8 @@ class Connection(object):
         return Cursor(
             self,
             request,
-            # if experimental_python_types is not explicitly set in Cursor, take from Connection
-            experimental_python_types if experimental_python_types is not None else self.experimental_python_types
+            # if legacy_primitive_types is not explicitly set in Cursor, take from Connection
+            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
         )
 
 
@@ -245,7 +245,7 @@ class Cursor(object):
 
     """
 
-    def __init__(self, connection, request, experimental_python_types: bool = False):
+    def __init__(self, connection, request, legacy_primitive_types: bool = False):
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -256,7 +256,7 @@ class Cursor(object):
         self.arraysize = 1
         self._iterator = None
         self._query = None
-        self._experimental_pyton_types = experimental_python_types
+        self._legacy_primitive_types = legacy_primitive_types
 
     def __iter__(self):
         return self._iterator
@@ -333,7 +333,7 @@ class Cursor(object):
         """
         sql = f"PREPARE {name} FROM {statement}"
         query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
-                                        experimental_python_types=self._experimental_pyton_types)
+                                        legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
     def _execute_prepared_statement(
@@ -342,7 +342,7 @@ class Cursor(object):
         params
     ):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
-        return trino.client.TrinoQuery(self._request, sql=sql, experimental_python_types=self._experimental_pyton_types)
+        return trino.client.TrinoQuery(self._request, sql=sql, legacy_primitive_types=self._legacy_primitive_types)
 
     def _format_prepared_param(self, param):
         """
@@ -423,7 +423,7 @@ class Cursor(object):
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = 'DEALLOCATE PREPARE ' + statement_name
         query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
-                                        experimental_python_types=self._experimental_pyton_types)
+                                        legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
     def _generate_unique_statement_name(self):
@@ -455,7 +455,7 @@ class Cursor(object):
 
         else:
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
-                                                  experimental_python_types=self._experimental_pyton_types)
+                                                  legacy_primitive_types=self._legacy_primitive_types)
             result = self._query.execute()
         self._iterator = iter(result)
         return result
@@ -551,7 +551,7 @@ class Cursor(object):
             self._query = trino.client.TrinoQuery(
                 self._request,
                 sql=sql,
-                experimental_python_types=self._experimental_pyton_types,
+                legacy_primitive_types=self._legacy_primitive_types,
             )
             result = self._query.execute()
         finally:

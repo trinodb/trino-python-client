@@ -723,7 +723,7 @@ class TrinoQuery(object):
             self,
             request: TrinoRequest,
             sql: str,
-            experimental_python_types: bool = False,
+            legacy_primitive_types: bool = False,
     ) -> None:
         self.query_id: Optional[str] = None
 
@@ -737,7 +737,7 @@ class TrinoQuery(object):
         self._update_type = None
         self._sql = sql
         self._result: Optional[TrinoResult] = None
-        self._experimental_python_types = experimental_python_types
+        self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
 
     @property
@@ -803,7 +803,7 @@ class TrinoQuery(object):
         self._update_type = status.update_type
         if not self._row_mapper and status.columns:
             self._row_mapper = RowMapperFactory().create(columns=status.columns,
-                                                         experimental_python_types=self._experimental_python_types)
+                                                         legacy_primitive_types=self._legacy_primitive_types)
         if status.columns:
             self._columns = status.columns
 
@@ -1130,7 +1130,7 @@ class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
 class NoOpRowMapper:
     """
     No-op RowMapper which does not perform any transformation
-    Used when experimental_python_types is False.
+    Used when legacy_primitive_types is False.
     """
 
     def map(self, rows):
@@ -1145,10 +1145,10 @@ class RowMapperFactory:
     """
     NO_OP_ROW_MAPPER = NoOpRowMapper()
 
-    def create(self, columns, experimental_python_types):
+    def create(self, columns, legacy_primitive_types):
         assert columns is not None
 
-        if experimental_python_types:
+        if not legacy_primitive_types:
             return RowMapper([self._create_value_mapper(column['typeSignature']) for column in columns])
         return RowMapperFactory.NO_OP_ROW_MAPPER
 

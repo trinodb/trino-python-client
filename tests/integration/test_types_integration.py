@@ -795,7 +795,7 @@ def test_digest(trino_connection):
 
 class SqlTest:
     def __init__(self, trino_connection):
-        self.cur = trino_connection.cursor(experimental_python_types=True)
+        self.cur = trino_connection.cursor(legacy_primitive_types=False)
         self.sql_args = []
         self.expected_result = []
 
@@ -825,7 +825,7 @@ class SqlTest:
 
 class SqlExpectFailureTest:
     def __init__(self, trino_connection):
-        self.cur = trino_connection.cursor(experimental_python_types=True)
+        self.cur = trino_connection.cursor(legacy_primitive_types=False)
 
     def execute(self, field):
         sql = 'SELECT ' + field

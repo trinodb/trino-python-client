@@ -125,8 +125,8 @@ class TrinoDialect(DefaultDialect):
         if "client_tags" in url.query:
             kwargs["client_tags"] = json.loads(unquote_plus(url.query["client_tags"]))
 
-        if "experimental_python_types" in url.query:
-            kwargs["experimental_python_types"] = json.loads(unquote_plus(url.query["experimental_python_types"]))
+        if "legacy_primitive_types" in url.query:
+            kwargs["legacy_primitive_types"] = json.loads(unquote_plus(url.query["legacy_primitive_types"]))
 
         if "verify" in url.query:
             kwargs["verify"] = json.loads(unquote_plus(url.query["verify"]))

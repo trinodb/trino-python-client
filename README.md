@@ -116,7 +116,6 @@ engine = create_engine(
     connect_args={
       "session_properties": {'query_max_run_time': '1d'},
       "client_tags": ["tag1", "tag2"],
-      "experimental_python_types": True,
       "roles": {"catalog1": "role1"},
     }
 )
@@ -126,7 +125,6 @@ engine = create_engine(
     'trino://user@localhost:8080/system?'
     'session_properties={"query_max_run_time": "1d"}'
     '&client_tags=["tag1", "tag2"]'
-    '&experimental_python_types=true'
     '&roles={"catalog1": "role1"}'
 )
 
@@ -134,8 +132,7 @@ engine = create_engine(
 engine = create_engine(URL(
   host="localhost",
   port=8080,
-  client_tags=["tag1", "tag2"],
-  experimental_python_types=True
+  client_tags=["tag1", "tag2"]
 ))
 ```
 
@@ -440,35 +437,33 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
-## Improved Python types
+## Legacy Primitive types
 
-If you enable the flag `experimental_python_types`, the client will convert the results of the query to the 
+By default, the client will convert the results of the query to the
 corresponding Python types. For example, if the query returns a `DECIMAL` column, the result will be a `Decimal` object.
+If you want to disable this behaviour, set flag `legacy_primitive_types` to `True`.
 
 Limitations of the Python types are described in the 
 [Python types documentation](https://docs.python.org/3/library/datatypes.html). These limitations will generate an 
-exception `trino.exceptions.DataError` if the query returns a value that cannot be converted to the corresponding Python 
+exception `trino.exceptions.TrinoDataError` if the query returns a value that cannot be converted to the corresponding Python 
 type.
 
 ```python
 import trino
-import pytz
-from datetime import datetime
 
 conn = trino.dbapi.connect(
-    experimental_python_types=True,
+    legacy_primitive_types=True,
     ...
 )
 
 cur = conn.cursor()
-
-params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
-
-cur.execute("SELECT ?", params=(params,))
+# Negative DATE cannot be represented with Python types
+# legacy_primitive_types needs to be enabled
+cur.execute("SELECT DATE '-2001-08-22'")
 rows = cur.fetchall()
 
-assert rows[0][0] == params
-assert cur.description[0][1] == "timestamp with time zone"
+assert rows[0][0] == "-2001-08-22"
+assert cur.description[0][1] == "date"
 ```
 
 # Need help?
