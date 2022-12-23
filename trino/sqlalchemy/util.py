@@ -22,7 +22,7 @@ def _url(
     http_headers: Dict[str, Union[str, int]] = None,
     extra_credential: Optional[List[Tuple[str, str]]] = None,
     client_tags: Optional[List[str]] = None,
-    experimental_python_types: Optional[bool] = None,
+    legacy_primitive_types: Optional[bool] = None,
     access_token: Optional[str] = None,
     cert: Optional[str] = None,
     key: Optional[str] = None,
@@ -82,8 +82,8 @@ def _url(
     if client_tags is not None:
         trino_url += f"&client_tags={quote_plus(json.dumps(client_tags))}"
 
-    if experimental_python_types is not None:
-        trino_url += f"&experimental_python_types={json.dumps(experimental_python_types)}"
+    if legacy_primitive_types is not None:
+        trino_url += f"&legacy_primitive_types={json.dumps(legacy_primitive_types)}"
 
     if access_token is not None:
         trino_url += f"&access_token={quote_plus(access_token)}"

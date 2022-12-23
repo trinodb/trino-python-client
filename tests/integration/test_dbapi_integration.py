@@ -171,22 +171,11 @@ def test_execute_many_select(trino_connection):
     assert "Query must return update type" in str(e.value)
 
 
-@pytest.mark.parametrize("connection_experimental_python_types,cursor_experimental_python_types,expected",
-                         [
-                             (None, None, False),
-                             (None, False, False),
-                             (None, True, True),
-                             (False, None, False),
-                             (False, False, False),
-                             (False, True, True),
-                             (True, None, True),
-                             (True, False, False),
-                             (True, True, True),
-                         ])
-def test_experimental_python_types_with_connection_and_cursor(
-        connection_experimental_python_types,
-        cursor_experimental_python_types,
-        expected,
+@pytest.mark.parametrize("connection_legacy_primitive_types", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_primitive_types", [None, True, False])
+def test_legacy_primitive_types_with_connection_and_cursor(
+        connection_legacy_primitive_types,
+        cursor_legacy_primitive_types,
         run_trino
 ):
     _, host, port = run_trino
@@ -195,12 +184,22 @@ def test_experimental_python_types_with_connection_and_cursor(
         host=host,
         port=port,
         user="test",
-        experimental_python_types=connection_experimental_python_types,
+        legacy_primitive_types=connection_legacy_primitive_types,
     )
 
-    cur = connection.cursor(experimental_python_types=cursor_experimental_python_types)
+    cur = connection.cursor(legacy_primitive_types=cursor_legacy_primitive_types)
 
-    cur.execute("""
+    # If legacy_primitive_types is passed to cursor, take value from it.
+    # If not, take value from legacy_primitive_types passed to connection.
+    # If legacy_primitive_types is not passed to cursor nor connection, default to False.
+    if cursor_legacy_primitive_types is not None:
+        expected_legacy_primitive_types = cursor_legacy_primitive_types
+    elif connection_legacy_primitive_types is not None:
+        expected_legacy_primitive_types = connection_legacy_primitive_types
+    else:
+        expected_legacy_primitive_types = False
+
+    test_query = """
     SELECT
         DECIMAL '0.142857',
         DATE '2018-01-01',
@@ -208,10 +207,17 @@ def test_experimental_python_types_with_connection_and_cursor(
         TIMESTAMP '2019-01-01 00:00:00.000 UTC',
         TIMESTAMP '2019-01-01 00:00:00.000',
         TIME '00:00:00.000'
-    """)
+    """
+    # Check values which cannot be represented by Python types
+    if expected_legacy_primitive_types:
+        test_query += """
+        ,DATE '-2001-08-22'
+        """
+    cur.execute(test_query)
     rows = cur.fetchall()
 
-    if expected:
+    if not expected_legacy_primitive_types:
+        assert len(rows[0]) == 6
         assert rows[0][0] == Decimal('0.142857')
         assert rows[0][1] == date(2018, 1, 1)
         assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
@@ -222,16 +228,18 @@ def test_experimental_python_types_with_connection_and_cursor(
         for value in rows[0]:
             assert isinstance(value, str)
 
+        assert len(rows[0]) == 7
         assert rows[0][0] == '0.142857'
         assert rows[0][1] == '2018-01-01'
         assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
         assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
         assert rows[0][4] == '2019-01-01 00:00:00.000'
         assert rows[0][5] == '00:00:00.000'
+        assert rows[0][6] == '-2001-08-22'
 
 
 def test_decimal_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT ?", params=(Decimal('0.142857'),))
     rows = cur.fetchall()
@@ -240,7 +248,7 @@ def test_decimal_query_param(trino_connection):
 
 
 def test_null_decimal(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT CAST(NULL AS DECIMAL)")
     rows = cur.fetchall()
@@ -249,7 +257,7 @@ def test_null_decimal(trino_connection):
 
 
 def test_biggest_decimal(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = Decimal('99999999999999999999999999999999999999')
     cur.execute("SELECT ?", params=(params,))
@@ -259,7 +267,7 @@ def test_biggest_decimal(trino_connection):
 
 
 def test_smallest_decimal(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = Decimal('-99999999999999999999999999999999999999')
     cur.execute("SELECT ?", params=(params,))
@@ -269,7 +277,7 @@ def test_smallest_decimal(trino_connection):
 
 
 def test_highest_precision_decimal(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = Decimal('0.99999999999999999999999999999999999999')
     cur.execute("SELECT ?", params=(params,))
@@ -279,7 +287,7 @@ def test_highest_precision_decimal(trino_connection):
 
 
 def test_datetime_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = datetime(2020, 1, 1, 16, 43, 22, 320000)
 
@@ -291,7 +299,7 @@ def test_datetime_query_param(trino_connection):
 
 
 def test_datetime_with_utc_time_zone_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('UTC'))
 
@@ -303,7 +311,7 @@ def test_datetime_with_utc_time_zone_query_param(trino_connection):
 
 
 def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     tz = timezone(-timedelta(hours=5, minutes=30))
 
@@ -317,7 +325,7 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
 
 
 def test_datetime_with_named_time_zone_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
 
@@ -329,7 +337,7 @@ def test_datetime_with_named_time_zone_query_param(trino_connection):
 
 
 def test_datetime_with_trailing_zeros(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT TIMESTAMP '2001-08-22 03:04:05.321000'")
     rows = cur.fetchall()
@@ -338,7 +346,7 @@ def test_datetime_with_trailing_zeros(trino_connection):
 
 
 def test_null_datetime_with_time_zone(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT CAST(NULL AS TIMESTAMP WITH TIME ZONE)")
     rows = cur.fetchall()
@@ -347,7 +355,7 @@ def test_null_datetime_with_time_zone(trino_connection):
 
 
 def test_datetime_with_time_zone_numeric_offset(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT TIMESTAMP '2001-08-22 03:04:05.321 -08:00'")
     rows = cur.fetchall()
@@ -356,7 +364,7 @@ def test_datetime_with_time_zone_numeric_offset(trino_connection):
 
 
 def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     # This is a datetime that lies within a DST transition and not actually exists.
     params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=pytz.timezone('Europe/Brussels'))
@@ -368,7 +376,7 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
 def test_doubled_datetimes(trino_connection):
     # Trino doesn't distinguish between doubled datetimes that lie within a DST transition. See also
     # See also https://github.com/trinodb/trino/issues/5781
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0), is_dst=True)
 
@@ -377,7 +385,7 @@ def test_doubled_datetimes(trino_connection):
 
     assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
 
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0), is_dst=False)
 
@@ -388,7 +396,7 @@ def test_doubled_datetimes(trino_connection):
 
 
 def test_date_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = datetime(2020, 1, 1, 0, 0, 0).date()
 
@@ -399,7 +407,7 @@ def test_date_query_param(trino_connection):
 
 
 def test_null_date(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT CAST(NULL AS DATE)")
     rows = cur.fetchall()
@@ -408,7 +416,7 @@ def test_null_date(trino_connection):
 
 
 def test_unsupported_python_dates(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     # dates below python min (1-1-1) or above max date (9999-12-31) are not supported
     for unsupported_date in [
@@ -424,7 +432,7 @@ def test_unsupported_python_dates(trino_connection):
 
 
 def test_supported_special_dates_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     for params in (
             # min python date
@@ -455,7 +463,7 @@ def test_supported_special_dates_query_param(trino_connection):
 
 
 def test_time_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = time(12, 3, 44, 333000)
 
@@ -486,7 +494,7 @@ def test_time_with_numeric_offset_time_zone_query_param(trino_connection):
 
 
 def test_time(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT TIME '01:02:03.456'")
     rows = cur.fetchall()
@@ -495,7 +503,7 @@ def test_time(trino_connection):
 
 
 def test_null_time(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT CAST(NULL AS TIME)")
     rows = cur.fetchall()
@@ -504,7 +512,7 @@ def test_null_time(trino_connection):
 
 
 def test_time_with_time_zone_negative_offset(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT TIME '01:02:03.456 -08:00'")
     rows = cur.fetchall()
@@ -515,7 +523,7 @@ def test_time_with_time_zone_negative_offset(trino_connection):
 
 
 def test_time_with_time_zone_positive_offset(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT TIME '01:02:03.456 +08:00'")
     rows = cur.fetchall()
@@ -526,7 +534,7 @@ def test_time_with_time_zone_positive_offset(trino_connection):
 
 
 def test_null_date_with_time_zone(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT CAST(NULL AS TIME WITH TIME ZONE)")
     rows = cur.fetchall()
@@ -545,7 +553,7 @@ def test_null_date_with_time_zone(trino_connection):
     ],
 )
 def test_binary_query_param(trino_connection, binary_input):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     cur.execute("SELECT ?", params=(binary_input,))
     rows = cur.fetchall()
@@ -573,7 +581,7 @@ def test_array_query_param(trino_connection):
 
 
 def test_array_none_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = [None, None]
 
@@ -589,7 +597,7 @@ def test_array_none_query_param(trino_connection):
 
 
 def test_array_none_and_another_type_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = [None, 1]
 
@@ -605,7 +613,7 @@ def test_array_none_and_another_type_query_param(trino_connection):
 
 
 def test_array_timestamp_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = [datetime(2020, 1, 1, 0, 0, 0), datetime(2020, 1, 2, 0, 0, 0)]
 
@@ -621,7 +629,7 @@ def test_array_timestamp_query_param(trino_connection):
 
 
 def test_array_timestamp_with_timezone_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = [datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.utc), datetime(2020, 1, 2, 0, 0, 0, tzinfo=pytz.utc)]
 
@@ -651,7 +659,7 @@ def test_dict_query_param(trino_connection):
 
 
 def test_dict_timestamp_query_param_types(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
 
     params = {"foo": datetime(2020, 1, 1, 16, 43, 22, 320000)}
     cur.execute("SELECT ?", params=(params,))
@@ -675,7 +683,7 @@ def test_boolean_query_param(trino_connection):
 
 
 def test_row(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
     params = (1, Decimal("2.0"), datetime(2020, 1, 1, 0, 0, 0))
     cur.execute("SELECT ?", (params,))
     rows = cur.fetchall()
@@ -684,7 +692,7 @@ def test_row(trino_connection):
 
 
 def test_nested_row(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
     params = ((1, "test", Decimal("3.1")), Decimal("2.0"), datetime(2020, 1, 1, 0, 0, 0))
     cur.execute("SELECT ?", (params,))
     rows = cur.fetchall()
@@ -693,7 +701,7 @@ def test_nested_row(trino_connection):
 
 
 def test_named_row(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
     cur.execute("SELECT CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE))")
     rows = cur.fetchall()
 
@@ -710,7 +718,7 @@ def test_float_query_param(trino_connection):
 
 
 def test_float_nan_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(float("nan"),))
     rows = cur.fetchall()
 
@@ -720,7 +728,7 @@ def test_float_nan_query_param(trino_connection):
 
 
 def test_float_inf_query_param(trino_connection):
-    cur = trino_connection.cursor(experimental_python_types=True)
+    cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(float("inf"),))
     rows = cur.fetchall()
 
