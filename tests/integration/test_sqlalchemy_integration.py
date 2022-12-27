@@ -374,11 +374,11 @@ def test_get_table_comment(trino_connection):
 @pytest.mark.parametrize('schema', [None, 'test'])
 def test_get_table_names(trino_connection, schema):
     engine, conn = trino_connection
-    name = schema or engine.dialect._get_default_schema_name(conn)
-    metadata = sqla.MetaData(schema=name)
+    schema_name = schema or engine.dialect._get_default_schema_name(conn)
+    metadata = sqla.MetaData(schema=schema_name)
 
-    if not engine.dialect.has_schema(conn, name):
-        engine.execute(sqla.schema.CreateSchema(name))
+    if not engine.dialect.has_schema(conn, schema_name):
+        engine.execute(sqla.schema.CreateSchema(schema_name))
 
     try:
         sqla.Table(
@@ -387,9 +387,9 @@ def test_get_table_names(trino_connection, schema):
             sqla.Column('id', sqla.Integer),
         )
         metadata.create_all(engine)
-        view_name = name + ".test_view"
+        view_name = schema_name + ".test_view"
         conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM test_get_table_names")
-        assert sqla.inspect(engine).get_table_names(name) == ['test_get_table_names']
+        assert sqla.inspect(engine).get_table_names(schema_name) == ['test_get_table_names']
     finally:
         conn.execute(f"DROP VIEW IF EXISTS {view_name}")
         metadata.drop_all(engine)
@@ -407,11 +407,11 @@ def test_get_table_names_raises(trino_connection):
 @pytest.mark.parametrize('schema', [None, 'test'])
 def test_get_view_names(trino_connection, schema):
     engine, conn = trino_connection
-    name = schema or engine.dialect._get_default_schema_name(conn)
-    metadata = sqla.MetaData(schema=name)
+    schema_name = schema or engine.dialect._get_default_schema_name(conn)
+    metadata = sqla.MetaData(schema=schema_name)
 
-    if not engine.dialect.has_schema(conn, name):
-        engine.execute(sqla.schema.CreateSchema(name))
+    if not engine.dialect.has_schema(conn, schema_name):
+        engine.execute(sqla.schema.CreateSchema(schema_name))
 
     try:
         sqla.Table(
@@ -420,9 +420,9 @@ def test_get_view_names(trino_connection, schema):
             sqla.Column('id', sqla.Integer),
         )
         metadata.create_all(engine)
-        view_name = name + ".test_get_view_names"
+        view_name = schema_name + ".test_get_view_names"
         conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM test_table")
-        assert sqla.inspect(engine).get_view_names(name) == ['test_get_view_names']
+        assert sqla.inspect(engine).get_view_names(schema_name) == ['test_get_view_names']
     finally:
         conn.execute(f"DROP VIEW IF EXISTS {view_name}")
         metadata.drop_all(engine)
