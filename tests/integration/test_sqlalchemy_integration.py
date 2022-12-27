@@ -12,7 +12,6 @@
 import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, not_, or_
-from sqlalchemy_utils import create_view
 
 from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.datatype import JSON
@@ -382,24 +381,17 @@ def test_get_table_names(trino_connection, schema):
         engine.execute(sqla.schema.CreateSchema(name))
 
     try:
-        create_view(
-            'my_view',
-            sqla.select(
-                [
-                    sqla.Table(
-                        'my_table',
-                        metadata,
-                        sqla.Column('id', sqla.Integer),
-                    ),
-                ],
-            ),
+        sqla.Table(
+            'test_get_table_names',
             metadata,
-            cascade_on_drop=False,
+            sqla.Column('id', sqla.Integer),
         )
-
         metadata.create_all(engine)
-        assert sqla.inspect(engine).get_table_names(schema) == ['my_table']
+        view_name = name + ".test_view"
+        conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM test_get_table_names")
+        assert sqla.inspect(engine).get_table_names(name) == ['test_get_table_names']
     finally:
+        conn.execute(f"DROP VIEW IF EXISTS {view_name}")
         metadata.drop_all(engine)
 
 
@@ -422,24 +414,17 @@ def test_get_view_names(trino_connection, schema):
         engine.execute(sqla.schema.CreateSchema(name))
 
     try:
-        create_view(
-            'test_get_view_names',
-            sqla.select(
-                [
-                    sqla.Table(
-                        'my_table',
-                        metadata,
-                        sqla.Column('id', sqla.Integer),
-                    ),
-                ],
-            ),
+        sqla.Table(
+            'test_table',
             metadata,
-            cascade_on_drop=False,
+            sqla.Column('id', sqla.Integer),
         )
-
         metadata.create_all(engine)
-        assert sqla.inspect(engine).get_view_names(schema) == ['test_get_view_names']
+        view_name = name + ".test_get_view_names"
+        conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM test_table")
+        assert sqla.inspect(engine).get_view_names(name) == ['test_get_view_names']
     finally:
+        conn.execute(f"DROP VIEW IF EXISTS {view_name}")
         metadata.drop_all(engine)
 
 
