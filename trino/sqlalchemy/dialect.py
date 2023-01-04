@@ -363,11 +363,6 @@ class TrinoDialect(DefaultDialect):
         self, cursor: Cursor, statement: str, parameters: Tuple[Any, ...], context: DefaultExecutionContext = None
     ):
         cursor.execute(statement, parameters)
-        if context and context.should_autocommit:
-            # SQL statement only submitted to Trino server when cursor.fetch*() is called.
-            # For DDL (CREATE/ALTER/DROP) and DML (INSERT/UPDATE/DELETE) statement, call cursor.description
-            # to force submit statement immediately.
-            cursor.description  # noqa
 
     def do_rollback(self, dbapi_connection: trino_dbapi.Connection):
         if dbapi_connection.transaction is not None:
