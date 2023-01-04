@@ -429,8 +429,8 @@ class Cursor(object):
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation, params=None):
-        if params:
+    def execute(self, operation, params=None, prepared_statements_client_side=True):
+        if params and not prepared_statements_client_side:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
                 'parameter values'
@@ -454,6 +454,21 @@ class Cursor(object):
                 self._deallocate_prepared_statement(statement_name)
 
         else:
+            # Approach with parsing on client side
+            if params:
+                assert isinstance(params, (list, tuple)), (
+                    'params must be a list or tuple containing the query '
+                    'parameter values'
+                )
+
+                # substitue parameters in query in reversed order
+                question_mark_positions = [index for index, character in enumerate(operation) if character == '?']
+                question_mark_positions.reverse()
+                for index, value in enumerate(reversed(params)):
+                    operation = "".join([operation[:question_mark_positions[index]],
+                                         "'", value, "'",
+                                         operation[question_mark_positions[index] + 1:]])
+
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
                                                   experimental_python_types=self._experimental_pyton_types)
             result = self._query.execute()
