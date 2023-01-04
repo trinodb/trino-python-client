@@ -156,7 +156,7 @@ class TrinoDialect(DefaultDialect):
             ORDER BY "ordinal_position" ASC
         """
         ).strip()
-        res = connection.execute(sql.text(query), schema=schema, table=table_name)
+        res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
         columns = []
         for record in res:
             column = dict(
@@ -204,7 +204,7 @@ class TrinoDialect(DefaultDialect):
               AND "table_type" = 'BASE TABLE'
         """
         ).strip()
-        res = connection.execute(sql.text(query), schema=schema)
+        res = connection.execute(sql.text(query), {"schema": schema})
         return [row.table_name for row in res]
 
     def get_temp_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
@@ -225,7 +225,7 @@ class TrinoDialect(DefaultDialect):
               AND "table_type" = 'VIEW'
         """
         ).strip()
-        res = connection.execute(sql.text(query), schema=schema)
+        res = connection.execute(sql.text(query), {"schema": schema})
         return [row.table_name for row in res]
 
     def get_temp_view_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
@@ -244,7 +244,7 @@ class TrinoDialect(DefaultDialect):
               AND "table_name" = :view
         """
         ).strip()
-        res = connection.execute(sql.text(query), schema=schema, view=view_name)
+        res = connection.execute(sql.text(query), {"schema": schema, "view": view_name})
         return res.scalar()
 
     def get_indexes(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
@@ -296,7 +296,7 @@ class TrinoDialect(DefaultDialect):
         try:
             res = connection.execute(
                 sql.text(query),
-                catalog_name=catalog_name, schema_name=schema_name, table_name=table_name
+                {"catalog_name": catalog_name, "schema_name": schema_name, "table_name": table_name}
             )
             return dict(text=res.scalar())
         except error.TrinoQueryError as e:
@@ -314,7 +314,7 @@ class TrinoDialect(DefaultDialect):
             WHERE "schema_name" = :schema
         """
         ).strip()
-        res = connection.execute(sql.text(query), schema=schema)
+        res = connection.execute(sql.text(query), {"schema": schema})
         return res.first() is not None
 
     def has_table(self, connection: Connection, table_name: str, schema: str = None, **kw) -> bool:
@@ -329,7 +329,7 @@ class TrinoDialect(DefaultDialect):
               AND "table_name" = :table
         """
         ).strip()
-        res = connection.execute(sql.text(query), schema=schema, table=table_name)
+        res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
         return res.first() is not None
 
     def has_sequence(self, connection: Connection, sequence_name: str, schema: str = None, **kw) -> bool:

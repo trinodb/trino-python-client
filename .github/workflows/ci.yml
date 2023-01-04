@@ -58,6 +58,8 @@ jobs:
           - { python: "3.11", trino: "351", sqlalchemy: "~=1.4.0" }  # first Trino version
           # Test with sqlalchemy 1.3
           - { python: "3.11", trino: "latest", sqlalchemy: "~=1.3.0" }
+          # Test with sqlalchemy 2.0
+          - { python: "3.11", trino: "latest", sqlalchemy: "~=2.0.0rc1" }
     env:
       TRINO_VERSION: "${{ matrix.trino }}"
     steps:

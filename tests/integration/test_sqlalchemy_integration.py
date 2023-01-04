@@ -43,10 +43,10 @@ def test_select_query(trino_connection):
     rows = result.fetchall()
     assert len(rows) == 25
     for row in rows:
-        assert isinstance(row['nationkey'], int)
-        assert isinstance(row['name'], str)
-        assert isinstance(row['regionkey'], int)
-        assert isinstance(row['comment'], str)
+        assert isinstance(row.nationkey, int)
+        assert isinstance(row.name, str)
+        assert isinstance(row.regionkey, int)
+        assert isinstance(row.comment, str)
 
 
 def assert_column(table, column_name, column_type):
@@ -70,8 +70,8 @@ def test_select_specific_columns(trino_connection):
     rows = result.fetchall()
     assert len(rows) > 0
     for row in rows:
-        assert isinstance(row['node_id'], str)
-        assert isinstance(row['state'], str)
+        assert isinstance(row.node_id, str)
+        assert isinstance(row.state, str)
 
 
 @pytest.mark.skipif(
@@ -82,7 +82,8 @@ def test_select_specific_columns(trino_connection):
 def test_define_and_create_table(trino_connection):
     engine, conn = trino_connection
     if not engine.dialect.has_schema(conn, "test"):
-        engine.execute(sqla.schema.CreateSchema("test"))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
     try:
         sqla.Table('users',
@@ -110,7 +111,8 @@ def test_insert(trino_connection):
     engine, conn = trino_connection
 
     if not engine.dialect.has_schema(conn, "test"):
-        engine.execute(sqla.schema.CreateSchema("test"))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
     try:
         users = sqla.Table('users',
@@ -139,7 +141,8 @@ def test_insert(trino_connection):
 def test_insert_multiple_statements(trino_connection):
     engine, conn = trino_connection
     if not engine.dialect.has_schema(conn, "test"):
-        engine.execute(sqla.schema.CreateSchema("test"))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
     users = sqla.Table('users',
                        metadata,
@@ -180,10 +183,10 @@ def test_operators(trino_connection):
     rows = result.fetchall()
     assert len(rows) == 1
     for row in rows:
-        assert isinstance(row['nationkey'], int)
-        assert isinstance(row['name'], str)
-        assert isinstance(row['regionkey'], int)
-        assert isinstance(row['comment'], str)
+        assert isinstance(row.nationkey, int)
+        assert isinstance(row.name, str)
+        assert isinstance(row.regionkey, int)
+        assert isinstance(row.comment, str)
 
 
 @pytest.mark.skipif(
@@ -216,14 +219,14 @@ def test_textual_sql(trino_connection):
     rows = result.fetchall()
     assert len(rows) == 3
     for row in rows:
-        assert isinstance(row['custkey'], int)
-        assert isinstance(row['name'], str)
-        assert isinstance(row['address'], str)
-        assert isinstance(row['nationkey'], int)
-        assert isinstance(row['phone'], str)
-        assert isinstance(row['acctbal'], float)
-        assert isinstance(row['mktsegment'], str)
-        assert isinstance(row['comment'], str)
+        assert isinstance(row.custkey, int)
+        assert isinstance(row.name, str)
+        assert isinstance(row.address, str)
+        assert isinstance(row.nationkey, int)
+        assert isinstance(row.phone, str)
+        assert isinstance(row.acctbal, float)
+        assert isinstance(row.mktsegment, str)
+        assert isinstance(row.comment, str)
 
 
 @pytest.mark.skipif(
@@ -323,7 +326,8 @@ def test_json_column(trino_connection, json_object):
     engine, conn = trino_connection
 
     if not engine.dialect.has_schema(conn, "test"):
-        engine.execute(sqla.schema.CreateSchema("test"))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
 
     try:
@@ -351,7 +355,8 @@ def test_get_table_comment(trino_connection):
     engine, conn = trino_connection
 
     if not engine.dialect.has_schema(conn, "test"):
-        engine.execute(sqla.schema.CreateSchema("test"))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
     metadata = sqla.MetaData()
 
     try:
@@ -378,7 +383,8 @@ def test_get_table_names(trino_connection, schema):
     metadata = sqla.MetaData(schema=schema_name)
 
     if not engine.dialect.has_schema(conn, schema_name):
-        engine.execute(sqla.schema.CreateSchema(schema_name))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema(schema_name))
 
     try:
         sqla.Table(
@@ -388,10 +394,10 @@ def test_get_table_names(trino_connection, schema):
         )
         metadata.create_all(engine)
         view_name = schema_name + ".test_view"
-        conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM test_get_table_names")
+        conn.execute(sqla.text(f"CREATE VIEW {view_name} AS SELECT * FROM test_get_table_names"))
         assert sqla.inspect(engine).get_table_names(schema_name) == ['test_get_table_names']
     finally:
-        conn.execute(f"DROP VIEW IF EXISTS {view_name}")
+        conn.execute(sqla.text(f"DROP VIEW IF EXISTS {view_name}"))
         metadata.drop_all(engine)
 
 
@@ -411,7 +417,8 @@ def test_get_view_names(trino_connection, schema):
     metadata = sqla.MetaData(schema=schema_name)
 
     if not engine.dialect.has_schema(conn, schema_name):
-        engine.execute(sqla.schema.CreateSchema(schema_name))
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema(schema_name))
 
     try:
         sqla.Table(
@@ -421,10 +428,10 @@ def test_get_view_names(trino_connection, schema):
         )
         metadata.create_all(engine)
         view_name = schema_name + ".test_get_view_names"
-        conn.execute(f"CREATE VIEW {view_name} AS SELECT * FROM test_table")
+        conn.execute(sqla.text(f"CREATE VIEW {view_name} AS SELECT * FROM test_table"))
         assert sqla.inspect(engine).get_view_names(schema_name) == ['test_get_view_names']
     finally:
-        conn.execute(f"DROP VIEW IF EXISTS {view_name}")
+        conn.execute(sqla.text(f"DROP VIEW IF EXISTS {view_name}"))
         metadata.drop_all(engine)
 
 
