@@ -16,7 +16,7 @@ from trino.transaction import IsolationLevel
 
 
 class TestTrinoDialect:
-    def setup(self):
+    def setup_method(self):
         self.dialect = TrinoDialect()
 
     @pytest.mark.parametrize(
