@@ -85,6 +85,8 @@ for i in range(0, 13):
 MAX_PYTHON_TEMPORAL_PRECISION_POWER = 6
 MAX_PYTHON_TEMPORAL_PRECISION = POWERS_OF_TEN[MAX_PYTHON_TEMPORAL_PRECISION_POWER]
 
+ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
+
 
 class ClientSession(object):
     """
@@ -143,7 +145,7 @@ class ClientSession(object):
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else list()
-        self._roles = roles.copy() if roles is not None else {}
+        self._roles = self._format_roles(roles) if roles is not None else {}
         self._prepared_statements: Dict[str, str] = {}
         self._object_lock = threading.Lock()
         self._timezone = timezone or get_localzone_name()
@@ -233,6 +235,15 @@ class ClientSession(object):
     def timezone(self):
         with self._object_lock:
             return self._timezone
+
+    def _format_roles(self, roles):
+        formatted_roles = {}
+        for catalog, role in roles.items():
+            if role in ("NONE", "ALL") or ROLE_PATTERN.match(role) is not None:
+                formatted_roles[catalog] = role
+            else:
+                formatted_roles[catalog] = f"ROLE{{{role}}}"
+        return formatted_roles
 
     def __getstate__(self):
         state = self.__dict__.copy()

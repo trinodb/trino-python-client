@@ -12,6 +12,7 @@
 import json
 import threading
 import time
+import urllib
 import uuid
 from typing import Dict, Optional
 from unittest import mock
@@ -105,6 +106,13 @@ def test_request_headers(mock_get_and_post):
             headers={
                 accept_encoding_header: accept_encoding_value,
                 client_info_header: client_info_value,
+            },
+            roles={
+                "hive": "ALL",
+                "system": "analyst",
+                "catalog1": "NONE",
+                # ensure backwards compatibility
+                "catalog2": "ROLE{catalog2_role}",
             }
         ),
         http_scheme="http",
@@ -121,7 +129,13 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_CLIENT_CAPABILITIES] == "PARAMETRIC_DATETIME"
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
-        assert len(headers.keys()) == 10
+        assert headers[constants.HEADER_ROLE] == (
+            "hive=ALL,"
+            "system=" + urllib.parse.quote("ROLE{analyst}") + ","
+            "catalog1=NONE,"
+            "catalog2=" + urllib.parse.quote("ROLE{catalog2_role}")
+        )
+        assert len(headers.keys()) == 11
 
     req.post("URL")
     _, post_kwargs = post.call_args
@@ -1095,14 +1109,15 @@ def test_request_headers_role_admin(mock_get_and_post):
             roles={"system": "admin"}
         ),
     )
+    roles = "system=" + urllib.parse.quote("ROLE{admin}")
 
     req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers_with_roles(post_kwargs["headers"], "system=admin")
+    assert_headers_with_roles(post_kwargs["headers"], roles)
 
     req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers_with_roles(post_kwargs["headers"], "system=admin")
+    assert_headers_with_roles(post_kwargs["headers"], roles)
 
 
 def test_request_headers_role_empty(mock_get_and_post):
