@@ -336,6 +336,9 @@ class Cursor(object):
                                         experimental_python_types=self._experimental_pyton_types)
         query.execute()
 
+        # Approach with directly manipulating on ClientSession
+        # self._connection._client_session.prepared_statements[name] = statement
+
     def _execute_prepared_statement(
         self,
         statement_name,
@@ -425,6 +428,9 @@ class Cursor(object):
         query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
                                         experimental_python_types=self._experimental_pyton_types)
         query.execute()
+
+        # Approach with directly manipulating on ClientSession
+        # self._connection._client_session.prepared_statements.pop(statement_name, None)
 
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
