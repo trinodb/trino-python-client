@@ -43,6 +43,7 @@ import random
 import re
 import threading
 import urllib.parse
+import warnings
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from time import sleep
@@ -239,7 +240,13 @@ class ClientSession(object):
     def _format_roles(self, roles):
         formatted_roles = {}
         for catalog, role in roles.items():
-            if role in ("NONE", "ALL") or ROLE_PATTERN.match(role) is not None:
+            is_legacy_role_pattern = ROLE_PATTERN.match(role) is not None
+            if role in ("NONE", "ALL") or is_legacy_role_pattern:
+                if is_legacy_role_pattern:
+                    warnings.warn(f"A role '{role}' is provided using a legacy format. "
+                                  "Please remove the ROLE{} wrapping. Support for the legacy format might be "
+                                  "removed in a future release.",
+                                  DeprecationWarning)
                 formatted_roles[catalog] = role
             else:
                 formatted_roles[catalog] = f"ROLE{{{role}}}"

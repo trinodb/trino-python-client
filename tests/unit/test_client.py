@@ -94,30 +94,31 @@ def test_request_headers(mock_get_and_post):
     client_info_header = constants.HEADER_CLIENT_INFO
     client_info_value = "some_client_info"
 
-    req = TrinoRequest(
-        host="coordinator",
-        port=8080,
-        client_session=ClientSession(
-            user=user,
-            source=source,
-            catalog=catalog,
-            schema=schema,
-            timezone=timezone,
-            headers={
-                accept_encoding_header: accept_encoding_value,
-                client_info_header: client_info_value,
-            },
-            roles={
-                "hive": "ALL",
-                "system": "analyst",
-                "catalog1": "NONE",
-                # ensure backwards compatibility
-                "catalog2": "ROLE{catalog2_role}",
-            }
-        ),
-        http_scheme="http",
-        redirect_handler=None,
-    )
+    with pytest.deprecated_call():
+        req = TrinoRequest(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(
+                user=user,
+                source=source,
+                catalog=catalog,
+                schema=schema,
+                timezone=timezone,
+                headers={
+                    accept_encoding_header: accept_encoding_value,
+                    client_info_header: client_info_value,
+                },
+                roles={
+                    "hive": "ALL",
+                    "system": "analyst",
+                    "catalog1": "NONE",
+                    # ensure backwards compatibility
+                    "catalog2": "ROLE{catalog2_role}",
+                }
+            ),
+            http_scheme="http",
+            redirect_handler=None,
+        )
 
     def assert_headers(headers):
         assert headers[constants.HEADER_CATALOG] == catalog
