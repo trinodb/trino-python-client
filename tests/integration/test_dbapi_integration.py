@@ -785,6 +785,11 @@ def test_select_cursor_iteration(trino_connection):
     assert sorted(rows0) == sorted(rows1)
 
 
+def test_execute_chaining(trino_connection):
+    cur = trino_connection.cursor()
+    assert cur.execute('SELECT 1').fetchone()[0] == 1
+
+
 def test_select_query_no_result(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT * FROM system.runtime.nodes WHERE false")

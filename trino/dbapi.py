@@ -445,7 +445,7 @@ class Cursor(object):
                 self._query = self._execute_prepared_statement(
                     statement_name, params
                 )
-                result = self._query.execute()
+                self._iterator = iter(self._query.execute())
             finally:
                 # Send deallocate statement
                 # At this point the query can be deallocated since it has already
@@ -456,9 +456,8 @@ class Cursor(object):
         else:
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
                                                   legacy_primitive_types=self._legacy_primitive_types)
-            result = self._query.execute()
-        self._iterator = iter(result)
-        return result
+            self._iterator = iter(self._query.execute())
+        return self
 
     def executemany(self, operation, seq_of_params):
         """
@@ -485,6 +484,7 @@ class Cursor(object):
             self.execute(operation, seq_of_params[-1])
         else:
             self.execute(operation)
+        return self
 
     def fetchone(self) -> Optional[List[Any]]:
         """
