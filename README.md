@@ -466,6 +466,30 @@ assert rows[0][0] == "-2001-08-22"
 assert cur.description[0][1] == "date"
 ```
 
+### Trino to Python type mappings
+
+| Trino type | Python type       |
+|------------|-------------------|
+| BOOLEAN    | bool              |
+| TINYINT    | int               |
+| SMALLINT   | int               |
+| INTEGER    | int               |
+| BIGINT     | int               |
+| REAL       | float             |
+| DOUBLE     | float             |
+| DECIMAL    | decimal.Decimal   |
+| VARCHAR    | str               |
+| CHAR       | str               |
+| VARBINARY  | bytes             |
+| DATE       | datetime.date     |
+| TIME       | datetime.time     |
+| TIMESTAMP  | datetime.datetime |
+| ARRAY      | list              |
+| MAP        | dict              |
+| ROW        | tuple             |
+
+Trino types other than those listed above are not mapped to Python types. To use those use [legacy primitive types](#legacy-primitive-types).
+
 # Need help?
 
 Feel free to create an issue as it makes your request visible to other users and contributors.
