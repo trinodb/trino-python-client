@@ -6,7 +6,7 @@ from urllib.parse import quote_plus
 from sqlalchemy import exc
 
 
-def _rfc_1738_quote(text):
+def _rfc_1738_quote(text: str) -> str:
     return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
 
 
@@ -18,8 +18,8 @@ def _url(
     catalog: Optional[str] = None,
     schema: Optional[str] = None,
     source: Optional[str] = "trino-sqlalchemy",
-    session_properties: Dict[str, str] = None,
-    http_headers: Dict[str, Union[str, int]] = None,
+    session_properties: Optional[Dict[str, str]] = None,
+    http_headers: Optional[Dict[str, Union[str, int]]] = None,
     extra_credential: Optional[List[Tuple[str, str]]] = None,
     client_tags: Optional[List[str]] = None,
     legacy_primitive_types: Optional[bool] = None,

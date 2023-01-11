@@ -9,8 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Any, Dict, Optional
+
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql.base import DialectKWArgs
+from sqlalchemy.sql.schema import Table
 
 # https://trino.io/docs/current/language/reserved.html
 RESERVED_WORDS = {
@@ -92,7 +95,7 @@ RESERVED_WORDS = {
 
 
 class TrinoSQLCompiler(compiler.SQLCompiler):
-    def limit_clause(self, select, **kw):
+    def limit_clause(self, select: Any, **kw: Dict[str, Any]) -> str:
         """
         Trino support only OFFSET...LIMIT but not LIMIT...OFFSET syntax.
         """
@@ -103,15 +106,15 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
             text += "\nLIMIT " + self.process(select._limit_clause, **kw)
         return text
 
-    def visit_table(self, table, asfrom=False, iscrud=False, ashint=False,
-                    fromhints=None, use_schema=True, **kwargs):
+    def visit_table(self, table: Table, asfrom: bool = False, iscrud: bool = False, ashint: bool = False,
+                    fromhints: Optional[Any] = None, use_schema: bool = True, **kwargs: Any) -> str:
         sql = super(TrinoSQLCompiler, self).visit_table(
             table, asfrom, iscrud, ashint, fromhints, use_schema, **kwargs
         )
         return self.add_catalog(sql, table)
 
     @staticmethod
-    def add_catalog(sql, table):
+    def add_catalog(sql: str, table: Table) -> str:
         if table is None or not isinstance(table, DialectKWArgs):
             return sql
 
@@ -131,7 +134,7 @@ class TrinoDDLCompiler(compiler.DDLCompiler):
 
 
 class TrinoTypeCompiler(compiler.GenericTypeCompiler):
-    def visit_FLOAT(self, type_, **kw):
+    def visit_FLOAT(self, type_: Any, **kw: Dict[str, Any]) -> str:
         precision = type_.precision or 32
         if 0 <= precision <= 32:
             return self.visit_REAL(type_, **kw)
@@ -140,37 +143,37 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
         else:
             raise ValueError(f"type.precision must be in range [0, 64], got {type_.precision}")
 
-    def visit_DOUBLE(self, type_, **kw):
+    def visit_DOUBLE(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return "DOUBLE"
 
-    def visit_NUMERIC(self, type_, **kw):
+    def visit_NUMERIC(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_DECIMAL(type_, **kw)
 
-    def visit_NCHAR(self, type_, **kw):
+    def visit_NCHAR(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_CHAR(type_, **kw)
 
-    def visit_NVARCHAR(self, type_, **kw):
+    def visit_NVARCHAR(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_VARCHAR(type_, **kw)
 
-    def visit_TEXT(self, type_, **kw):
+    def visit_TEXT(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_VARCHAR(type_, **kw)
 
-    def visit_BINARY(self, type_, **kw):
+    def visit_BINARY(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_VARBINARY(type_, **kw)
 
-    def visit_CLOB(self, type_, **kw):
+    def visit_CLOB(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_VARCHAR(type_, **kw)
 
-    def visit_NCLOB(self, type_, **kw):
+    def visit_NCLOB(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_VARCHAR(type_, **kw)
 
-    def visit_BLOB(self, type_, **kw):
+    def visit_BLOB(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_VARBINARY(type_, **kw)
 
-    def visit_DATETIME(self, type_, **kw):
+    def visit_DATETIME(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return self.visit_TIMESTAMP(type_, **kw)
 
-    def visit_TIMESTAMP(self, type_, **kw):
+    def visit_TIMESTAMP(self, type_: Any, **kw: Dict[str, Any]) -> str:
         datatype = "TIMESTAMP"
         precision = getattr(type_, "precision", None)
         if precision not in range(0, 13) and precision is not None:
@@ -182,7 +185,7 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
 
         return datatype
 
-    def visit_TIME(self, type_, **kw):
+    def visit_TIME(self, type_: Any, **kw: Dict[str, Any]) -> str:
         datatype = "TIME"
         precision = getattr(type_, "precision", None)
         if precision not in range(0, 13) and precision is not None:
@@ -193,13 +196,13 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
             datatype += " WITH TIME ZONE"
         return datatype
 
-    def visit_JSON(self, type_, **kw):
+    def visit_JSON(self, type_: Any, **kw: Dict[str, Any]) -> str:
         return 'JSON'
 
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
 
-    def format_table(self, table, use_schema=True, name=None):
+    def format_table(self, table: Table, use_schema: bool = True, name: Optional[str] = None) -> str:
         result = super(TrinoIdentifierPreparer, self).format_table(table, use_schema, name)
         return TrinoSQLCompiler.add_catalog(result, table)

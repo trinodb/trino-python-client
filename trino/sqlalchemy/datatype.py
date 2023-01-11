@@ -11,14 +11,18 @@
 # limitations under the License.
 import json
 import re
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Optional
+from typing import Text as typing_Text
+from typing import Tuple, Type, TypeVar, Union
 
 from sqlalchemy import util
+from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 from sqlalchemy.types import String
 
 SQLType = Union[TypeEngine, Type[TypeEngine]]
+_T = TypeVar('_T')
 
 
 class DOUBLE(sqltypes.Float):
@@ -38,7 +42,7 @@ class MAP(TypeEngine):
         self.value_type: TypeEngine = value_type
 
     @property
-    def python_type(self):
+    def python_type(self) -> type:
         return dict
 
 
@@ -53,14 +57,14 @@ class ROW(TypeEngine):
             self.attr_types.append((attr_name, attr_type))
 
     @property
-    def python_type(self):
+    def python_type(self) -> type:
         return list
 
 
 class TIME(sqltypes.TIME):
     __visit_name__ = "TIME"
 
-    def __init__(self, precision=None, timezone=False):
+    def __init__(self, precision: Optional[int] = None, timezone: bool = False):
         super(TIME, self).__init__(timezone=timezone)
         self.precision = precision
 
@@ -68,7 +72,7 @@ class TIME(sqltypes.TIME):
 class TIMESTAMP(sqltypes.TIMESTAMP):
     __visit_name__ = "TIMESTAMP"
 
-    def __init__(self, precision=None, timezone=False):
+    def __init__(self, precision: Optional[int] = None, timezone: bool = False):
         super(TIMESTAMP, self).__init__(timezone=timezone)
         self.precision = precision
 
@@ -76,13 +80,13 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 class JSON(TypeDecorator):
     impl = String
 
-    def process_bind_param(self, value, dialect):
+    def process_bind_param(self, value: Optional[_T], dialect: Dialect) -> Optional[typing_Text]:
         return json.dumps(value)
 
-    def process_result_value(self, value, dialect):
+    def process_result_value(self, value: Union[str, bytes], dialect: Dialect) -> Optional[_T]:
         return json.loads(value)
 
-    def get_col_spec(self, **kw):
+    def get_col_spec(self, **kw: Dict[str, Any]) -> str:
         return 'JSON'
 
 
