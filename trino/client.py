@@ -735,8 +735,7 @@ class TrinoQuery(object):
             sql: str,
             legacy_primitive_types: bool = False,
     ) -> None:
-        self.query_id: Optional[str] = None
-
+        self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
         self._info_uri: Optional[str] = None
         self._warnings: List[Dict[Any, Any]] = []
@@ -751,6 +750,10 @@ class TrinoQuery(object):
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
+
+    @property
+    def query_id(self) -> Optional[str]:
+        return self._query_id
 
     @property
     def columns(self):
@@ -799,7 +802,7 @@ class TrinoQuery(object):
         response = self._request.post(self._sql, additional_http_headers)
         status = self._request.process(response)
         self._info_uri = status.info_uri
-        self.query_id = status.id
+        self._query_id = status.id
         self._stats.update({"queryId": self.query_id})
         self._update_state(status)
         self._warnings = getattr(status, "warnings", [])
