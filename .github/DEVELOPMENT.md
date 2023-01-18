@@ -42,7 +42,15 @@ To run integration tests:
 pytest tests/integration
 ```
 
-They pull a Docker image and then run a container with a Trino server:
+If you are already running a local Trino instance on the default port 8080, e.g.
+through`docker run -d -p 8080:8080  --name trino --rm trinodb/trino:latest`,
+the tests will automatically pick up this server instead of starting a new one
+on a random port. This is especially helpful for debugging purposes as you can
+inspect the executed queries through [the Trino web ui](http://localhost:8080/),
+it also saves you some time as the docker container won't have to be started.
+
+By default, the tests pull a Docker image and then run a container with a Trino 
+server:
 - the image is named `trinodb/trino:${TRINO_VERSION}`
 - the container is named `trino-python-client-tests-{uuid4()[:7]}`
 

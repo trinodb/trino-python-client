@@ -31,6 +31,14 @@ TRINO_HOST = "127.0.0.1"
 TRINO_PORT = 8080
 
 
+def is_trino_available():
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+        sock.settimeout(2)
+        result = sock.connect_ex((TRINO_HOST, DEFAULT_PORT))
+        if result == 0:
+            return True
+
+
 def get_local_port():
     with closing(socket.socket()) as s:
         s.bind(("localhost", 0))
@@ -134,6 +142,10 @@ def stop_trino(container_id, proc):
 
 @pytest.fixture(scope="module")
 def run_trino():
+    if is_trino_available():
+        yield None, TRINO_HOST, DEFAULT_PORT
+        return
+
     image_tag = os.environ.get("TRINO_IMAGE")
     if not image_tag:
         image_tag = get_default_trino_image_tag()
