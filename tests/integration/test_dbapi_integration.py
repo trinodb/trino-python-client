@@ -1268,6 +1268,32 @@ def test_describe_table_query(run_trino):
     ]
 
 
+def test_rowcount_select(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("SELECT 1 as a")
+    cur.fetchall()
+    assert cur.rowcount == -1
+
+
+def test_rowcount_create_table(trino_connection):
+    with _TestTable(trino_connection, "memory.default.test_rowcount_create_table", "(a varchar)") as (_, cur):
+        assert cur.rowcount == -1
+
+
+def test_rowcount_create_table_as_select(trino_connection):
+    with _TestTable(
+        trino_connection,
+        "memory.default.test_rowcount_ctas", "AS SELECT 1 a UNION ALL SELECT 2"
+    ) as (_, cur):
+        assert cur.rowcount == 2
+
+
+def test_rowcount_insert(trino_connection):
+    with _TestTable(trino_connection, "memory.default.test_rowcount_ctas", "(a VARCHAR)") as (table, cur):
+        cur.execute(f"INSERT INTO {table.table_name} (a) VALUES ('test')")
+        assert cur.rowcount == 1
+
+
 def assert_cursor_description(cur, trino_type, size=None, precision=None, scale=None):
     assert cur.description[0][1] == trino_type
     assert cur.description[0][2] is None

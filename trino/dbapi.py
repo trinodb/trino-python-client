@@ -315,13 +315,20 @@ class Cursor(object):
 
     @property
     def rowcount(self):
-        """Not supported.
+        """The rowcount will be returned for INSERT, UPDATE, DELETE, MERGE
+        and CTAS statements based on `update_count` returned by the Trino
+        API.
 
-        Trino cannot reliablity determine the number of rows returned by an
-        operation. For example, the result of a SELECT query is streamed and
-        the number of rows is only knowns when all rows have been retrieved.
+        If the rowcount can't be determined, -1 will be returned.
+
+        Trino cannot reliably determine the number of rows returned for DQL
+        queries. For example, the result of a SELECT query is streamed and
+        the number of rows is only known when all rows have been retrieved.
+
+        See https://peps.python.org/pep-0249/#rowcount
         """
-
+        if self._query is not None and self._query.update_count is not None:
+            return self._query.update_count
         return -1
 
     @property
