@@ -299,6 +299,7 @@ class TrinoStatus:
     info_uri: str
     next_uri: Optional[str]
     update_type: Optional[str]
+    update_count: Optional[int]
     rows: List[Any]
     columns: List[Any]
 
@@ -666,6 +667,7 @@ class TrinoRequest(object):
             info_uri=response["infoUri"],
             next_uri=self._next_uri,
             update_type=response.get("updateType"),
+            update_count=response.get("updateCount"),
             rows=response.get("data", []),
             columns=response.get("columns"),
         )
@@ -743,6 +745,7 @@ class TrinoQuery(object):
         self._cancelled = False
         self._request = request
         self._update_type = None
+        self._update_count = None
         self._sql = sql
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
@@ -764,6 +767,10 @@ class TrinoQuery(object):
     @property
     def update_type(self):
         return self._update_type
+
+    @property
+    def update_count(self):
+        return self._update_count
 
     @property
     def warnings(self):
@@ -809,6 +816,7 @@ class TrinoQuery(object):
     def _update_state(self, status):
         self._stats.update(status.stats)
         self._update_type = status.update_type
+        self._update_count = status.update_count
         if not self._row_mapper and status.columns:
             self._row_mapper = RowMapperFactory().create(columns=status.columns,
                                                          legacy_primitive_types=self._legacy_primitive_types)
