@@ -38,7 +38,6 @@ tests_require = all_require + [
     "httpretty < 1.1",
     "pytest",
     "pytest-runner",
-    "click",
     "pre-commit",
     "black",
     "isort",
