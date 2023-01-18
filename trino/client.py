@@ -732,7 +732,7 @@ class TrinoQuery(object):
     def __init__(
             self,
             request: TrinoRequest,
-            sql: str,
+            query: str,
             legacy_primitive_types: bool = False,
     ) -> None:
         self._query_id: Optional[str] = None
@@ -746,7 +746,7 @@ class TrinoQuery(object):
         self._update_type = None
         self._update_count = None
         self._next_uri = None
-        self._sql = sql
+        self._query = query
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
@@ -754,6 +754,10 @@ class TrinoQuery(object):
     @property
     def query_id(self) -> Optional[str]:
         return self._query_id
+
+    @property
+    def query(self) -> Optional[str]:
+        return self._query
 
     @property
     def columns(self):
@@ -799,7 +803,7 @@ class TrinoQuery(object):
         if self.cancelled:
             raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
 
-        response = self._request.post(self._sql, additional_http_headers)
+        response = self._request.post(self._query, additional_http_headers)
         status = self._request.process(response)
         self._info_uri = status.info_uri
         self._query_id = status.id
