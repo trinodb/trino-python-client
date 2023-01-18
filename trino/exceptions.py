@@ -14,7 +14,7 @@
 This module defines exceptions for Trino operations. It follows the structure
 defined in pep-0249.
 """
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import trino.logging
 
@@ -72,38 +72,44 @@ class TrinoDataError(NotSupportedError):
 
 
 class TrinoQueryError(Error):
-    def __init__(self, error: Any, query_id: Optional[str] = None) -> None:
-        self._error = error
+    def __init__(self, error: Union[Dict[str, Any], str], query_id: Optional[str] = None) -> None:
+        if isinstance(error, dict):
+            self._error = error
+        elif isinstance(error, str):
+            self._error = {"message": error}
         self._query_id = query_id
 
     @property
     def error_code(self) -> Optional[int]:
-        return self._error.get("errorCode", None)
+        return self._error.get("errorCode")
 
     @property
     def error_name(self) -> Optional[str]:
-        return self._error.get("errorName", None)
+        return self._error.get("errorName")
 
     @property
     def error_type(self) -> Optional[str]:
-        return self._error.get("errorType", None)
+        return self._error.get("errorType")
 
     @property
     def error_exception(self) -> Optional[str]:
-        return self.failure_info.get("type", None) if self.failure_info else None
+        return self.failure_info.get("type") if self.failure_info else None
 
     @property
     def failure_info(self) -> Optional[Dict[str, Any]]:
-        return self._error.get("failureInfo", None)
+        return self._error.get("failureInfo")
 
     @property
     def message(self) -> str:
         return self._error.get("message", "Trino did not return an error message")
 
     @property
-    def error_location(self) -> Tuple[int, int]:
-        location = self._error["errorLocation"]
-        return (location["lineNumber"], location["columnNumber"])
+    def error_location(self) -> Optional[Tuple[int, int]]:
+        location = self._error.get("errorLocation")
+        if location:
+            return (location["lineNumber"], location["columnNumber"])
+        else:
+            return None
 
     @property
     def query_id(self) -> Optional[str]:
