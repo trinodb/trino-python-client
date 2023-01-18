@@ -44,6 +44,7 @@ import re
 import threading
 import urllib.parse
 import warnings
+from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from time import sleep
@@ -290,16 +291,16 @@ def get_roles_values(headers, header):
     ]
 
 
-class TrinoStatus(object):
-    def __init__(self, id, stats, warnings, info_uri, next_uri, update_type, rows, columns=None):
-        self.id = id
-        self.stats = stats
-        self.warnings = warnings
-        self.info_uri = info_uri
-        self.next_uri = next_uri
-        self.update_type = update_type
-        self.rows = rows
-        self.columns = columns
+@dataclass
+class TrinoStatus:
+    id: str
+    stats: Dict[str, str]
+    warnings: List[Any]
+    info_uri: str
+    next_uri: Optional[str]
+    update_type: Optional[str]
+    rows: List[Any]
+    columns: List[Any]
 
     def __repr__(self):
         return (
