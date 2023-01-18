@@ -1006,7 +1006,7 @@ def test_trino_query_response_headers(sample_get_response_data):
     with mock.patch.object(req, 'post', return_value=MockResponse()) as mock_post:
         query = TrinoQuery(
             request=req,
-            sql=sql
+            query=sql
         )
         result = query.execute(additional_http_headers=additional_headers)
 

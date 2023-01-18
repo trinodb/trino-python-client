@@ -82,6 +82,7 @@ def test_select_query(trino_connection):
     assert columns["coordinator"] == "boolean"
     assert columns["state"] == "varchar"
     assert cur.query_id is not None
+    assert cur.query == "SELECT * FROM system.runtime.nodes"
     assert cur.stats is not None
 
 

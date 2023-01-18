@@ -344,6 +344,12 @@ class Cursor(object):
         return None
 
     @property
+    def query(self) -> Optional[str]:
+        if self._query is not None:
+            return self._query.query
+        return None
+
+    @property
     def warnings(self):
         if self._query is not None:
             return self._query.warnings
@@ -364,7 +370,7 @@ class Cursor(object):
         :param name: name that will be assigned to the prepared statement.
         """
         sql = f"PREPARE {name} FROM {statement}"
-        query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
+        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
@@ -374,7 +380,7 @@ class Cursor(object):
         params
     ):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
-        return trino.client.TrinoQuery(self._request, sql=sql, legacy_primitive_types=self._legacy_primitive_types)
+        return trino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
 
     def _format_prepared_param(self, param):
         """
@@ -454,7 +460,7 @@ class Cursor(object):
 
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = 'DEALLOCATE PREPARE ' + statement_name
-        query = trino.client.TrinoQuery(self.connection._create_request(), sql=sql,
+        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
@@ -486,7 +492,7 @@ class Cursor(object):
                 self._deallocate_prepared_statement(statement_name)
 
         else:
-            self._query = trino.client.TrinoQuery(self._request, sql=operation,
+            self._query = trino.client.TrinoQuery(self._request, query=operation,
                                                   legacy_primitive_types=self._legacy_primitive_types)
             self._iterator = iter(self._query.execute())
         return self
@@ -582,7 +588,7 @@ class Cursor(object):
             sql = f"DESCRIBE OUTPUT {statement_name}"
             self._query = trino.client.TrinoQuery(
                 self._request,
-                sql=sql,
+                query=sql,
                 legacy_primitive_types=self._legacy_primitive_types,
             )
             result = self._query.execute()
