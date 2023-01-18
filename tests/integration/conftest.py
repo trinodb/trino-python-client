@@ -17,7 +17,6 @@ import time
 from contextlib import closing
 from uuid import uuid4
 
-import click
 import pytest
 
 import trino.logging
@@ -133,19 +132,6 @@ def stop_trino(container_id, proc):
     subprocess.check_call(["docker", "kill", container_id])
 
 
-def find_images(name):
-    assert name
-    output = subprocess.check_output(
-        ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}", name]
-    )
-    return [line.decode() for line in output.splitlines()]
-
-
-def image_exists(name):
-    images = find_images(name)
-    return images and images[0].strip() == name
-
-
 @pytest.fixture(scope="module")
 def run_trino():
     image_tag = os.environ.get("TRINO_IMAGE")
@@ -160,69 +146,3 @@ def run_trino():
 
 def trino_version():
     return TRINO_VERSION
-
-
-@click.group()
-def cli():
-    pass
-
-
-@click.option(
-    "--cache/--no-cache", default=True, help="enable/disable Docker build cache"
-)
-@click.command()
-def trino_server():
-    container_id, _, _, _ = start_trino_and_wait()
-
-
-@click.argument("container_id", required=False)
-@click.command()
-def trino_cli(container_id=None):
-    if not container_id:
-        container_id = os.environ.get("TRINO_CONTAINER")
-        if not container_id:
-            raise ValueError("no container specified")
-    subprocess.call(
-        [
-            "docker",
-            "exec",
-            "-t",
-            "-i",
-            container_id,
-            "bin/trino-cli",
-            "--server",
-            "localhost:8080",
-        ]
-    )
-
-
-@cli.command("list")
-def list_():
-    subprocess.check_call(
-        ["docker", "ps", "--filter", "name=trino-python-client-tests-"]
-    )
-
-
-@cli.command()
-def clean():
-    cmd = (
-        "docker ps "
-        "--filter name=trino-python-client-tests- "
-        "--format={{.Names}} | "
-        "xargs -n 1 docker kill"  # NOQA deliberate additional indent
-    )
-    subprocess.check_output(cmd, shell=True)
-
-
-@cli.command()
-def tests():
-    subprocess.check_call(["./tests_unit"])
-    subprocess.check_call(["./tests_integration"])
-
-
-cli.add_command(trino_server)
-cli.add_command(trino_cli)
-
-
-if __name__ == "__main__":
-    cli()
