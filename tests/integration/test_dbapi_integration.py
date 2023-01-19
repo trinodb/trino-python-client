@@ -10,8 +10,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
+import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
+from typing import Tuple
 
 import pytest
 import pytz
@@ -21,7 +23,7 @@ from tzlocal import get_localzone_name  # type: ignore
 import trino
 from tests.integration.conftest import trino_version
 from trino import constants
-from trino.dbapi import DescribeOutput
+from trino.dbapi import Cursor, DescribeOutput
 from trino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
 from trino.transaction import IsolationLevel
 
@@ -1273,3 +1275,23 @@ def assert_cursor_description(cur, trino_type, size=None, precision=None, scale=
     assert cur.description[0][4] is precision
     assert cur.description[0][5] is scale
     assert cur.description[0][6] is None
+
+
+class _TestTable:
+    def __init__(self, conn, table_name_prefix, table_definition) -> None:
+        self._conn = conn
+        self._table_name = table_name_prefix + '_' + str(uuid.uuid4().hex)
+        self._table_definition = table_definition
+
+    def __enter__(self) -> Tuple["_TestTable", Cursor]:
+        return (
+            self,
+            self._conn.cursor().execute(f"CREATE TABLE {self._table_name} {self._table_definition}")
+        )
+
+    def __exit__(self, exc_type, exc_value, exc_tb) -> None:
+        self._conn.cursor().execute(f"DROP TABLE {self._table_name}")
+
+    @property
+    def table_name(self):
+        return self._table_name
