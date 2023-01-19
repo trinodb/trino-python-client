@@ -20,9 +20,11 @@ decide to convert then to a list of tuples.
 import binascii
 import datetime
 import math
+import time
 import uuid
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
+from types import TracebackType
+from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Sequence, Tuple, Type, Union
 
 import trino.client
 import trino.exceptions
@@ -72,7 +74,7 @@ paramstyle = "qmark"
 logger = trino.logging.get_logger(__name__)
 
 
-def connect(*args, **kwargs):
+def connect(*args: Any, **kwargs: Any) -> trino.dbapi.Connection:
     """Constructor for creating a connection to the database.
 
     See class :py:class:`Connection` for arguments.
@@ -92,28 +94,28 @@ class Connection(object):
 
     def __init__(
         self,
-        host,
-        port=constants.DEFAULT_PORT,
-        user=None,
-        source=constants.DEFAULT_SOURCE,
-        catalog=constants.DEFAULT_CATALOG,
-        schema=constants.DEFAULT_SCHEMA,
-        session_properties=None,
-        http_headers=None,
-        http_scheme=constants.HTTP,
-        auth=constants.DEFAULT_AUTH,
-        extra_credential=None,
-        redirect_handler=None,
-        max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
-        request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
-        isolation_level=IsolationLevel.AUTOCOMMIT,
-        verify=True,
-        http_session=None,
-        client_tags=None,
-        legacy_primitive_types=False,
-        roles=None,
+        host: str,
+        port: int = constants.DEFAULT_PORT,
+        user: Optional[str] = None,
+        source: str = constants.DEFAULT_SOURCE,
+        catalog: Optional[str] = constants.DEFAULT_CATALOG,
+        schema: Optional[str] = constants.DEFAULT_SCHEMA,
+        session_properties: Optional[Dict[str, str]] = None,
+        http_headers: Optional[Dict[str, str]] = None,
+        http_scheme: str = constants.HTTP,
+        auth: Optional[trino.auth.Authentication] = constants.DEFAULT_AUTH,
+        extra_credential: Optional[List[Tuple[str, str]]] = None,
+        redirect_handler: Optional[str] = None,
+        max_attempts: int = constants.DEFAULT_MAX_ATTEMPTS,
+        request_timeout: float = constants.DEFAULT_REQUEST_TIMEOUT,
+        isolation_level: IsolationLevel = IsolationLevel.AUTOCOMMIT,
+        verify: Union[bool | str] = True,
+        http_session: Optional[trino.client.TrinoRequest.http.Session] = None,
+        client_tags: Optional[List[str]] = None,
+        legacy_primitive_types: Optional[bool] = False,
+        roles: Optional[Dict[str, str]] = None,
         timezone=None,
-    ):
+    ) -> None:
         self.host = host
         self.port = port
         self.user = user
@@ -151,21 +153,24 @@ class Connection(object):
 
         self._isolation_level = isolation_level
         self._request = None
-        self._transaction = None
+        self._transaction: Optional[Transaction] = None
         self.legacy_primitive_types = legacy_primitive_types
 
     @property
-    def isolation_level(self):
+    def isolation_level(self) -> IsolationLevel:
         return self._isolation_level
 
     @property
-    def transaction(self):
+    def transaction(self) -> Optional[Transaction]:
         return self._transaction
 
-    def __enter__(self):
+    def __enter__(self) -> object:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self,
+                 exc_type: Optional[Type[BaseException]],
+                 exc_value: Optional[BaseException],
+                 traceback: Optional[TracebackType]) -> None:
         try:
             self.commit()
         except Exception:
@@ -173,28 +178,28 @@ class Connection(object):
         else:
             self.close()
 
-    def close(self):
+    def close(self) -> None:
         # TODO cancel outstanding queries?
         self._http_session.close()
 
-    def start_transaction(self):
+    def start_transaction(self) -> Transaction:
         self._transaction = Transaction(self._create_request())
         self._transaction.begin()
         return self._transaction
 
-    def commit(self):
+    def commit(self) -> None:
         if self.transaction is None:
             return
-        self._transaction.commit()
+        self.transaction.commit()
         self._transaction = None
 
-    def rollback(self):
+    def rollback(self) -> None:
         if self.transaction is None:
             raise RuntimeError("no transaction was started")
-        self._transaction.rollback()
+        self.transaction.rollback()
         self._transaction = None
 
-    def _create_request(self):
+    def _create_request(self) -> trino.client.TrinoRequest:
         return trino.client.TrinoRequest(
             self.host,
             self.port,
@@ -207,7 +212,7 @@ class Connection(object):
             self.request_timeout,
         )
 
-    def cursor(self, legacy_primitive_types: bool = None):
+    def cursor(self, legacy_primitive_types: bool = None) -> 'trino.dbapi.Cursor':
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
@@ -271,7 +276,10 @@ class Cursor(object):
 
     """
 
-    def __init__(self, connection, request, legacy_primitive_types: bool = False):
+    def __init__(self,
+                 connection: Connection,
+                 request: trino.client.TrinoRequest,
+                 legacy_primitive_types: bool = False) -> None:
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -280,32 +288,32 @@ class Cursor(object):
         self._request = request
 
         self.arraysize = 1
-        self._iterator = None
-        self._query = None
+        self._iterator: Optional[Iterator[List[Any]]] = None
+        self._query: Optional[trino.client.TrinoQuery] = None
         self._legacy_primitive_types = legacy_primitive_types
 
-    def __iter__(self):
+    def __iter__(self) -> Optional[Iterator[List[Any]]]:
         return self._iterator
 
     @property
-    def connection(self):
+    def connection(self) -> Connection:
         return self._connection
 
     @property
-    def info_uri(self):
+    def info_uri(self) -> Optional[str]:
         if self._query is not None:
             return self._query.info_uri
         return None
 
     @property
-    def update_type(self):
+    def update_type(self) -> Optional[str]:
         if self._query is not None:
             return self._query.update_type
         return None
 
     @property
-    def description(self) -> List[ColumnDescription]:
-        if self._query.columns is None:
+    def description(self) -> Optional[List[Tuple[Any, ...]]]:
+        if self._query is None or self._query.columns is None:
             return None
 
         # [ (name, type_code, display_size, internal_size, precision, scale, null_ok) ]
@@ -314,7 +322,7 @@ class Cursor(object):
         ]
 
     @property
-    def rowcount(self):
+    def rowcount(self) -> int:
         """Not supported.
 
         Trino cannot reliablity determine the number of rows returned by an
@@ -325,27 +333,21 @@ class Cursor(object):
         return -1
 
     @property
-    def stats(self):
+    def stats(self) -> Optional[Dict[Any, Any]]:
         if self._query is not None:
             return self._query.stats
         return None
 
     @property
-    def query_id(self) -> Optional[str]:
-        if self._query is not None:
-            return self._query.query_id
-        return None
-
-    @property
-    def warnings(self):
+    def warnings(self) -> Optional[List[Dict[Any, Any]]]:
         if self._query is not None:
             return self._query.warnings
         return None
 
-    def setinputsizes(self, sizes):
+    def setinputsizes(self, sizes: Sequence[Any]) -> None:
         raise trino.exceptions.NotSupportedError
 
-    def setoutputsize(self, size, column):
+    def setoutputsize(self, size: int, column: Optional[int]) -> None:
         raise trino.exceptions.NotSupportedError
 
     def _prepare_statement(self, statement: str, name: str) -> None:
@@ -363,13 +365,13 @@ class Cursor(object):
 
     def _execute_prepared_statement(
         self,
-        statement_name,
-        params
-    ):
+        statement_name: str,
+        params: Any
+    ) -> trino.client.TrinoQuery:
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
         return trino.client.TrinoQuery(self._request, sql=sql, legacy_primitive_types=self._legacy_primitive_types)
 
-    def _format_prepared_param(self, param):
+    def _format_prepared_param(self, param: Any) -> str:
         """
         Formats parameters to be passed in an
         EXECUTE statement.
@@ -451,10 +453,10 @@ class Cursor(object):
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
-    def _generate_unique_statement_name(self):
+    def _generate_unique_statement_name(self) -> str:
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation, params=None):
+    def execute(self, operation: str, params: Optional[Any] = None) -> trino.client.TrinoResult:
         if params:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
@@ -484,7 +486,7 @@ class Cursor(object):
             self._iterator = iter(self._query.execute())
         return self
 
-    def executemany(self, operation, seq_of_params):
+    def executemany(self, operation: str, seq_of_params: Any) -> None:
         """
         PEP-0249: Prepare a database operation (query or command) and then
         execute it against all parameter sequences or mappings found in the sequence seq_of_parameters.
@@ -529,7 +531,7 @@ class Cursor(object):
         except trino.exceptions.HttpError as err:
             raise trino.exceptions.OperationalError(str(err))
 
-    def fetchmany(self, size=None) -> List[List[Any]]:
+    def fetchmany(self, size: Optional[int] = None) -> List[List[Any]]:
         """
         PEP-0249: Fetch the next set of rows of a query result, returning a
         sequence of sequences (e.g. a list of tuples). An empty sequence is
@@ -584,20 +586,20 @@ class Cursor(object):
 
         return list(map(lambda x: DescribeOutput.from_row(x), result))
 
-    def genall(self):
+    def genall(self) -> trino.client.TrinoResult:
         return self._query.result
 
     def fetchall(self) -> List[List[Any]]:
         return list(self.genall())
 
-    def cancel(self):
+    def cancel(self) -> None:
         if self._query is None:
             raise trino.exceptions.OperationalError(
                 "Cancel query failed; no running query"
             )
         self._query.cancel()
 
-    def close(self):
+    def close(self) -> None:
         self.cancel()
         # TODO: Cancel not only the last query executed on this cursor
         #  but also any other outstanding queries executed through this cursor.
@@ -610,19 +612,19 @@ DateFromTicks = datetime.date.fromtimestamp
 TimestampFromTicks = datetime.datetime.fromtimestamp
 
 
-def TimeFromTicks(ticks):
-    return datetime.time(*datetime.localtime(ticks)[3:6])
+def TimeFromTicks(ticks: int) -> datetime.time:
+    return datetime.time(*time.localtime(ticks)[3:6])
 
 
-def Binary(string):
+def Binary(string: str) -> bytes:
     return string.encode("utf-8")
 
 
 class DBAPITypeObject:
-    def __init__(self, *values):
+    def __init__(self, *values: str):
         self.values = [v.lower() for v in values]
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return other.lower() in self.values
 
 

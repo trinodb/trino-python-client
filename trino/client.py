@@ -125,10 +125,10 @@ class ClientSession(object):
 
     def __init__(
         self,
-        user: str,
-        catalog: str = None,
-        schema: str = None,
-        source: str = None,
+        user: Optional[str],
+        catalog: Optional[str] = None,
+        schema: Optional[str] = None,
+        source: Optional[str] = None,
         properties: Dict[str, str] = None,
         headers: Dict[str, str] = None,
         transaction_id: str = None,
@@ -401,7 +401,7 @@ class TrinoRequest(object):
         auth: Optional[Any] = constants.DEFAULT_AUTH,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
-        request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
+        request_timeout: float = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=_RetryWithExponentialBackoff(),
         verify: bool = True,
     ) -> None:
