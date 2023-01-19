@@ -753,7 +753,8 @@ class TrinoQuery(object):
             while not self._columns and not self.finished and not self.cancelled:
                 # Columns are not returned immediately after query is submitted.
                 # Continue fetching data until columns information is available and push fetched rows into buffer.
-                self._result.rows += self.fetch()
+                if self._result:
+                    self._result.rows += self.fetch()
         return self._columns
 
     @property

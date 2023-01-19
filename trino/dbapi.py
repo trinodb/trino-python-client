@@ -339,6 +339,12 @@ class Cursor(object):
         return None
 
     @property
+    def query_id(self) -> Optional[str]:
+        if self._query is not None:
+            return self._query.query_id
+        return None
+
+    @property
     def warnings(self) -> Optional[List[Dict[Any, Any]]]:
         if self._query is not None:
             return self._query.warnings
@@ -505,6 +511,7 @@ class Cursor(object):
         for parameters in seq_of_params[:-1]:
             self.execute(operation, parameters)
             self.fetchall()
+            assert self._query is not None
             if self._query.update_type is None:
                 raise NotSupportedError("Query must return update type")
         if seq_of_params:
@@ -586,8 +593,10 @@ class Cursor(object):
 
         return list(map(lambda x: DescribeOutput.from_row(x), result))
 
-    def genall(self) -> trino.client.TrinoResult:
-        return self._query.result
+    def genall(self) -> Any:
+        if self._query:
+            return self._query.result
+        return None
 
     def fetchall(self) -> List[List[Any]]:
         return list(self.genall())
@@ -625,6 +634,8 @@ class DBAPITypeObject:
         self.values = [v.lower() for v in values]
 
     def __eq__(self, other: object) -> bool:
+        if not isinstance(other, str):
+            return NotImplemented
         return other.lower() in self.values
 
 
