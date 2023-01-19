@@ -47,18 +47,30 @@ import warnings
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from time import sleep
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Generic,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import pytz
 import requests
 from pytz.tzinfo import BaseTzInfo
-from tzlocal import get_localzone_name  # type: ignore
+from tzlocal import get_localzone_name
 
 import trino.logging
 from trino import constants, exceptions
 
 try:
-    from zoneinfo import ZoneInfo  # type: ignore
+    from zoneinfo import ZoneInfo
 
 except ModuleNotFoundError:
     from backports.zoneinfo import ZoneInfo  # type: ignore
@@ -75,7 +87,7 @@ if SOCKS_PROXY:
 else:
     PROXIES = {}
 
-_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
+_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r"^\S[^\s=]*$")
 
 T = TypeVar("T")
 
@@ -125,18 +137,18 @@ class ClientSession(object):
 
     def __init__(
         self,
-        user: str,
-        catalog: str = None,
-        schema: str = None,
-        source: str = None,
-        properties: Dict[str, str] = None,
-        headers: Dict[str, str] = None,
-        transaction_id: str = None,
-        extra_credential: List[Tuple[str, str]] = None,
-        client_tags: List[str] = None,
-        roles: Dict[str, str] = None,
-        timezone: str = None,
-    ):
+        user: Optional[str],
+        catalog: Optional[str] = None,
+        schema: Optional[str] = None,
+        source: Optional[str] = None,
+        properties: Optional[Dict[str, str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        transaction_id: Optional[str] = None,
+        extra_credential: Optional[List[Tuple[str, str]]] = None,
+        client_tags: Optional[List[str]] = None,
+        roles: Optional[Dict[str, str]] = None,
+        timezone: Optional[str] = None,
+    ) -> None:
         self._user = user
         self._catalog = catalog
         self._schema = schema
@@ -154,90 +166,90 @@ class ClientSession(object):
             ZoneInfo(timezone)
 
     @property
-    def user(self):
+    def user(self) -> Optional[str]:
         return self._user
 
     @property
-    def catalog(self):
+    def catalog(self) -> Optional[str]:
         with self._object_lock:
             return self._catalog
 
     @catalog.setter
-    def catalog(self, catalog):
+    def catalog(self, catalog: Optional[str]) -> None:
         with self._object_lock:
             self._catalog = catalog
 
     @property
-    def schema(self):
+    def schema(self) -> Optional[str]:
         with self._object_lock:
             return self._schema
 
     @schema.setter
-    def schema(self, schema):
+    def schema(self, schema: Optional[str]) -> None:
         with self._object_lock:
             self._schema = schema
 
     @property
-    def source(self):
+    def source(self) -> Optional[str]:
         return self._source
 
     @property
-    def properties(self):
+    def properties(self) -> Dict[str, str]:
         with self._object_lock:
             return self._properties
 
     @properties.setter
-    def properties(self, properties):
+    def properties(self, properties: Dict[str, str]) -> None:
         with self._object_lock:
             self._properties = properties
 
     @property
-    def headers(self):
+    def headers(self) -> Dict[str, str]:
         return self._headers
 
     @property
-    def transaction_id(self):
+    def transaction_id(self) -> Optional[str]:
         with self._object_lock:
             return self._transaction_id
 
     @transaction_id.setter
-    def transaction_id(self, transaction_id):
+    def transaction_id(self, transaction_id: Optional[str]) -> None:
         with self._object_lock:
             self._transaction_id = transaction_id
 
     @property
-    def extra_credential(self):
+    def extra_credential(self) -> Optional[List[Tuple[str, str]]]:
         return self._extra_credential
 
     @property
-    def client_tags(self):
+    def client_tags(self) -> List[str]:
         return self._client_tags
 
     @property
-    def roles(self):
+    def roles(self) -> Dict[str, str]:
         with self._object_lock:
             return self._roles
 
     @roles.setter
-    def roles(self, roles):
+    def roles(self, roles: Dict[str, str]) -> None:
         with self._object_lock:
             self._roles = roles
 
     @property
-    def prepared_statements(self):
+    def prepared_statements(self) -> Dict[str, str]:
         return self._prepared_statements
 
     @prepared_statements.setter
-    def prepared_statements(self, prepared_statements):
+    def prepared_statements(self, prepared_statements: Dict[str, str]) -> None:
         with self._object_lock:
             self._prepared_statements = prepared_statements
 
     @property
-    def timezone(self):
+    def timezone(self) -> Optional[str]:
         with self._object_lock:
             return self._timezone
 
-    def _format_roles(self, roles):
+    def _format_roles(self, roles: Dict[str, str]) -> Dict[str, str]:
         formatted_roles = {}
         for catalog, role in roles.items():
             is_legacy_role_pattern = ROLE_PATTERN.match(role) is not None
@@ -252,21 +264,25 @@ class ClientSession(object):
                 formatted_roles[catalog] = f"ROLE{{{role}}}"
         return formatted_roles
 
-    def __getstate__(self):
+    def __getstate__(self) -> Dict[str, str]:
         state = self.__dict__.copy()
         del state["_object_lock"]
         return state
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: Dict[str, str]) -> None:
         self.__dict__.update(state)
         self._object_lock = threading.Lock()
 
 
-def get_header_values(headers, header):
+def get_header_values(
+    headers: requests.structures.CaseInsensitiveDict[str], header: str
+) -> List[str]:
     return [val.strip() for val in headers[header].split(",")]
 
 
-def get_session_property_values(headers, header):
+def get_session_property_values(
+    headers: requests.structures.CaseInsensitiveDict[str], header: str
+) -> List[Tuple[str, str]]:
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
@@ -274,7 +290,9 @@ def get_session_property_values(headers, header):
     ]
 
 
-def get_prepared_statement_values(headers, header):
+def get_prepared_statement_values(
+    headers: requests.structures.CaseInsensitiveDict[str], header: str
+) -> List[Tuple[str, str]]:
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
@@ -282,7 +300,9 @@ def get_prepared_statement_values(headers, header):
     ]
 
 
-def get_roles_values(headers, header):
+def get_roles_values(
+    headers: requests.structures.CaseInsensitiveDict[str], header: str
+) -> List[Tuple[str, str]]:
     kvs = get_header_values(headers, header)
     return [
         (k.strip(), urllib.parse.unquote_plus(v.strip()))
@@ -291,7 +311,17 @@ def get_roles_values(headers, header):
 
 
 class TrinoStatus(object):
-    def __init__(self, id, stats, warnings, info_uri, next_uri, update_type, rows, columns=None):
+    def __init__(
+        self,
+        id: str,
+        stats: Dict[str, Any],
+        warnings: List[Any],
+        info_uri: str,
+        next_uri: Optional[str],
+        update_type: Any,
+        rows: List[Any],
+        columns: Optional[List[str]] = None,
+    ) -> None:
         self.id = id
         self.stats = stats
         self.warnings = warnings
@@ -301,7 +331,7 @@ class TrinoStatus(object):
         self.rows = rows
         self.columns = columns
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             "TrinoStatus("
             "id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>"
@@ -317,15 +347,19 @@ class TrinoStatus(object):
 
 class _DelayExponential(object):
     def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
-    ):
+        self,
+        base: float = 0.1,
+        exponent: int = 2,
+        jitter: bool = True,
+        max_delay: int = 2 * 3600,  # 100ms  # 2 hours
+    ) -> None:
         self._base = base
         self._exponent = exponent
         self._jitter = jitter
         self._max_delay = max_delay
 
-    def __call__(self, attempt):
-        delay = float(self._base) * (self._exponent ** attempt)
+    def __call__(self, attempt: int) -> float:
+        delay = float(self._base) * (self._exponent**attempt)
         if self._jitter:
             delay *= random.random()
         delay = min(float(self._max_delay), delay)
@@ -334,11 +368,15 @@ class _DelayExponential(object):
 
 class _RetryWithExponentialBackoff(object):
     def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
-    ):
+        self,
+        base: float = 0.1,
+        exponent: int = 2,
+        jitter: bool = True,
+        max_delay: int = 2 * 3600,  # 100ms  # 2 hours
+    ) -> None:
         self._get_delay = _DelayExponential(base, exponent, jitter, max_delay)
 
-    def retry(self, func, args, kwargs, err, attempt):
+    def retry(self, func: Any, args: Any, kwargs: Any, err: Any, attempt: int) -> None:
         delay = self._get_delay(attempt)
         sleep(delay)
 
@@ -397,12 +435,14 @@ class TrinoRequest(object):
         port: int,
         client_session: ClientSession,
         http_session: Any = None,
-        http_scheme: str = None,
+        http_scheme: Optional[str] = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
         redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
-        request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
-        handle_retry=_RetryWithExponentialBackoff(),
+        request_timeout: Union[
+            float, Tuple[float, float]
+        ] = constants.DEFAULT_REQUEST_TIMEOUT,
+        handle_retry: _RetryWithExponentialBackoff = _RetryWithExponentialBackoff(),
         verify: bool = True,
     ) -> None:
         self._client_session = client_session
@@ -438,15 +478,15 @@ class TrinoRequest(object):
         self.max_attempts = max_attempts
 
     @property
-    def transaction_id(self):
+    def transaction_id(self) -> Optional[str]:
         return self._client_session.transaction_id
 
     @transaction_id.setter
-    def transaction_id(self, value):
+    def transaction_id(self, value: Optional[str]) -> None:
         self._client_session.transaction_id = value
 
     @property
-    def http_headers(self) -> Dict[str, str]:
+    def http_headers(self) -> Dict[str, Optional[str]]:
         headers = {}
 
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
@@ -461,8 +501,13 @@ class TrinoRequest(object):
                 "{}={}".format(catalog, urllib.parse.quote(str(role)))
                 for catalog, role in self._client_session.roles.items()
             )
-        if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
-            headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
+        if (
+            self._client_session.client_tags is not None
+            and len(self._client_session.client_tags) > 0
+        ):
+            headers[constants.HEADER_CLIENT_TAGS] = ",".join(
+                self._client_session.client_tags
+            )
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
@@ -486,8 +531,10 @@ class TrinoRequest(object):
         transaction_id = self._client_session.transaction_id
         headers[constants.HEADER_TRANSACTION] = transaction_id
 
-        if self._client_session.extra_credential is not None and \
-                len(self._client_session.extra_credential) > 0:
+        if (
+            self._client_session.extra_credential is not None
+            and len(self._client_session.extra_credential) > 0
+        ):
 
             for tup in self._client_session.extra_credential:
                 self._verify_extra_credential(tup)
@@ -495,9 +542,12 @@ class TrinoRequest(object):
             # HTTP 1.1 section 4.2 combine multiple extra credentials into a
             # comma-separated value
             # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
-            headers[constants.HEADER_EXTRA_CREDENTIAL] = \
-                ", ".join(
-                    [f"{tup[0]}={urllib.parse.quote_plus(tup[1])}" for tup in self._client_session.extra_credential])
+            headers[constants.HEADER_EXTRA_CREDENTIAL] = ", ".join(
+                [
+                    f"{tup[0]}={urllib.parse.quote_plus(tup[1])}"
+                    for tup in self._client_session.extra_credential
+                ]
+            )
 
         return headers
 
@@ -506,7 +556,7 @@ class TrinoRequest(object):
         return self._max_attempts
 
     @max_attempts.setter
-    def max_attempts(self, value) -> None:
+    def max_attempts(self, value: int) -> None:
         self._max_attempts = value
         if value == 1:  # No retry
             self._get = self._http_session.get
@@ -528,7 +578,7 @@ class TrinoRequest(object):
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
 
-    def get_url(self, path) -> str:
+    def get_url(self, path: str) -> str:
         return "{protocol}://{host}:{port}{path}".format(
             protocol=self._http_scheme, host=self._host, port=self._port, path=path
         )
@@ -541,7 +591,9 @@ class TrinoRequest(object):
     def next_uri(self) -> Optional[str]:
         return self._next_uri
 
-    def post(self, sql: str, additional_http_headers: Optional[Dict[str, Any]] = None):
+    def post(
+        self, sql: str, additional_http_headers: Optional[Dict[str, Any]] = None
+    ) -> requests.Response:
         data = sql.encode("utf-8")
         # Deep copy of the http_headers dict since they may be modified for this
         # request by the provided additional_http_headers
@@ -562,7 +614,12 @@ class TrinoRequest(object):
             while http_response is not None and http_response.is_redirect:
                 location = http_response.headers["Location"]
                 url = self._redirect_handler.handle(location)
-                logger.info("redirect %s from %s to %s", http_response.status_code, location, url)
+                logger.info(
+                    "redirect %s from %s to %s",
+                    http_response.status_code,
+                    location,
+                    url,
+                )
                 http_response = self._post(
                     url,
                     data=data,
@@ -573,7 +630,7 @@ class TrinoRequest(object):
                 )
         return http_response
 
-    def get(self, url: str):
+    def get(self, url: Optional[str]) -> requests.Response:
         return self._get(
             url,
             headers=self.http_headers,
@@ -581,10 +638,12 @@ class TrinoRequest(object):
             proxies=PROXIES,
         )
 
-    def delete(self, url):
+    def delete(self, url: str) -> requests.Response:
         return self._delete(url, timeout=self._request_timeout, proxies=PROXIES)
 
-    def _process_error(self, error, query_id):
+    def _process_error(
+        self, error: Dict[str, Any], query_id: str
+    ) -> Union[exceptions.TrinoUserError, exceptions.TrinoQueryError]:
         error_type = error["errorType"]
         if error_type == "EXTERNAL":
             raise exceptions.TrinoExternalError(error, query_id)
@@ -593,7 +652,7 @@ class TrinoRequest(object):
 
         return exceptions.TrinoQueryError(error, query_id)
 
-    def raise_response_error(self, http_response):
+    def raise_response_error(self, http_response: requests.Response) -> None:
         if http_response.status_code == 502:
             raise exceptions.Http502Error("error 502: bad gateway")
 
@@ -606,11 +665,11 @@ class TrinoRequest(object):
         raise exceptions.HttpError(
             "error {}{}".format(
                 http_response.status_code,
-                ": {}".format(http_response.content) if http_response.content else "",
+                ": {!r}".format(http_response.content) if http_response.content else "",
             )
         )
 
-    def process(self, http_response) -> TrinoStatus:
+    def process(self, http_response: requests.Response) -> TrinoStatus:
         if not http_response.ok:
             self.raise_response_error(http_response)
 
@@ -633,14 +692,18 @@ class TrinoRequest(object):
                 self._client_session.properties[key] = value
 
         if constants.HEADER_SET_CATALOG in http_response.headers:
-            self._client_session.catalog = http_response.headers[constants.HEADER_SET_CATALOG]
+            self._client_session.catalog = http_response.headers[
+                constants.HEADER_SET_CATALOG
+            ]
 
         if constants.HEADER_SET_SCHEMA in http_response.headers:
-            self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
+            self._client_session.schema = http_response.headers[
+                constants.HEADER_SET_SCHEMA
+            ]
 
         if constants.HEADER_SET_ROLE in http_response.headers:
             for key, value in get_roles_values(
-                    http_response.headers, constants.HEADER_SET_ROLE
+                http_response.headers, constants.HEADER_SET_ROLE
             ):
                 self._client_session.roles[key] = value
 
@@ -669,19 +732,23 @@ class TrinoRequest(object):
             columns=response.get("columns"),
         )
 
-    def _verify_extra_credential(self, header):
+    def _verify_extra_credential(self, header: Tuple[str, str]) -> None:
         """
         Verifies that key has ASCII only and non-whitespace characters.
         """
         key = header[0]
 
         if not _HEADER_EXTRA_CREDENTIAL_KEY_REGEX.match(key):
-            raise ValueError(f"whitespace or '=' are disallowed in extra credential '{key}'")
+            raise ValueError(
+                f"whitespace or '=' are disallowed in extra credential '{key}'"
+            )
 
         try:
-            key.encode().decode('ascii')
+            key.encode().decode("ascii")
         except UnicodeDecodeError:
-            raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
+            raise ValueError(
+                f"only ASCII characters are allowed in extra credential '{key}'"
+            )
 
 
 class TrinoResult(object):
@@ -692,25 +759,25 @@ class TrinoResult(object):
     https://docs.python.org/3/library/stdtypes.html#generator-types
     """
 
-    def __init__(self, query, rows: List[Any]):
+    def __init__(self, query: Any, rows: List[Any]) -> None:
         self._query = query
         # Initial rows from the first POST request
         self._rows = rows
         self._rownumber = 0
 
     @property
-    def rows(self):
+    def rows(self) -> List[Any]:
         return self._rows
 
     @rows.setter
-    def rows(self, rows):
+    def rows(self, rows: List[Any]) -> None:
         self._rows = rows
 
     @property
     def rownumber(self) -> int:
         return self._rownumber
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[Any, None, None]:
         # A query only transitions to a FINISHED state when the results are fully consumed:
         # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
         while not self._query.finished or self._rows is not None:
@@ -745,38 +812,41 @@ class TrinoQuery(object):
         self._sql = sql
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
-        self._row_mapper: Optional[RowMapper] = None
+        self._row_mapper: Optional[Union[RowMapper, NoOpRowMapper]] = None
 
     @property
-    def columns(self):
+    def columns(self) -> Any:
         if self.query_id:
             while not self._columns and not self.finished and not self.cancelled:
                 # Columns are not returned immediately after query is submitted.
                 # Continue fetching data until columns information is available and push fetched rows into buffer.
-                self._result.rows += self.fetch()
+                if self._result:
+                    self._result.rows += self.fetch()
         return self._columns
 
     @property
-    def stats(self):
+    def stats(self) -> Dict[Any, Any]:
         return self._stats
 
     @property
-    def update_type(self):
+    def update_type(self) -> Any:
         return self._update_type
 
     @property
-    def warnings(self):
+    def warnings(self) -> List[Dict[Any, Any]]:
         return self._warnings
 
     @property
-    def result(self):
+    def result(self) -> Optional[TrinoResult]:
         return self._result
 
     @property
-    def info_uri(self):
+    def info_uri(self) -> Optional[str]:
         return self._info_uri
 
-    def execute(self, additional_http_headers=None) -> TrinoResult:
+    def execute(
+        self, additional_http_headers: Optional[Dict[str, Any]] = None
+    ) -> TrinoResult:
         """Initiate a Trino query by sending the SQL statement
 
         This is the first HTTP request sent to the coordinator.
@@ -805,7 +875,7 @@ class TrinoQuery(object):
             self._result.rows += self.fetch()
         return self._result
 
-    def _update_state(self, status):
+    def _update_state(self, status: TrinoStatus) -> None:
         self._stats.update(status.stats)
         self._update_type = status.update_type
         if not self._row_mapper and status.columns:
@@ -846,7 +916,10 @@ class TrinoQuery(object):
 
     def is_finished(self) -> bool:
         import warnings
-        warnings.warn("is_finished is deprecated, use finished instead", DeprecationWarning)
+
+        warnings.warn(
+            "is_finished is deprecated, use finished instead", DeprecationWarning
+        )
         return self.finished
 
     @property
@@ -858,10 +931,17 @@ class TrinoQuery(object):
         return self._cancelled
 
 
-def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
-    def wrapper(func):
+def _retry_with(
+    handle_retry: _RetryWithExponentialBackoff,
+    handled_exceptions: Tuple[
+        Type[requests.exceptions.ConnectionError], Type[requests.exceptions.Timeout]
+    ],
+    conditions: Tuple[Callable[[Any], bool]],
+    max_attempts: int,
+) -> Callable[[Any], Any]:
+    def wrapper(func: Callable[[Any], Any]) -> Callable[[Any], Any]:
         @functools.wraps(func)
-        def decorated(*args, **kwargs):
+        def decorated(*args: Any, **kwargs: Any) -> Optional[Any]:
             error = None
             result = None
             for attempt in range(1, max_attempts + 1):
@@ -894,26 +974,26 @@ class ValueMapper(abc.ABC, Generic[T]):
 
 
 class NoOpValueMapper(ValueMapper[Any]):
-    def map(self, value) -> Optional[Any]:
+    def map(self, value: Optional[Any]) -> Optional[Any]:
         return value
 
 
 class DecimalValueMapper(ValueMapper[Decimal]):
-    def map(self, value) -> Optional[Decimal]:
+    def map(self, value: Optional[Any]) -> Optional[Decimal]:
         if value is None:
             return None
         return Decimal(value)
 
 
 class DoubleValueMapper(ValueMapper[float]):
-    def map(self, value) -> Optional[float]:
+    def map(self, value: Optional[str]) -> Optional[float]:
         if value is None:
             return None
-        if value == 'Infinity':
+        if value == "Infinity":
             return float("inf")
-        if value == '-Infinity':
+        if value == "-Infinity":
             return float("-inf")
-        if value == 'NaN':
+        if value == "NaN":
             return float("nan")
         return float(value)
 
@@ -934,7 +1014,7 @@ def _fraction_to_decimal(fractional_str: str) -> Decimal:
 
 
 class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
-    def __init__(self, whole_python_temporal_value: PythonTemporalType, remaining_fractional_seconds: Decimal):
+    def __init__(self, whole_python_temporal_value: PythonTemporalType, remaining_fractional_seconds: Decimal) -> None:
         self._whole_python_temporal_value = whole_python_temporal_value
         self._remaining_fractional_seconds = remaining_fractional_seconds
 
@@ -946,7 +1026,7 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
     def to_python_type(self) -> PythonTemporalType:
         pass
 
-    def round_to(self, precision: int) -> TemporalType:
+    def round_to(self, precision: int) -> TemporalType[Any]:
         """
             Python datetime and time only support up to microsecond precision
             In case the supplied value exceeds the specified precision,
@@ -1027,11 +1107,11 @@ class TimestampWithTimeZone(Timestamp, TemporalType[datetime]):
 
 
 class TimeValueMapper(ValueMapper[time]):
-    def __init__(self, precision):
+    def __init__(self, precision: int) -> None:
         self.time_default_size = 8  # size of 'HH:MM:SS'
         self.precision = precision
 
-    def map(self, value) -> Optional[time]:
+    def map(self, value: Optional[str]) -> Optional[time]:
         if value is None:
             return None
         whole_python_temporal_value = value[:self.time_default_size]
@@ -1046,7 +1126,7 @@ class TimeValueMapper(ValueMapper[time]):
 
 
 class TimeWithTimeZoneValueMapper(TimeValueMapper):
-    def map(self, value) -> Optional[time]:
+    def map(self, value: Optional[str]) -> Optional[time]:
         if value is None:
             return None
         whole_python_temporal_value = value[:self.time_default_size]
@@ -1059,18 +1139,18 @@ class TimeWithTimeZoneValueMapper(TimeValueMapper):
 
 
 class DateValueMapper(ValueMapper[date]):
-    def map(self, value) -> Optional[date]:
+    def map(self, value: Optional[str]) -> Optional[date]:
         if value is None:
             return None
         return date.fromisoformat(value)
 
 
 class TimestampValueMapper(ValueMapper[datetime]):
-    def __init__(self, precision):
+    def __init__(self, precision: int) -> None:
         self.datetime_default_size = 19  # size of 'YYYY-MM-DD HH:MM:SS' (the datetime string up to the seconds)
         self.precision = precision
 
-    def map(self, value) -> Optional[datetime]:
+    def map(self, value: Optional[str]) -> Optional[datetime]:
         if value is None:
             return None
         whole_python_temporal_value = value[:self.datetime_default_size]
@@ -1082,7 +1162,7 @@ class TimestampValueMapper(ValueMapper[datetime]):
 
 
 class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
-    def map(self, value) -> Optional[datetime]:
+    def map(self, value: Optional[str]) -> Optional[datetime]:
         if value is None:
             return None
         datetime_with_fraction, timezone_part = value.rsplit(' ', 1)
@@ -1095,34 +1175,36 @@ class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
 
 
 class BinaryValueMapper(ValueMapper[bytes]):
-    def map(self, value) -> Optional[bytes]:
+    def map(self, value: Optional[str]) -> Optional[bytes]:
         if value is None:
             return None
         return base64.b64decode(value.encode("utf8"))
 
 
 class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
-    def __init__(self, mapper: ValueMapper[Any]):
+    def __init__(self, mapper: ValueMapper[Any]) -> None:
         self.mapper = mapper
 
-    def map(self, values: List[Any]) -> Optional[List[Any]]:
+    def map(self, values: Optional[List[Any]]) -> Optional[List[Any]]:
         if values is None:
             return None
         return [self.mapper.map(value) for value in values]
 
 
 class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
-    def __init__(self, mappers: List[ValueMapper[Any]]):
+    def __init__(self, mappers: List[ValueMapper[Any]]) -> None:
         self.mappers = mappers
 
-    def map(self, values: List[Any]) -> Optional[Tuple[Optional[Any], ...]]:
+    def map(self, values: Optional[List[Any]]) -> Optional[Tuple[Optional[Any], ...]]:
         if values is None:
             return None
-        return tuple(self.mappers[index].map(value) for index, value in enumerate(values))
+        return tuple(
+            self.mappers[index].map(value) for index, value in enumerate(values)
+        )
 
 
 class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
-    def __init__(self, key_mapper: ValueMapper[Any], value_mapper: ValueMapper[Any]):
+    def __init__(self, key_mapper: ValueMapper[Any], value_mapper: ValueMapper[Any]) -> None:
         self.key_mapper = key_mapper
         self.value_mapper = value_mapper
 
@@ -1130,7 +1212,8 @@ class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
         if values is None:
             return None
         return {
-            self.key_mapper.map(key): self.value_mapper.map(value) for key, value in values.items()
+            self.key_mapper.map(key): self.value_mapper.map(value)
+            for key, value in values.items()
         }
 
 
@@ -1140,8 +1223,35 @@ class NoOpRowMapper:
     Used when legacy_primitive_types is False.
     """
 
-    def map(self, rows):
+    def map(self, rows: Any) -> Any:
         return rows
+
+
+class RowMapper:
+    """
+    Maps a row of data given a list of mapping functions
+    """
+
+    def __init__(self, columns: List[Any]) -> None:
+        self.columns = columns
+
+    def map(self, rows: List[Any]) -> List[Any]:
+        if len(self.columns) == 0:
+            return rows
+        return [self._map_row(row) for row in rows]
+
+    def _map_row(self, row: str) -> List[Optional[T]]:
+        return [
+            self._map_value(value, self.columns[index])
+            for index, value in enumerate(row)
+        ]
+
+    def _map_value(self, value: Any, value_mapper: ValueMapper[T]) -> Optional[T]:
+        try:
+            return value_mapper.map(value)
+        except ValueError as e:
+            error_str = f"Could not convert '{value}' into the associated python type"
+            raise trino.exceptions.TrinoDataError(error_str) from e
 
 
 class RowMapperFactory:
@@ -1150,31 +1260,35 @@ class RowMapperFactory:
     lambda functions (one for each column) which will process a data value
     and returns a RowMapper instance which will process rows of data
     """
+
     NO_OP_ROW_MAPPER = NoOpRowMapper()
 
-    def create(self, columns, legacy_primitive_types):
+    def create(self, columns: Any, legacy_primitive_types: bool) -> Optional[Union[RowMapper, NoOpRowMapper]]:
         assert columns is not None
 
         if not legacy_primitive_types:
             return RowMapper([self._create_value_mapper(column['typeSignature']) for column in columns])
         return RowMapperFactory.NO_OP_ROW_MAPPER
 
-    def _create_value_mapper(self, column) -> ValueMapper:
-        col_type = column['rawType']
+    def _create_value_mapper(self, column: Any) -> ValueMapper[Any]:
+        col_type = column["rawType"]
 
-        if col_type == 'array':
-            value_mapper = self._create_value_mapper(column['arguments'][0]['value'])
+        if col_type == "array":
+            value_mapper = self._create_value_mapper(column["arguments"][0]["value"])
             return ArrayValueMapper(value_mapper)
-        elif col_type == 'row':
-            mappers = [self._create_value_mapper(arg['value']['typeSignature']) for arg in column['arguments']]
+        elif col_type == "row":
+            mappers = [
+                self._create_value_mapper(arg["value"]["typeSignature"])
+                for arg in column["arguments"]
+            ]
             return RowValueMapper(mappers)
-        elif col_type == 'map':
-            key_mapper = self._create_value_mapper(column['arguments'][0]['value'])
-            value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
+        elif col_type == "map":
+            key_mapper = self._create_value_mapper(column["arguments"][0]["value"])
+            value_mapper = self._create_value_mapper(column["arguments"][1]["value"])
             return MapValueMapper(key_mapper, value_mapper)
-        elif col_type.startswith('decimal'):
+        elif col_type.startswith("decimal"):
             return DecimalValueMapper()
-        elif col_type.startswith('double') or col_type.startswith('real'):
+        elif col_type.startswith("double") or col_type.startswith("real"):
             return DoubleValueMapper()
         elif col_type.startswith('timestamp') and 'with time zone' in col_type:
             return TimestampWithTimeZoneValueMapper(self._get_precision(column))
@@ -1191,31 +1305,8 @@ class RowMapperFactory:
         else:
             return NoOpValueMapper()
 
-    def _get_precision(self, column: Dict[str, Any]):
+    def _get_precision(self, column: Dict[str, Any]) -> int:
         args = column['arguments']
         if len(args) == 0:
             return 3
         return args[0]['value']
-
-
-class RowMapper:
-    """
-    Maps a row of data given a list of mapping functions
-    """
-    def __init__(self, columns):
-        self.columns = columns
-
-    def map(self, rows):
-        if len(self.columns) == 0:
-            return rows
-        return [self._map_row(row) for row in rows]
-
-    def _map_row(self, row):
-        return [self._map_value(value, self.columns[index]) for index, value in enumerate(row)]
-
-    def _map_value(self, value, value_mapper: ValueMapper[T]) -> Optional[T]:
-        try:
-            return value_mapper.map(value)
-        except ValueError as e:
-            error_str = f"Could not convert '{value}' into the associated python type"
-            raise trino.exceptions.TrinoDataError(error_str) from e
