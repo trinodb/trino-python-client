@@ -72,7 +72,7 @@ class TrinoDataError(NotSupportedError):
 
 
 class TrinoQueryError(Error):
-    def __init__(self, error: Dict[str, Any], query_id: Optional[str] = None) -> None:
+    def __init__(self, error: Any, query_id: Optional[str] = None) -> None:
         self._error = error
         self._query_id = query_id
 

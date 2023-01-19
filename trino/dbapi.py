@@ -24,7 +24,18 @@ import time
 import uuid
 from decimal import Decimal
 from types import TracebackType
-from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Sequence, Tuple, Type, Union
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
 
 import trino.client
 import trino.exceptions
@@ -74,16 +85,6 @@ paramstyle = "qmark"
 logger = trino.logging.get_logger(__name__)
 
 
-def connect(*args: Any, **kwargs: Any) -> trino.dbapi.Connection:
-    """Constructor for creating a connection to the database.
-
-    See class :py:class:`Connection` for arguments.
-
-    :returns: a :py:class:`Connection` object.
-    """
-    return Connection(*args, **kwargs)
-
-
 class Connection(object):
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
@@ -109,12 +110,12 @@ class Connection(object):
         max_attempts: int = constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout: float = constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level: IsolationLevel = IsolationLevel.AUTOCOMMIT,
-        verify: Union[bool | str] = True,
+        verify: Union[bool, str] = True,
         http_session: Optional[trino.client.TrinoRequest.http.Session] = None,
         client_tags: Optional[List[str]] = None,
-        legacy_primitive_types: Optional[bool] = False,
+        legacy_primitive_types: bool = False,
         roles: Optional[Dict[str, str]] = None,
-        timezone=None,
+        timezone: Optional[str] = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -164,7 +165,7 @@ class Connection(object):
     def transaction(self) -> Optional[Transaction]:
         return self._transaction
 
-    def __enter__(self) -> object:
+    def __enter__(self) -> "Connection":
         return self
 
     def __exit__(self,
@@ -212,7 +213,7 @@ class Connection(object):
             self.request_timeout,
         )
 
-    def cursor(self, legacy_primitive_types: bool = None) -> 'trino.dbapi.Cursor':
+    def cursor(self, legacy_primitive_types: Optional[bool] = None) -> 'Cursor':
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
@@ -239,21 +240,21 @@ class DescribeOutput(NamedTuple):
     aliased: bool
 
     @classmethod
-    def from_row(cls, row: List[Any]):
+    def from_row(cls, row: List[Any]) -> "DescribeOutput":
         return cls(*row)
 
 
 class ColumnDescription(NamedTuple):
     name: str
     type_code: int
-    display_size: int
+    display_size: Optional[int]
     internal_size: int
     precision: int
     scale: int
-    null_ok: bool
+    null_ok: Optional[bool]
 
     @classmethod
-    def from_column(cls, column: Dict[str, Any]):
+    def from_column(cls, column: Dict[str, Any]) -> "ColumnDescription":
         type_signature = column["typeSignature"]
         raw_type = type_signature["rawType"]
         arguments = type_signature["arguments"]
@@ -266,6 +267,16 @@ class ColumnDescription(NamedTuple):
             arguments[1]["value"] if raw_type in SCALE_TYPES else None,  # scale
             None  # null_ok
         )
+
+
+def connect(*args: Any, **kwargs: Any) -> Connection:
+    """Constructor for creating a connection to the database.
+
+    See class :py:class:`Connection` for arguments.
+
+    :returns: a :py:class:`Connection` object.
+    """
+    return Connection(*args, **kwargs)
 
 
 class Cursor(object):
@@ -312,7 +323,7 @@ class Cursor(object):
         return None
 
     @property
-    def description(self) -> Optional[List[Tuple[Any, ...]]]:
+    def description(self) -> Optional[List[ColumnDescription]]:
         if self._query is None or self._query.columns is None:
             return None
 
@@ -462,7 +473,7 @@ class Cursor(object):
     def _generate_unique_statement_name(self) -> str:
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation: str, params: Optional[Any] = None) -> trino.client.TrinoResult:
+    def execute(self, operation: str, params: Optional[Any] = None) -> "Cursor":
         if params:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
@@ -492,7 +503,7 @@ class Cursor(object):
             self._iterator = iter(self._query.execute())
         return self
 
-    def executemany(self, operation: str, seq_of_params: Any) -> None:
+    def executemany(self, operation: str, seq_of_params: Any) -> "Cursor":
         """
         PEP-0249: Prepare a database operation (query or command) and then
         execute it against all parameter sequences or mappings found in the sequence seq_of_parameters.
@@ -598,7 +609,7 @@ class Cursor(object):
             return self._query.result
         return None
 
-    def fetchall(self) -> List[List[Any]]:
+    def fetchall(self) -> Optional[List[List[Any]]]:
         return list(self.genall())
 
     def cancel(self) -> None:
