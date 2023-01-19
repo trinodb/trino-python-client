@@ -125,10 +125,10 @@ class ClientSession(object):
 
     def __init__(
         self,
-        user: str,
-        catalog: str = None,
-        schema: str = None,
-        source: str = None,
+        user: Optional[str],
+        catalog: Optional[str] = None,
+        schema: Optional[str] = None,
+        source: Optional[str] = None,
         properties: Dict[str, str] = None,
         headers: Dict[str, str] = None,
         transaction_id: str = None,
