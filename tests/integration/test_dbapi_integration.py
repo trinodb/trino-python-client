@@ -136,37 +136,45 @@ def test_string_query_param(trino_connection):
 
 
 def test_execute_many(trino_connection):
-    cur = trino_connection.cursor()
-    cur.execute("CREATE TABLE memory.default.test_execute_many (key int, value varchar)")
-    cur.fetchall()
-    operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
-    cur.executemany(operation, [(1, "value1")])
-    cur.fetchall()
-    cur.execute("SELECT * FROM memory.default.test_execute_many ORDER BY key")
-    rows = cur.fetchall()
-    assert len(list(rows)) == 1
-    assert rows[0] == [1, "value1"]
+    try:
+        cur = trino_connection.cursor()
+        cur.execute("CREATE TABLE memory.default.test_execute_many (key int, value varchar)")
+        cur.fetchall()
+        operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
+        cur.executemany(operation, [(1, "value1")])
+        cur.fetchall()
+        cur.execute("SELECT * FROM memory.default.test_execute_many ORDER BY key")
+        rows = cur.fetchall()
+        assert len(list(rows)) == 1
+        assert rows[0] == [1, "value1"]
 
-    operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
-    cur.executemany(operation, [(2, "value2"), (3, "value3")])
-    cur.fetchall()
+        operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
+        cur.executemany(operation, [(2, "value2"), (3, "value3")])
+        cur.fetchall()
 
-    cur.execute("SELECT * FROM memory.default.test_execute_many ORDER BY key")
-    rows = cur.fetchall()
-    assert len(list(rows)) == 3
-    assert rows[0] == [1, "value1"]
-    assert rows[1] == [2, "value2"]
-    assert rows[2] == [3, "value3"]
+        cur.execute("SELECT * FROM memory.default.test_execute_many ORDER BY key")
+        rows = cur.fetchall()
+        assert len(list(rows)) == 3
+        assert rows[0] == [1, "value1"]
+        assert rows[1] == [2, "value2"]
+        assert rows[2] == [3, "value3"]
+    finally:
+        cur = trino_connection.cursor()
+        cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many")
 
 
 def test_execute_many_without_params(trino_connection):
-    cur = trino_connection.cursor()
-    cur.execute("CREATE TABLE memory.default.test_execute_many_without_param (value varchar)")
-    cur.fetchall()
-    with pytest.raises(TrinoUserError) as e:
-        cur.executemany("INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", [])
+    try:
+        cur = trino_connection.cursor()
+        cur.execute("CREATE TABLE memory.default.test_execute_many_without_param (value varchar)")
         cur.fetchall()
-    assert "Incorrect number of parameters: expected 1 but found 0" in str(e.value)
+        with pytest.raises(TrinoUserError) as e:
+            cur.executemany("INSERT INTO memory.default.test_execute_many_without_param (value) VALUES (?)", [])
+            cur.fetchall()
+        assert "Incorrect number of parameters: expected 1 but found 0" in str(e.value)
+    finally:
+        cur = trino_connection.cursor()
+        cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many_without_param")
 
 
 def test_execute_many_select(trino_connection):
