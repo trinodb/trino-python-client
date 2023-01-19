@@ -746,6 +746,7 @@ class TrinoQuery(object):
         self._request = request
         self._update_type = None
         self._update_count = None
+        self._next_uri = None
         self._sql = sql
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
@@ -817,6 +818,7 @@ class TrinoQuery(object):
         self._stats.update(status.stats)
         self._update_type = status.update_type
         self._update_count = status.update_count
+        self._next_uri = status.next_uri
         if not self._row_mapper and status.columns:
             self._row_mapper = RowMapperFactory().create(columns=status.columns,
                                                          legacy_primitive_types=self._legacy_primitive_types)
@@ -839,12 +841,11 @@ class TrinoQuery(object):
 
     def cancel(self) -> None:
         """Cancel the current query"""
-        if self.query_id is None or self.finished:
+        if self._next_uri is None:
             return
 
-        url = self._request.get_url("/v1/query/{}".format(self.query_id))
         logger.debug("cancelling query: %s", self.query_id)
-        response = self._request.delete(url)
+        response = self._request.delete(self._next_uri)
         logger.debug(response)
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
