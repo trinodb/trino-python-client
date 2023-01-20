@@ -368,6 +368,9 @@ class Cursor(object):
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
+        # Approach with directly manipulating on ClientSession
+        # self._connection._client_session.prepared_statements[name] = statement
+
     def _execute_prepared_statement(
         self,
         statement_name,
@@ -458,11 +461,14 @@ class Cursor(object):
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
+        # Approach with directly manipulating on ClientSession
+        # self._connection._client_session.prepared_statements.pop(statement_name, None)
+
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
 
-    def execute(self, operation, params=None):
-        if params:
+    def execute(self, operation, params=None, prepared_statements_client_side=True):
+        if params and not prepared_statements_client_side:
             assert isinstance(params, (list, tuple)), (
                 'params must be a list or tuple containing the query '
                 'parameter values'
@@ -486,6 +492,21 @@ class Cursor(object):
                 self._deallocate_prepared_statement(statement_name)
 
         else:
+            # Approach with parsing on client side
+            if params:
+                assert isinstance(params, (list, tuple)), (
+                    'params must be a list or tuple containing the query '
+                    'parameter values'
+                )
+
+                # substitue parameters in query in reversed order
+                question_mark_positions = [index for index, character in enumerate(operation) if character == '?']
+                question_mark_positions.reverse()
+                for index, value in enumerate(reversed(params)):
+                    operation = "".join([operation[:question_mark_positions[index]],
+                                         "'", value, "'",
+                                         operation[question_mark_positions[index] + 1:]])
+
             self._query = trino.client.TrinoQuery(self._request, sql=operation,
                                                   legacy_primitive_types=self._legacy_primitive_types)
             self._iterator = iter(self._query.execute())
