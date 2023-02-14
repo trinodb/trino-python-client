@@ -113,6 +113,7 @@ class Connection(object):
         legacy_primitive_types=False,
         roles=None,
         timezone=None,
+        target_result_size=None,
     ):
         self.host = host
         self.port = port
@@ -153,6 +154,7 @@ class Connection(object):
         self._request = None
         self._transaction = None
         self.legacy_primitive_types = legacy_primitive_types
+        self.target_result_size = target_result_size
 
     @property
     def isolation_level(self):
@@ -205,6 +207,7 @@ class Connection(object):
             self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
+            self.target_result_size
         )
 
     def cursor(self, legacy_primitive_types: bool = None):
@@ -220,7 +223,7 @@ class Connection(object):
             self,
             request,
             # if legacy_primitive_types is not explicitly set in Cursor, take from Connection
-            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
+            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types,
         )
 
 

@@ -406,6 +406,7 @@ class TrinoRequest(object):
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=_RetryWithExponentialBackoff(),
         verify: bool = True,
+        target_result_size: Optional[str] = None
     ) -> None:
         self._client_session = client_session
         self._host = host
@@ -438,6 +439,7 @@ class TrinoRequest(object):
         self._request_timeout = request_timeout
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
+        self.target_result_size = target_result_size
 
     @property
     def transaction_id(self):
@@ -541,6 +543,8 @@ class TrinoRequest(object):
 
     @property
     def next_uri(self) -> Optional[str]:
+        if self.target_result_size and self._next_uri:
+            return f"{self._next_uri}?targetResultSize{self.target_result_size}"
         return self._next_uri
 
     def post(self, sql: str, additional_http_headers: Optional[Dict[str, Any]] = None):
