@@ -745,6 +745,49 @@ def test_named_row(trino_connection):
     rows = cur.fetchall()
 
     assert rows[0][0] == (1, 2.0)
+    assert rows[0][0][0] == 1
+    assert rows[0][0][1] == 2.0
+    assert rows[0][0].x == 1
+    assert rows[0][0].y == 2.0
+
+    assert rows[0][0].__annotations__["names"] == ['x', 'y']
+    assert rows[0][0].__annotations__["types"] == ['bigint', 'double']
+
+
+def test_named_row_duplicate_names(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("SELECT CAST(ROW(1, 2e0) AS ROW(x BIGINT, x DOUBLE))")
+    rows = cur.fetchall()
+
+    assert rows[0][0] == (1, 2.0)
+    with pytest.raises(ValueError, match="Ambiguous row field reference: x"):
+        rows[0][0].x
+
+    assert rows[0][0].__annotations__["names"] == ['x', 'x']
+    assert rows[0][0].__annotations__["types"] == ['bigint', 'double']
+    assert str(rows[0][0]) == "(1, 2.0)"
+
+
+def test_nested_named_row(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("SELECT CAST(ROW(DECIMAL '2.3', ROW(1, 'test')) AS ROW(x DECIMAL(3,2), y ROW(x BIGINT, y VARCHAR)))")
+    rows = cur.fetchall()
+
+    assert rows[0][0] == (Decimal('2.3'), (1, 'test'))
+    assert rows[0][0][0] == Decimal('2.3')
+    assert rows[0][0][1] == (1, 'test')
+    assert rows[0][0][1][0] == 1
+    assert rows[0][0][1][1] == 'test'
+    assert rows[0][0].x == Decimal('2.3')
+    assert rows[0][0].y.x == 1
+    assert rows[0][0].y.y == 'test'
+
+    assert rows[0][0].__annotations__["names"] == ['x', 'y']
+    assert rows[0][0].__annotations__["types"] == ['decimal', 'row']
+
+    assert rows[0][0].y.__annotations__["names"] == ['x', 'y']
+    assert rows[0][0].y.__annotations__["types"] == ['bigint', 'varchar']
+    assert str(rows[0][0]) == "(x: Decimal('2.30'), y: (x: 1, y: 'test'))"
 
 
 def test_float_query_param(trino_connection):
