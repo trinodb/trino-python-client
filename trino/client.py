@@ -1128,14 +1128,48 @@ class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
         return [self.mapper.map(value) for value in values]
 
 
+class NamedRowTuple(tuple):
+    """Custom tuple class as namedtuple doesn't support missing or duplicate names"""
+    def __new__(cls, values, names: List[str], types: List[str]):
+        return super().__new__(cls, values)
+
+    def __init__(self, values, names: List[str], types: List[str]):
+        self._names = names
+        # With names and types users can retrieve the name and Trino data type of a row
+        self.__annotations__ = dict()
+        self.__annotations__["names"] = names
+        self.__annotations__["types"] = types
+        elements: List[Any] = []
+        for name, value in zip(names, values):
+            if names.count(name) == 1:
+                setattr(self, name, value)
+                elements.append(f"{name}: {repr(value)}")
+            else:
+                elements.append(repr(value))
+        self._repr = "(" + ", ".join(elements) + ")"
+
+    def __getattr__(self, name):
+        if self._names.count(name):
+            raise ValueError("Ambiguous row field reference: " + name)
+
+    def __repr__(self):
+        return self._repr
+
+
 class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
-    def __init__(self, mappers: List[ValueMapper[Any]]):
+    def __init__(self, mappers: List[ValueMapper[Any]], names: List[str], types: List[str]):
         self.mappers = mappers
+        self.names = names
+        self.types = types
 
     def map(self, values: List[Any]) -> Optional[Tuple[Optional[Any], ...]]:
         if values is None:
             return None
-        return tuple(self.mappers[index].map(value) for index, value in enumerate(values))
+        return NamedRowTuple(
+            list(self.mappers[index].map(value) for index, value in enumerate(values)),
+            self.names,
+            self.types
+        )
 
 
 class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
@@ -1183,8 +1217,14 @@ class RowMapperFactory:
             value_mapper = self._create_value_mapper(column['arguments'][0]['value'])
             return ArrayValueMapper(value_mapper)
         elif col_type == 'row':
-            mappers = [self._create_value_mapper(arg['value']['typeSignature']) for arg in column['arguments']]
-            return RowValueMapper(mappers)
+            mappers = []
+            names = []
+            types = []
+            for arg in column['arguments']:
+                mappers.append(self._create_value_mapper(arg['value']['typeSignature']))
+                names.append(arg['value']['fieldName']['name'] if "fieldName" in arg['value'] else None)
+                types.append(arg['value']['typeSignature']['rawType'])
+            return RowValueMapper(mappers, names, types)
         elif col_type == 'map':
             key_mapper = self._create_value_mapper(column['arguments'][0]['value'])
             value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
