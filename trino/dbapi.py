@@ -213,7 +213,10 @@ class Connection(object):
             self.request_timeout,
         )
 
-    def cursor(self, legacy_primitive_types: bool = None):
+    def cursor(
+        self, legacy_primitive_types: bool = None,
+        statement_properties: Optional[Dict[str, Any]] = None,
+    ):
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
@@ -226,7 +229,8 @@ class Connection(object):
             self,
             request,
             # if legacy_primitive_types is not explicitly set in Cursor, take from Connection
-            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
+            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types,
+            statement_properties
         )
 
 
@@ -277,7 +281,13 @@ class Cursor(object):
 
     """
 
-    def __init__(self, connection, request, legacy_primitive_types: bool = False):
+    def __init__(
+        self,
+        connection,
+        request,
+        legacy_primitive_types: bool = False,
+        statement_properties: Optional[Dict[str, Any]] = None
+    ):
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -289,6 +299,7 @@ class Cursor(object):
         self._iterator = None
         self._query = None
         self._legacy_primitive_types = legacy_primitive_types
+        self._statement_properties = statement_properties
 
     def __iter__(self):
         return self._iterator
@@ -376,8 +387,12 @@ class Cursor(object):
         :param name: name that will be assigned to the prepared statement.
         """
         sql = f"PREPARE {name} FROM {statement}"
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
-                                        legacy_primitive_types=self._legacy_primitive_types)
+        query = trino.client.TrinoQuery(
+            self.connection._create_request(),
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            statement_properties=self._statement_properties,
+        )
         query.execute()
 
     def _execute_prepared_statement(
@@ -386,7 +401,12 @@ class Cursor(object):
         params
     ):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
-        return trino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
+        return trino.client.TrinoQuery(
+            self._request,
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            statement_properties=self._statement_properties,
+        )
 
     def _format_prepared_param(self, param):
         """
@@ -475,8 +495,12 @@ class Cursor(object):
 
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = 'DEALLOCATE PREPARE ' + statement_name
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
-                                        legacy_primitive_types=self._legacy_primitive_types)
+        query = trino.client.TrinoQuery(
+            self.connection._create_request(),
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            statement_properties=self._statement_properties,
+        )
         query.execute()
 
     def _generate_unique_statement_name(self):
@@ -507,8 +531,12 @@ class Cursor(object):
                 self._deallocate_prepared_statement(statement_name)
 
         else:
-            self._query = trino.client.TrinoQuery(self._request, query=operation,
-                                                  legacy_primitive_types=self._legacy_primitive_types)
+            self._query = trino.client.TrinoQuery(
+                self._request,
+                query=operation,
+                legacy_primitive_types=self._legacy_primitive_types,
+                statement_properties=self._statement_properties,
+            )
             self._iterator = iter(self._query.execute())
         return self
 

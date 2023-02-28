@@ -452,6 +452,9 @@ class TrinoRequest(object):
 
     @property
     def http_headers(self) -> Dict[str, str]:
+        return self._create_headers()
+
+    def _create_headers(self, statement_properties: Dict[str, Any] = None):
         headers = {}
 
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
@@ -469,10 +472,13 @@ class TrinoRequest(object):
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
             headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
 
+        session_properties = copy.deepcopy(self._client_session.properties)
+        if statement_properties is not None:
+            session_properties.update(statement_properties)
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
             "{}={}".format(name, urllib.parse.quote(str(value)))
-            for name, value in self._client_session.properties.items()
+            for name, value in session_properties.items()
         )
 
         if len(self._client_session.prepared_statements) != 0:
@@ -505,6 +511,9 @@ class TrinoRequest(object):
                     [f"{tup[0]}={urllib.parse.quote_plus(tup[1])}" for tup in self._client_session.extra_credential])
 
         return headers
+
+    def with_statement_properties(self, statement_properties: Optional[Dict[str, Any]]):
+        return self._create_headers(statement_properties)
 
     @property
     def max_attempts(self) -> int:
@@ -546,11 +555,15 @@ class TrinoRequest(object):
     def next_uri(self) -> Optional[str]:
         return self._next_uri
 
-    def post(self, sql: str, additional_http_headers: Optional[Dict[str, Any]] = None):
+    def post(
+        self, sql: str,
+        additional_http_headers: Optional[Dict[str, Any]] = None,
+        statement_properties: Optional[Dict[str, Any]] = None,
+    ):
         data = sql.encode("utf-8")
         # Deep copy of the http_headers dict since they may be modified for this
         # request by the provided additional_http_headers
-        http_headers = copy.deepcopy(self.http_headers)
+        http_headers = copy.deepcopy(self.with_statement_properties(statement_properties))
 
         # Update the request headers with the additional_http_headers
         http_headers.update(additional_http_headers or {})
@@ -737,6 +750,7 @@ class TrinoQuery(object):
             request: TrinoRequest,
             query: str,
             legacy_primitive_types: bool = False,
+            statement_properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -752,6 +766,7 @@ class TrinoQuery(object):
         self._query = query
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
+        self._statement_properties = statement_properties
         self._row_mapper: Optional[RowMapper] = None
 
     @property
@@ -806,7 +821,11 @@ class TrinoQuery(object):
         if self.cancelled:
             raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
 
-        response = self._request.post(self._query, additional_http_headers)
+        response = self._request.post(
+            self._query,
+            additional_http_headers,
+            self._statement_properties,
+        )
         status = self._request.process(response)
         self._info_uri = status.info_uri
         self._query_id = status.id

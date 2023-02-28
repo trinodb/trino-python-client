@@ -1011,7 +1011,7 @@ def test_trino_query_response_headers(sample_get_response_data):
         result = query.execute(additional_http_headers=additional_headers)
 
         # Validate the the post function was called with the right argguments
-        mock_post.assert_called_once_with(sql, additional_headers)
+        mock_post.assert_called_once_with(sql, additional_headers, None)
 
         # Validate the result is an instance of TrinoResult
         assert isinstance(result, TrinoResult)

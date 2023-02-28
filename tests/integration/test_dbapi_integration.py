@@ -1381,6 +1381,22 @@ def test_rowcount_insert(trino_connection):
         assert cur.rowcount == 1
 
 
+def test_statement_properties(trino_connection):
+    exchange_compression_statement = "SHOW SESSION LIKE 'exchange_compression'"
+    cur = trino_connection.cursor()
+    cur.execute(exchange_compression_statement)
+    result = cur.fetchall()
+    assert result[0][1] == "false"
+    cur = trino_connection.cursor(statement_properties={"exchange_compression": True})
+    cur.execute(exchange_compression_statement)
+    result = cur.fetchall()
+    assert result[0][1] == "True"
+    cur = trino_connection.cursor()
+    cur.execute(exchange_compression_statement)
+    result = cur.fetchall()
+    assert result[0][1] == "false"
+
+
 def assert_cursor_description(cur, trino_type, size=None, precision=None, scale=None):
     assert cur.description[0][1] == trino_type
     assert cur.description[0][2] is None

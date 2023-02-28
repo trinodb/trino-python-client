@@ -373,6 +373,29 @@ conn = trino.dbapi.connect(
 )
 ```
 
+## Session properties
+
+Session properties can be set on the connection
+
+```python
+import trino
+conn = trino.dbapi.connect(
+    ...,
+    session_properties={"query_max_run_time": "1d"}
+)
+```
+
+### Statement properties
+
+It's also possible to set a session property for a specific statement by setting it on the Cursor. This is especially handy in the case of hive partitions.
+
+```python
+import trino
+conn = trino.dbapi.connect()
+cur = conn.cursor(statement_properties={"hive.insert_existing_partitions_behavior": "OVERWRITE"})
+cur.execute("INSERT INTO hive_partitioned_table SELECT * from another_table")
+```
+
 ## Timezone
 
 The time zone for the session can be explicitly set using the IANA time zone
