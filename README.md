@@ -28,6 +28,8 @@ $ pip install trino
 
 Use the DBAPI interface to query Trino:
 
+if `host` is a valid url, the port and http schema will be automatically determined. For example `https://my-trino-server:9999` will assign the `http_schema` property to `https` and port to `9999`.
+
 ```python
 from trino.dbapi import connect
 

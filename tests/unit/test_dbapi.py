@@ -29,7 +29,7 @@ from tests.unit.oauth_test_utils import (
 )
 from trino import constants
 from trino.auth import OAuth2Authentication
-from trino.dbapi import connect
+from trino.dbapi import Connection, connect
 
 
 @patch("trino.dbapi.trino.client")
@@ -272,3 +272,40 @@ def test_role_is_set_when_specified(mock_client):
 
     _, passed_role = mock_client.ClientSession.call_args
     assert passed_role["roles"] == roles
+
+
+def test_hostname_parsing():
+    https_server_with_port = Connection("https://mytrinoserver.domain:9999")
+    assert https_server_with_port.host == "mytrinoserver.domain"
+    assert https_server_with_port.port == 9999
+    assert https_server_with_port.http_scheme == constants.HTTPS
+
+    https_server_without_port = Connection("https://mytrinoserver.domain")
+    assert https_server_without_port.host == "mytrinoserver.domain"
+    assert https_server_without_port.port == 8080
+    assert https_server_without_port.http_scheme == constants.HTTPS
+
+    http_server_with_port = Connection("http://mytrinoserver.domain:9999")
+    assert http_server_with_port.host == "mytrinoserver.domain"
+    assert http_server_with_port.port == 9999
+    assert http_server_with_port.http_scheme == constants.HTTP
+
+    http_server_without_port = Connection("http://mytrinoserver.domain")
+    assert http_server_without_port.host == "mytrinoserver.domain"
+    assert http_server_without_port.port == 8080
+    assert http_server_without_port.http_scheme == constants.HTTP
+
+    http_server_with_path = Connection("http://mytrinoserver.domain/some_path")
+    assert http_server_with_path.host == "mytrinoserver.domain/some_path"
+    assert http_server_with_path.port == 8080
+    assert http_server_with_path.http_scheme == constants.HTTP
+
+    only_hostname = Connection("mytrinoserver.domain")
+    assert only_hostname.host == "mytrinoserver.domain"
+    assert only_hostname.port == 8080
+    assert only_hostname.http_scheme == constants.HTTP
+
+    only_hostname_with_path = Connection("mytrinoserver.domain/some_path")
+    assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
+    assert only_hostname_with_path.port == 8080
+    assert only_hostname_with_path.http_scheme == constants.HTTP
