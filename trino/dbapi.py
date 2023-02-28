@@ -23,6 +23,7 @@ import math
 import uuid
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
+from urllib.parse import urlparse
 
 import trino.client
 import trino.exceptions
@@ -92,7 +93,7 @@ class Connection(object):
 
     def __init__(
         self,
-        host,
+        host: str,
         port=constants.DEFAULT_PORT,
         user=None,
         source=constants.DEFAULT_SOURCE,
@@ -114,8 +115,11 @@ class Connection(object):
         roles=None,
         timezone=None,
     ):
-        self.host = host
-        self.port = port
+        # Automatically assign http_schema, port based on hostname
+        parsed_host = urlparse(host, allow_fragments=False)
+
+        self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
+        self.port = port if parsed_host.port is None else parsed_host.port
         self.user = user
         self.source = source
         self.catalog = catalog
@@ -141,7 +145,7 @@ class Connection(object):
         else:
             self._http_session = http_session
         self.http_headers = http_headers
-        self.http_scheme = http_scheme
+        self.http_scheme = http_scheme if not parsed_host.scheme else parsed_host.scheme
         self.auth = auth
         self.extra_credential = extra_credential
         self.redirect_handler = redirect_handler
