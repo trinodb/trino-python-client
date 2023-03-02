@@ -135,7 +135,7 @@ class ClientSession(object):
         transaction_id: str = None,
         extra_credential: List[Tuple[str, str]] = None,
         client_tags: List[str] = None,
-        roles: Dict[str, str] = None,
+        roles: Union[Dict[str, str], str] = None,
         timezone: str = None,
     ):
         self._user = user
@@ -239,6 +239,8 @@ class ClientSession(object):
             return self._timezone
 
     def _format_roles(self, roles):
+        if isinstance(roles, str):
+            roles = {"system": roles}
         formatted_roles = {}
         for catalog, role in roles.items():
             is_legacy_role_pattern = ROLE_PATTERN.match(role) is not None

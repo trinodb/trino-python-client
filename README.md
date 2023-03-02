@@ -361,6 +361,18 @@ conn = trino.dbapi.connect(
 )
 ```
 
+You could also pass `system` role without explicitly specifing "system" catalog:
+
+```python
+import trino
+conn = trino.dbapi.connect(
+    host='localhost',
+    port=443,
+    user='the-user',
+    roles="role1" # equivalent to {"system": "role1"}
+)
+```
+
 ## Timezone
 
 The time zone for the session can be explicitly set using the IANA time zone
