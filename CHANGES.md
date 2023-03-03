@@ -6,6 +6,20 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.322.0
+
+* Return `rowcount` property on the DB-API `Cursor` when available.
+  ([#325](https://github.com/trinodb/trino-python-client/issues/325))
+* Provide a read-only property `query` on the DB-API `Cursor` which contains
+  the query text submitted through the cursor when available.
+  ([#323](https://github.com/trinodb/trino-python-client/issues/323))
+* Automatically determine `http_scheme`, `host` and `port` from `host` if it's a
+  valid URL.
+  ([#340](https://github.com/trinodb/trino-python-client/issues/340))
+* Fix query cancellation to follow the protocol. Before this change cancelling
+  a query could lead to errors from the Trino server.
+  ([#328](https://github.com/trinodb/trino-python-client/issues/328))
+
 ## Release 0.321.0
 
 * Add support for SQLAlchemy 2.0.
