@@ -4,7 +4,7 @@ from unittest import mock
 import pytest
 from sqlalchemy.engine.url import URL, make_url
 
-from trino.auth import BasicAuthentication
+from trino.auth import BasicAuthentication, OAuth2Authentication
 from trino.dbapi import Connection
 from trino.sqlalchemy import URL as trino_url
 from trino.sqlalchemy.dialect import (
@@ -296,3 +296,12 @@ def test_trino_connection_certificate_auth():
     assert isinstance(cparams['auth'], CertificateAuthentication)
     assert cparams['auth']._cert == cert
     assert cparams['auth']._key == key
+
+
+def test_trino_connection_oauth2_auth():
+    dialect = TrinoDialect()
+    url = make_url('trino://host/?externalAuthentication=true')
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams['http_scheme'] == "https"
+    assert isinstance(cparams['auth'], OAuth2Authentication)

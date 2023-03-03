@@ -22,7 +22,12 @@ from sqlalchemy.engine.url import URL
 
 from trino import dbapi as trino_dbapi
 from trino import logging
-from trino.auth import BasicAuthentication, CertificateAuthentication, JWTAuthentication
+from trino.auth import (
+    BasicAuthentication,
+    CertificateAuthentication,
+    JWTAuthentication,
+    OAuth2Authentication,
+)
 from trino.dbapi import Cursor
 from trino.sqlalchemy import compiler, datatype, error
 
@@ -112,6 +117,10 @@ class TrinoDialect(DefaultDialect):
         if "cert" and "key" in url.query:
             kwargs["http_scheme"] = "https"
             kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
+
+        if "externalAuthentication" in url.query:
+            kwargs["http_scheme"] = "https"
+            kwargs["auth"] = OAuth2Authentication()
 
         if "source" in url.query:
             kwargs["source"] = unquote_plus(url.query["source"])
