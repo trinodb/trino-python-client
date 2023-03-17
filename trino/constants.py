@@ -56,6 +56,10 @@ HEADER_SET_CATALOG = "X-Trino-Set-Catalog"
 
 HEADER_CLIENT_CAPABILITIES = "X-Trino-Client-Capabilities"
 
+HEADER_AUTHORIZATION_USER = "X-Trino-Authorization-User"
+HEADER_SET_AUTHORIZATION_USER = "X-Trino-Set-Authorization-User"
+HEADER_RESET_AUTHORIZATION_USER = "X-Trino-Reset-Authorization-User"
+
 LENGTH_TYPES = ["char", "varchar"]
 PRECISION_TYPES = ["time", "time with time zone", "timestamp", "timestamp with time zone", "decimal"]
 SCALE_TYPES = ["decimal"]

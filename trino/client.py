@@ -82,6 +82,8 @@ class ClientSession(object):
 
     :param user: associated with the query. It is useful for access control
                  and query scheduling.
+    :param authorization_user: associated with the query. It is useful for access control
+                               and query scheduling.
     :param source: associated with the query. It is useful for access
                    control and query scheduling.
     :param catalog: to query. The *catalog* is associated with a Trino
@@ -113,6 +115,7 @@ class ClientSession(object):
     def __init__(
         self,
         user: str,
+        authorization_user: str = None,
         catalog: str = None,
         schema: str = None,
         source: str = None,
@@ -125,6 +128,7 @@ class ClientSession(object):
         timezone: str = None,
     ):
         self._user = user
+        self._authorization_user = authorization_user
         self._catalog = catalog
         self._schema = schema
         self._source = source
@@ -143,6 +147,16 @@ class ClientSession(object):
     @property
     def user(self):
         return self._user
+
+    @property
+    def authorization_user(self):
+        with self._object_lock:
+            return self._authorization_user
+
+    @authorization_user.setter
+    def authorization_user(self, authorization_user):
+        with self._object_lock:
+            self._authorization_user = authorization_user
 
     @property
     def catalog(self):
@@ -441,6 +455,7 @@ class TrinoRequest(object):
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
         headers[constants.HEADER_USER] = self._client_session.user
+        headers[constants.HEADER_AUTHORIZATION_USER] = self._client_session.authorization_user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME'
         headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
@@ -630,6 +645,12 @@ class TrinoRequest(object):
                 http_response.headers, constants.HEADER_DEALLOCATED_PREPARE
             ):
                 self._client_session.prepared_statements.pop(name, None)
+
+        if constants.HEADER_SET_AUTHORIZATION_USER in http_response.headers:
+            self._client_session.authorization_user = http_response.headers[constants.HEADER_SET_AUTHORIZATION_USER]
+
+        if constants.HEADER_RESET_AUTHORIZATION_USER in http_response.headers:
+            self._client_session.authorization_user = None
 
         self._next_uri = response.get("nextUri")
 
