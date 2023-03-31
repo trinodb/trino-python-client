@@ -455,7 +455,7 @@ class Cursor(object):
             return "UUID '%s'" % param
 
         if isinstance(param, Decimal):
-            return "DECIMAL '%s'" % param
+            return "DECIMAL '%s'" % format(param, "f")
 
         if isinstance(param, (bytes, bytearray)):
             return "X'%s'" % binascii.hexlify(param).decode("utf-8")

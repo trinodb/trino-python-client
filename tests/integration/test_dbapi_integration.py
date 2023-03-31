@@ -261,6 +261,25 @@ def test_decimal_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="decimal(10, 6)", precision=10, scale=6)
 
 
+def test_decimal_scientific_notation_query_param(trino_connection):
+    cur = trino_connection.cursor()
+
+    cur.execute("SELECT ?", params=(Decimal('0E-10'),))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == Decimal('0E-10')
+    assert_cursor_description(cur, trino_type="decimal(10, 10)", precision=10, scale=10)
+
+    # Ensure we don't convert to floats
+    assert Decimal('0.1') == Decimal('1E-1') != 0.1
+
+    cur.execute("SELECT ?", params=(Decimal('1E-1'),))
+    rows = cur.fetchall()
+
+    assert rows[0][0] == Decimal('1E-1')
+    assert_cursor_description(cur, trino_type="decimal(1, 1)", precision=1, scale=1)
+
+
 def test_null_decimal(trino_connection):
     cur = trino_connection.cursor()
 
