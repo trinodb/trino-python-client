@@ -1,5 +1,6 @@
 import math
 import re
+import uuid
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 
@@ -774,7 +775,8 @@ def test_ipaddress(trino_connection):
 def test_uuid(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS UUID)", python=None) \
-        .add_field(sql="UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", python='12151fd2-7586-11e9-8f9e-2a86e4085a59') \
+        .add_field(sql="UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'",
+                   python=uuid.UUID('12151fd2-7586-11e9-8f9e-2a86e4085a59')) \
         .execute()
 
 

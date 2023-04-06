@@ -43,6 +43,7 @@ import random
 import re
 import threading
 import urllib.parse
+import uuid
 import warnings
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
@@ -1185,6 +1186,13 @@ class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
         }
 
 
+class UuidValueMapper(ValueMapper[uuid.UUID]):
+    def map(self, value: Any) -> Optional[uuid.UUID]:
+        if value is None:
+            return None
+        return uuid.UUID(value)
+
+
 class NoOpRowMapper:
     """
     No-op RowMapper which does not perform any transformation
@@ -1245,6 +1253,8 @@ class RowMapperFactory:
             return DateValueMapper()
         elif col_type == 'varbinary':
             return BinaryValueMapper()
+        elif col_type == 'uuid':
+            return UuidValueMapper()
         else:
             return NoOpValueMapper()
 
