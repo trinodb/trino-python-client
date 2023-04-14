@@ -9,6 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
+import uuid
+
 import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, not_, or_
@@ -129,6 +131,60 @@ def test_insert(trino_connection):
         rows = result.fetchall()
         assert len(rows) == 1
         assert rows[0] == (2, "wendy", "Wendy Williams")
+    finally:
+        metadata.drop_all(engine)
+
+
+@pytest.mark.skipif(
+    sqlalchemy_version() < "2.0",
+    reason="sqlalchemy.Uuid only exists with SQLAlchemy 2.0 and above"
+)
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_define_and_create_table_uuid(trino_connection):
+    engine, conn = trino_connection
+    if not engine.dialect.has_schema(conn, "test"):
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
+    metadata = sqla.MetaData()
+    try:
+        sqla.Table('users',
+                   metadata,
+                   sqla.Column('guid', sqla.Uuid),
+                   schema="test")
+        metadata.create_all(engine)
+        assert sqla.inspect(engine).has_table('users', schema="test")
+        users = sqla.Table('users', metadata, schema='test', autoload_with=conn)
+        assert_column(users, "guid", sqla.sql.sqltypes.Uuid)
+    finally:
+        metadata.drop_all(engine)
+
+
+@pytest.mark.skipif(
+    sqlalchemy_version() < "2.0",
+    reason="sqlalchemy.Uuid only exists with SQLAlchemy 2.0 and above"
+)
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_insert_uuid(trino_connection):
+    engine, conn = trino_connection
+
+    if not engine.dialect.has_schema(conn, "test"):
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
+    metadata = sqla.MetaData()
+    try:
+        users = sqla.Table('users',
+                           metadata,
+                           sqla.Column('guid', sqla.Uuid),
+                           schema="test")
+        metadata.create_all(engine)
+        ins = users.insert()
+        guid = uuid.uuid4()
+        conn.execute(ins, {"guid": guid})
+        query = sqla.select(users)
+        result = conn.execute(query)
+        rows = result.fetchall()
+        assert len(rows) == 1
+        assert rows[0] == (guid,)
     finally:
         metadata.drop_all(engine)
 
