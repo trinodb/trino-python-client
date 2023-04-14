@@ -527,23 +527,27 @@ def test_time_query_param(trino_connection):
 
 
 def test_time_with_named_time_zone_query_param(trino_connection):
-    with pytest.raises(trino.exceptions.NotSupportedError):
-        cur = trino_connection.cursor()
+    cur = trino_connection.cursor()
 
-        params = time(16, 43, 22, 320000, tzinfo=pytz.timezone('Asia/Shanghai'))
+    params = time(16, 43, 22, 320000, tzinfo=pytz.timezone('Asia/Shanghai'))
 
-        cur.execute("SELECT ?", params=(params,))
+    cur.execute("SELECT ?", params=(params,))
+    rows = cur.fetchall()
+
+    # Asia/Shanghai
+    assert rows[0][0].tzinfo == timezone(timedelta(seconds=28800))
 
 
 def test_time_with_numeric_offset_time_zone_query_param(trino_connection):
-    with pytest.raises(trino.exceptions.NotSupportedError):
-        cur = trino_connection.cursor()
+    cur = trino_connection.cursor()
 
-        tz = timezone(-timedelta(hours=8, minutes=0))
+    tz = timezone(-timedelta(hours=8, minutes=0))
+    params = time(16, 43, 22, 320000, tzinfo=tz)
 
-        params = time(16, 43, 22, 320000, tzinfo=tz)
+    cur.execute("SELECT ?", params=(params,))
+    rows = cur.fetchall()
 
-        cur.execute("SELECT ?", params=(params,))
+    assert rows[0][0] == params
 
 
 def test_time(trino_connection):
