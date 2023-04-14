@@ -25,6 +25,8 @@ from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
 from urllib.parse import urlparse
 
+import pytz
+
 import trino.client
 import trino.exceptions
 import trino.logging
@@ -432,6 +434,15 @@ class Cursor(object):
         if isinstance(param, datetime.time) and param.tzinfo is None:
             time_str = param.strftime("%H:%M:%S.%f")
             return "TIME '%s'" % time_str
+
+        if isinstance(param, datetime.time) and param.tzinfo is not None:
+            time_str = param.strftime("%H:%M:%S.%f")
+            # named timezones
+            if hasattr(param.tzinfo, 'zone'):
+                utc_offset = datetime.datetime.now(pytz.timezone(param.tzinfo.zone)).strftime('%z')
+                return "TIME '%s %s:%s'" % (time_str, utc_offset[:3], utc_offset[3:])
+            # offset-based timezones
+            return "TIME '%s %s'" % (time_str, param.strftime('%Z')[3:])
 
         if isinstance(param, datetime.date):
             date_str = param.strftime("%Y-%m-%d")
