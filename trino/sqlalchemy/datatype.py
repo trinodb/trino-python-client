@@ -13,6 +13,7 @@ import json
 import re
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
 
+import sqlalchemy
 from sqlalchemy import util
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
@@ -128,6 +129,9 @@ _type_map = {
     # 'qdigest': QDIGEST,
     # 'tdigest': TDIGEST,
 }
+
+if hasattr(sqlalchemy, "Uuid"):
+    _type_map["uuid"] = sqlalchemy.Uuid
 
 
 def unquote(string: str, quote: str = '"', escape: str = "\\") -> str:
