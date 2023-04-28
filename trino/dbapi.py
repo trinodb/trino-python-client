@@ -373,10 +373,11 @@ class Cursor(object):
         :param statement: sql to be executed.
         :param name: name that will be assigned to the prepared statement.
         """
-        sql = f"PREPARE {name} FROM {statement}"
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
-                                        legacy_primitive_types=self._legacy_primitive_types)
-        query.execute()
+        # sql = f"PREPARE {name} FROM {statement}"
+        # query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
+        #                                 legacy_primitive_types=self._legacy_primitive_types)
+        # query.execute()
+        self.connection._client_session.prepared_statements[name] = statement
 
     def _execute_prepared_statement(
         self,
@@ -463,10 +464,11 @@ class Cursor(object):
         raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
-        sql = 'DEALLOCATE PREPARE ' + statement_name
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
-                                        legacy_primitive_types=self._legacy_primitive_types)
-        query.execute()
+        # sql = 'DEALLOCATE PREPARE ' + statement_name
+        # query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
+        #                                 legacy_primitive_types=self._legacy_primitive_types)
+        # query.execute()
+        self.connection._client_session.prepared_statements.pop(statement_name, None)
 
     def _generate_unique_statement_name(self):
         return 'st_' + uuid.uuid4().hex.replace('-', '')
