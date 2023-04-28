@@ -1108,8 +1108,10 @@ class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
         datetime_with_fraction, timezone_part = value.rsplit(' ', 1)
         whole_python_temporal_value = datetime_with_fraction[:self.datetime_default_size]
         remaining_fractional_seconds = datetime_with_fraction[self.datetime_default_size + 1:]
+        tz = _create_tzinfo(timezone_part)
+        dt = datetime.fromisoformat(whole_python_temporal_value)
         return TimestampWithTimeZone(
-            datetime.fromisoformat(whole_python_temporal_value).replace(tzinfo=_create_tzinfo(timezone_part)),
+            dt.replace(tzinfo=tz) if isinstance(tz, timezone) else tz.localize(dt),
             _fraction_to_decimal(remaining_fractional_seconds),
         ).round_to(self.precision).to_python_type()
 

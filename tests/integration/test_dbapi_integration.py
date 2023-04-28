@@ -364,7 +364,7 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
 def test_datetime_with_named_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
-    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
+    params = pytz.timezone('America/Los_Angeles').localize(datetime(2020, 1, 1, 16, 43, 22, 320000))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -393,14 +393,35 @@ def test_null_datetime_with_time_zone(trino_connection):
     assert_cursor_description(cur, trino_type="timestamp(3) with time zone", precision=3)
 
 
-def test_datetime_with_time_zone_numeric_offset(trino_connection):
+@pytest.mark.parametrize(
+    'sql,result,precision',
+    [
+        (
+            "SELECT TIMESTAMP '2001-08-22 03:04:05.321 -08:00'",
+            datetime(2001, 8, 22, 3, 4, 5, 321000, tzinfo=timezone(-timedelta(hours=8))),
+            3,
+
+        ),
+        (
+            "SELECT TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'",
+            pytz.timezone("America/Los_Angeles").localize(datetime(2001, 8, 22, 3, 4, 5, 321000)),
+            3,
+        ),
+    ],
+)
+def test_datetime_with_time_zone(trino_connection, sql, result, precision):
     cur = trino_connection.cursor()
 
-    cur.execute("SELECT TIMESTAMP '2001-08-22 03:04:05.321 -08:00'")
+    cur.execute(sql)
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime.strptime("2001-08-22 03:04:05.321 -08:00", "%Y-%m-%d %H:%M:%S.%f %z")
-    assert_cursor_description(cur, trino_type="timestamp(3) with time zone", precision=3)
+    assert rows[0][0] == result
+
+    assert_cursor_description(
+        cur,
+        trino_type=f"timestamp({precision}) with time zone",
+        precision=precision,
+    )
 
 
 def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
@@ -416,23 +437,24 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
 def test_doubled_datetimes(trino_connection):
     # Trino doesn't distinguish between doubled datetimes that lie within a DST transition. See also
     # See also https://github.com/trinodb/trino/issues/5781
+    dt = datetime(2002, 10, 27, 1, 30, 0)
     cur = trino_connection.cursor()
 
-    params = pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0), is_dst=True)
+    params = pytz.timezone('US/Eastern').localize(dt, is_dst=True)
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
+    assert rows[0][0] == pytz.timezone('US/Eastern').localize(dt)
 
     cur = trino_connection.cursor()
 
-    params = pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0), is_dst=False)
+    params = pytz.timezone('US/Eastern').localize(dt, is_dst=False)
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
+    assert rows[0][0] == pytz.timezone('US/Eastern').localize(dt)
 
 
 def test_date_query_param(trino_connection):
