@@ -15,8 +15,12 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Tuple
 
+try:
+    from zoneinfo import ZoneInfo
+except ModuleNotFoundError:
+    from backports.zoneinfo import ZoneInfo
+
 import pytest
-import pytz
 import requests
 from tzlocal import get_localzone_name  # type: ignore
 
@@ -234,7 +238,7 @@ def test_legacy_primitive_types_with_connection_and_cursor(
         assert rows[0][0] == Decimal('0.142857')
         assert rows[0][1] == date(2018, 1, 1)
         assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
-        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=pytz.timezone('UTC'))
+        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo('UTC'))
         assert rows[0][4] == datetime(2019, 1, 1)
         assert rows[0][5] == time(0, 0, 0, 0)
     else:
@@ -338,7 +342,7 @@ def test_datetime_query_param(trino_connection):
 def test_datetime_with_utc_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
-    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('UTC'))
+    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo('UTC'))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -364,7 +368,7 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
 def test_datetime_with_named_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
-    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=pytz.timezone('America/Los_Angeles'))
+    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo('America/Los_Angeles'))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -407,32 +411,24 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
     cur = trino_connection.cursor()
 
     # This is a datetime that lies within a DST transition and not actually exists.
-    params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=pytz.timezone('Europe/Brussels'))
+    params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=ZoneInfo('Europe/Brussels'))
     with pytest.raises(trino.exceptions.TrinoUserError):
         cur.execute("SELECT ?", params=(params,))
         cur.fetchall()
 
 
-def test_doubled_datetimes(trino_connection):
-    # Trino doesn't distinguish between doubled datetimes that lie within a DST transition. See also
+@pytest.mark.parametrize('fold', [0, 1])
+def test_doubled_datetimes(trino_connection, fold):
+    # Trino doesn't distinguish between doubled datetimes that lie within a DST transition.
     # See also https://github.com/trinodb/trino/issues/5781
     cur = trino_connection.cursor()
 
-    params = pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0), is_dst=True)
+    params = datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'), fold=fold)
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
-
-    cur = trino_connection.cursor()
-
-    params = pytz.timezone('US/Eastern').localize(datetime(2002, 10, 27, 1, 30, 0), is_dst=False)
-
-    cur.execute("SELECT ?", params=(params,))
-    rows = cur.fetchall()
-
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=pytz.timezone('US/Eastern'))
+    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'))
 
 
 def test_date_query_param(trino_connection):
@@ -529,7 +525,7 @@ def test_time_query_param(trino_connection):
 def test_time_with_named_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
-    params = time(16, 43, 22, 320000, tzinfo=pytz.timezone('Asia/Shanghai'))
+    params = time(16, 43, 22, 320000, tzinfo=ZoneInfo('Asia/Shanghai'))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -693,7 +689,10 @@ def test_array_timestamp_query_param(trino_connection):
 def test_array_timestamp_with_timezone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
-    params = [datetime(2020, 1, 1, 0, 0, 0, tzinfo=pytz.utc), datetime(2020, 1, 2, 0, 0, 0, tzinfo=pytz.utc)]
+    params = [
+        datetime(2020, 1, 1, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
+        datetime(2020, 1, 2, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
+    ]
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
