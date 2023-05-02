@@ -6,6 +6,21 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.323.0
+
+* Fix handling of `Decimal` params which use scientific notation.
+  ([#347](https://github.com/trinodb/trino-python-client/issues/347))
+* Map Trino `UUID` type to Python `uuid.UUID`.
+  ([#354](https://github.com/trinodb/trino-python-client/issues/354))
+* Map `sqlalchemy.Uuid` type to Trino `UUID`.
+  ([#359](https://github.com/trinodb/trino-python-client/issues/359))
+* Support using timezone aware `datetime.time` params in prepared statements.
+  ([#360](https://github.com/trinodb/trino-python-client/issues/360))
+* Allow accessing `ROW` type fields using their names in addition to their indices.
+  ([#338](https://github.com/trinodb/trino-python-client/issues/338))
+* Interpret `roles` without catalog name as system roles for convenience.
+  ([#341](https://github.com/trinodb/trino-python-client/issues/341))
+
 ## Release 0.322.0
 
 * Return `rowcount` property on the DB-API `Cursor` when available.
