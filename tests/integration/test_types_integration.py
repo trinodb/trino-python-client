@@ -284,13 +284,15 @@ def test_time(trino_connection):
 
 
 @pytest.mark.skipif(trino_version() == '351', reason="time not rounded correctly in older Trino versions")
-def test_time_with_timezone(trino_connection):
-    query_time_with_timezone(trino_connection, '-08:00')
-    query_time_with_timezone(trino_connection, '+08:00')
-    query_time_with_timezone(trino_connection, '+05:30')
-
-
-def query_time_with_timezone(trino_connection, tz_str: str):
+@pytest.mark.parametrize(
+    'tz_str',
+    [
+        '-08:00',
+        '+08:00',
+        '+05:30',
+    ]
+)
+def test_time_with_timezone(trino_connection, tz_str: str):
     tz = create_timezone(tz_str)
     (
         SqlTest(trino_connection)
@@ -550,16 +552,17 @@ def test_timestamp(trino_connection):
     ).execute()
 
 
-def test_timestamp_with_timezone(trino_connection):
-    query_timestamp_with_timezone(trino_connection, '-08:00')
-    query_timestamp_with_timezone(trino_connection, '+08:00')
-    query_timestamp_with_timezone(trino_connection, '+05:30')
-    query_timestamp_with_timezone(trino_connection, 'US/Eastern')
-    query_timestamp_with_timezone(trino_connection, 'Asia/Kolkata')
-    query_timestamp_with_timezone(trino_connection, 'GMT')
-
-
-def query_timestamp_with_timezone(trino_connection, tz_str):
+@pytest.mark.parametrize(
+    'tz_str',
+    [
+        '-08:00',
+        '+08:00',
+        'US/Eastern',
+        'Asia/Kolkata',
+        'GMT',
+    ]
+)
+def test_timestamp_with_timezone(trino_connection, tz_str):
     tz = create_timezone(tz_str)
     (
         SqlTest(trino_connection)
