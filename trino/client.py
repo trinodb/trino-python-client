@@ -51,20 +51,17 @@ from decimal import Decimal
 from time import sleep
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
-import pytz
+try:
+    from zoneinfo import ZoneInfo
+except ModuleNotFoundError:
+    from backports.zoneinfo import ZoneInfo
+
 import requests
-from pytz.tzinfo import BaseTzInfo
+from dateutil import tz
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino.logging
 from trino import constants, exceptions
-
-try:
-    from zoneinfo import ZoneInfo  # type: ignore
-
-except ModuleNotFoundError:
-    from backports.zoneinfo import ZoneInfo  # type: ignore
-
 
 __all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 
@@ -946,7 +943,7 @@ def _create_tzinfo(timezone_str: str) -> tzinfo:
             return timezone(-timedelta(hours=int(hours), minutes=int(minutes)))
         return timezone(timedelta(hours=int(hours), minutes=int(minutes)))
     else:
-        return pytz.timezone(timezone_str)
+        return ZoneInfo(timezone_str)
 
 
 def _fraction_to_decimal(fractional_str: str) -> Decimal:
@@ -996,8 +993,7 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
     def normalize(self, value: PythonTemporalType) -> PythonTemporalType:
         """
             If `add_time_delta` results in value crossing DST boundaries, this method should
-            return a normalized version of the value to account for it, for example,
-            using `pytz.timezone.normalize`.
+            return a normalized version of the value to account for it.
         """
         return value
 
@@ -1041,7 +1037,7 @@ class TimestampWithTimeZone(Timestamp, TemporalType[datetime]):
         return TimestampWithTimeZone(value, fraction)
 
     def normalize(self, value: datetime) -> datetime:
-        if isinstance(self._whole_python_temporal_value.tzinfo, BaseTzInfo):
+        if tz.datetime_ambiguous(value):
             return self._whole_python_temporal_value.tzinfo.normalize(value)
         return value
 

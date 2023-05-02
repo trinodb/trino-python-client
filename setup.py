@@ -80,6 +80,7 @@ setup(
     python_requires='>=3.7',
     install_requires=[
         "backports.zoneinfo;python_version<'3.9'",
+        "python-dateutil",
         "pytz",
         "requests",
         "tzlocal",

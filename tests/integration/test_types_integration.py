@@ -4,8 +4,12 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 
+try:
+    from zoneinfo import ZoneInfo
+except ModuleNotFoundError:
+    from backports.zoneinfo import ZoneInfo
+
 import pytest
-import pytz
 
 import trino
 from tests.integration.conftest import trino_version
@@ -729,7 +733,7 @@ def create_timezone(timezone_str: str) -> tzinfo:
         else:
             return timezone(-timedelta(hours=hours, minutes=minutes))
     else:
-        return pytz.timezone(timezone_str)
+        return ZoneInfo(timezone_str)
 
 
 def test_interval(trino_connection):

@@ -25,7 +25,10 @@ from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
 from urllib.parse import urlparse
 
-import pytz
+try:
+    from zoneinfo import ZoneInfo
+except ModuleNotFoundError:
+    from backports.zoneinfo import ZoneInfo
 
 import trino.client
 import trino.exceptions
@@ -425,8 +428,8 @@ class Cursor(object):
         if isinstance(param, datetime.datetime) and param.tzinfo is not None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
             # named timezones
-            if hasattr(param.tzinfo, 'zone'):
-                return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.zone)
+            if isinstance(param.tzinfo, ZoneInfo):
+                return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.key)
             # offset-based timezones
             return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.tzname(param))
 
@@ -438,8 +441,8 @@ class Cursor(object):
         if isinstance(param, datetime.time) and param.tzinfo is not None:
             time_str = param.strftime("%H:%M:%S.%f")
             # named timezones
-            if hasattr(param.tzinfo, 'zone'):
-                utc_offset = datetime.datetime.now(pytz.timezone(param.tzinfo.zone)).strftime('%z')
+            if isinstance(param.tzinfo, ZoneInfo):
+                utc_offset = datetime.datetime.now(tz=param.tzinfo).strftime('%z')
                 return "TIME '%s %s:%s'" % (time_str, utc_offset[:3], utc_offset[3:])
             # offset-based timezones
             return "TIME '%s %s'" % (time_str, param.strftime('%Z')[3:])
