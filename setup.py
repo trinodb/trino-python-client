@@ -78,7 +78,12 @@ setup(
         "Topic :: Database :: Front-Ends",
     ],
     python_requires='>=3.7',
-    install_requires=["pytz", "requests", "tzlocal"],
+    install_requires=[
+        "backports.zoneinfo;python_version<'3.9'",
+        "pytz",
+        "requests",
+        "tzlocal",
+    ],
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
