@@ -15,6 +15,7 @@ import pytest
 import sqlalchemy as sqla
 from sqlalchemy.sql import and_, not_, or_
 
+from tests.integration.conftest import trino_version
 from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.datatype import JSON
 
@@ -497,3 +498,24 @@ def test_get_view_names_raises(trino_connection):
 
     with pytest.raises(sqla.exc.NoSuchTableError):
         sqla.inspect(engine).get_view_names(None)
+
+
+@pytest.mark.parametrize('trino_connection', ['system'], indirect=True)
+@pytest.mark.skipif(trino_version() == '351', reason="version() not supported in older Trino versions")
+def test_version_is_lazy(trino_connection):
+    _, conn = trino_connection
+    result = conn.execute(sqla.text("SELECT 1"))
+    result.fetchall()
+    num_queries = _num_queries_containing_string(conn, "SELECT version()")
+    assert num_queries == 0
+    version_info = conn.dialect.server_version_info
+    assert isinstance(version_info, tuple)
+    num_queries = _num_queries_containing_string(conn, "SELECT version()")
+    assert num_queries == 1
+
+
+def _num_queries_containing_string(connection, query_string):
+    statement = sqla.text("select query from system.runtime.queries order by query_id desc offset 1 limit 1")
+    result = connection.execute(statement)
+    rows = result.fetchall()
+    return len(list(filter(lambda rec: query_string in rec[0], rows)))
