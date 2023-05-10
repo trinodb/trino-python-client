@@ -102,8 +102,22 @@ def test_select_query_result_iteration(trino_connection):
     assert len(list(rows0)) == len(rows1)
 
 
-def test_select_query_result_iteration_statement_params(trino_connection):
-    cur = trino_connection.cursor()
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
+def test_select_query_result_iteration_statement_params(
+        connection_legacy_prepared_statements,
+        cursor_legacy_prepared_statements,
+        run_trino):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        legacy_prepared_statements=connection_legacy_prepared_statements,
+    )
+    cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
+
     cur.execute(
         """
         SELECT * FROM (
@@ -118,10 +132,29 @@ def test_select_query_result_iteration_statement_params(trino_connection):
         """,
         params=(3,)  # expecting all the rows with id >= 3
     )
+    rows = cur.fetchall()
+    assert len(rows) == 3
+    assert [3, 'three', 'c'] in rows
+    assert [4, 'four', 'd'] in rows
+    assert [5, 'five', 'e'] in rows
 
 
-def test_none_query_param(trino_connection):
-    cur = trino_connection.cursor()
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
+def test_none_query_param(
+        connection_legacy_prepared_statements,
+        cursor_legacy_prepared_statements,
+        run_trino):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        legacy_prepared_statements=connection_legacy_prepared_statements,
+    )
+    cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
+
     cur.execute("SELECT ?", params=(None,))
     rows = cur.fetchall()
 
@@ -129,8 +162,21 @@ def test_none_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="unknown")
 
 
-def test_string_query_param(trino_connection):
-    cur = trino_connection.cursor()
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
+def test_string_query_param(
+        connection_legacy_prepared_statements,
+        cursor_legacy_prepared_statements,
+        run_trino):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        legacy_prepared_statements=connection_legacy_prepared_statements,
+    )
+    cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
 
     cur.execute("SELECT ?", params=("six'",))
     rows = cur.fetchall()
@@ -139,9 +185,23 @@ def test_string_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="varchar(4)", size=4)
 
 
-def test_execute_many(trino_connection):
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
+def test_execute_many(
+        connection_legacy_prepared_statements,
+        cursor_legacy_prepared_statements,
+        run_trino):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        legacy_prepared_statements=connection_legacy_prepared_statements,
+    )
+
     try:
-        cur = trino_connection.cursor()
+        cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
         cur.execute("CREATE TABLE memory.default.test_execute_many (key int, value varchar)")
         cur.fetchall()
         operation = "INSERT INTO memory.default.test_execute_many (key, value) VALUES (?, ?)"
@@ -163,13 +223,27 @@ def test_execute_many(trino_connection):
         assert rows[1] == [2, "value2"]
         assert rows[2] == [3, "value3"]
     finally:
-        cur = trino_connection.cursor()
+        cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
         cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many")
 
 
-def test_execute_many_without_params(trino_connection):
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
+def test_execute_many_without_params(
+        connection_legacy_prepared_statements,
+        cursor_legacy_prepared_statements,
+        run_trino):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        legacy_prepared_statements=connection_legacy_prepared_statements,
+    )
+
     try:
-        cur = trino_connection.cursor()
+        cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
         cur.execute("CREATE TABLE memory.default.test_execute_many_without_param (value varchar)")
         cur.fetchall()
         with pytest.raises(TrinoUserError) as e:
@@ -177,12 +251,25 @@ def test_execute_many_without_params(trino_connection):
             cur.fetchall()
         assert "Incorrect number of parameters: expected 1 but found 0" in str(e.value)
     finally:
-        cur = trino_connection.cursor()
+        cur = connection.cursor(legacy_prepared_statements=cursor_legacy_prepared_statements)
         cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many_without_param")
 
 
-def test_execute_many_select(trino_connection):
-    cur = trino_connection.cursor()
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
+def test_execute_many_select(
+        connection_legacy_prepared_statements,
+        cursor_legacy_prepared_statements,
+        run_trino):
+    _, host, port = run_trino
+
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user="test",
+        legacy_prepared_statements=connection_legacy_prepared_statements,
+    )
+    cur = connection.cursor()
     with pytest.raises(NotSupportedError) as e:
         cur.executemany("SELECT ?, ?", [(1, "value1"), (2, "value2")])
     assert "Query must return update type" in str(e.value)
@@ -255,6 +342,8 @@ def test_legacy_primitive_types_with_connection_and_cursor(
         assert rows[0][6] == '-2001-08-22'
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_decimal_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -265,6 +354,8 @@ def test_decimal_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="decimal(10, 6)", precision=10, scale=6)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_decimal_scientific_notation_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -294,6 +385,8 @@ def test_null_decimal(trino_connection):
     assert_cursor_description(cur, trino_type="decimal(38, 0)", precision=38, scale=0)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_biggest_decimal(trino_connection):
     cur = trino_connection.cursor()
 
@@ -305,6 +398,8 @@ def test_biggest_decimal(trino_connection):
     assert_cursor_description(cur, trino_type="decimal(38, 0)", precision=38, scale=0)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_smallest_decimal(trino_connection):
     cur = trino_connection.cursor()
 
@@ -316,6 +411,8 @@ def test_smallest_decimal(trino_connection):
     assert_cursor_description(cur, trino_type="decimal(38, 0)", precision=38, scale=0)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_highest_precision_decimal(trino_connection):
     cur = trino_connection.cursor()
 
@@ -327,6 +424,8 @@ def test_highest_precision_decimal(trino_connection):
     assert_cursor_description(cur, trino_type="decimal(38, 38)", precision=38, scale=38)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_datetime_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -339,6 +438,8 @@ def test_datetime_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="timestamp(6)", precision=6)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_datetime_with_utc_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -351,6 +452,8 @@ def test_datetime_with_utc_time_zone_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="timestamp(6) with time zone", precision=6)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -365,6 +468,8 @@ def test_datetime_with_numeric_offset_time_zone_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="timestamp(6) with time zone", precision=6)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_datetime_with_named_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -407,6 +512,8 @@ def test_datetime_with_time_zone_numeric_offset(trino_connection):
     assert_cursor_description(cur, trino_type="timestamp(3) with time zone", precision=3)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -417,6 +524,8 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(trino_connection):
         cur.fetchall()
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 @pytest.mark.parametrize('fold', [0, 1])
 def test_doubled_datetimes(trino_connection, fold):
     # Trino doesn't distinguish between doubled datetimes that lie within a DST transition.
@@ -431,6 +540,8 @@ def test_doubled_datetimes(trino_connection, fold):
     assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'))
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_date_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -469,6 +580,8 @@ def test_unsupported_python_dates(trino_connection):
             cur.fetchall()
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_supported_special_dates_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -510,6 +623,8 @@ def test_char(trino_connection):
     assert_cursor_description(cur, trino_type="char(5)", size=5)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_time_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -522,6 +637,8 @@ def test_time_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="time(6)", precision=6)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_time_with_named_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -534,6 +651,8 @@ def test_time_with_named_time_zone_query_param(trino_connection):
     assert rows[0][0].tzinfo == timezone(timedelta(seconds=28800))
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_time_with_numeric_offset_time_zone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -600,6 +719,8 @@ def test_null_date_with_time_zone(trino_connection):
     assert_cursor_description(cur, trino_type="time(3) with time zone", precision=3)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 @pytest.mark.parametrize(
     "binary_input",
     [
@@ -619,6 +740,8 @@ def test_binary_query_param(trino_connection, binary_input):
     assert rows[0][0] == binary_input
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_array_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -638,6 +761,8 @@ def test_array_query_param(trino_connection):
     assert rows[0][0] == "array(integer)"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_array_none_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -654,6 +779,8 @@ def test_array_none_query_param(trino_connection):
     assert rows[0][0] == "array(unknown)"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_array_none_and_another_type_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -670,6 +797,8 @@ def test_array_none_and_another_type_query_param(trino_connection):
     assert rows[0][0] == "array(integer)"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_array_timestamp_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -686,6 +815,8 @@ def test_array_timestamp_query_param(trino_connection):
     assert rows[0][0] == "array(timestamp(6))"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_array_timestamp_with_timezone_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -705,6 +836,8 @@ def test_array_timestamp_with_timezone_query_param(trino_connection):
     assert rows[0][0] == "array(timestamp(6) with time zone)"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_dict_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -719,6 +852,8 @@ def test_dict_query_param(trino_connection):
     assert rows[0][0] == "map(varchar(3), varchar(3))"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_dict_timestamp_query_param_types(trino_connection):
     cur = trino_connection.cursor()
 
@@ -729,6 +864,8 @@ def test_dict_timestamp_query_param_types(trino_connection):
     assert rows[0][0] == params
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_boolean_query_param(trino_connection):
     cur = trino_connection.cursor()
 
@@ -752,6 +889,8 @@ def test_row(trino_connection):
     assert rows[0][0] == params
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_nested_row(trino_connection):
     cur = trino_connection.cursor()
     params = ((1, "test", Decimal("3.1")), Decimal("2.0"), datetime(2020, 1, 1, 0, 0, 0))
@@ -812,6 +951,8 @@ def test_nested_named_row(trino_connection):
     assert str(rows[0][0]) == "(x: Decimal('2.30'), y: (x: 1, y: 'test'))"
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_float_query_param(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(1.1,))
@@ -821,6 +962,8 @@ def test_float_query_param(trino_connection):
     assert rows[0][0] == 1.1
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_float_nan_query_param(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(float("nan"),))
@@ -831,6 +974,8 @@ def test_float_nan_query_param(trino_connection):
     assert math.isnan(rows[0][0])
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_float_inf_query_param(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(float("inf"),))
@@ -845,6 +990,8 @@ def test_float_inf_query_param(trino_connection):
     assert rows[0][0] == float("-inf")
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_int_query_param(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT ?", params=(3,))
@@ -860,6 +1007,8 @@ def test_int_query_param(trino_connection):
     assert_cursor_description(cur, trino_type="bigint")
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 @pytest.mark.parametrize('params', [
     'NOT A LIST OR TUPPLE',
     {'invalid', 'params'},
@@ -1036,6 +1185,8 @@ def test_transaction_autocommit(trino_connection_in_autocommit):
                in str(transaction_error.value)
 
 
+@pytest.mark.parametrize("connection_legacy_prepared_statements", [None, True, False])
+@pytest.mark.parametrize("cursor_legacy_prepared_statements", [None, True, False])
 def test_invalid_query_throws_correct_error(trino_connection):
     """Tests that an invalid query raises the correct exception
     """
