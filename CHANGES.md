@@ -6,6 +6,14 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.324.0
+
+* Reduce the number of times `SELECT version()` query is sent to Trino when
+  using SQLAlchemy.
+  ([#371](https://github.com/trinodb/trino-python-client/issues/371))
+* Fix `TIMESTAMP WITH TIME ZONE` being mapped to incorrect zones.
+  ([#366](https://github.com/trinodb/trino-python-client/issues/366))
+
 ## Release 0.323.0
 
 * Fix handling of `Decimal` params which use scientific notation.
