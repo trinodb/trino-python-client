@@ -21,7 +21,10 @@ import binascii
 import datetime
 import math
 import uuid
+from collections import OrderedDict
 from decimal import Decimal
+from threading import Lock
+from time import time
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
 from urllib.parse import urlparse
 
@@ -78,6 +81,41 @@ paramstyle = "qmark"
 logger = trino.logging.get_logger(__name__)
 
 
+class TimeBoundLRUCache:
+    """A bounded LRU cache which expires entries after a configured number of seconds.
+    Note that expired entries will be evicted only on an attempted access (or through
+    the LRU policy)."""
+    def __init__(self, capacity: int, ttl_seconds: int):
+        self.capacity = capacity
+        self.ttl_seconds = ttl_seconds
+        self.cache = OrderedDict()
+        self.lock = Lock()
+
+    def get(self, key):
+        with self.lock:
+            if key not in self.cache:
+                return None
+            value, timestamp = self.cache[key]
+            if time() - timestamp > self.ttl_seconds:
+                self.cache.pop(key)
+                return None
+            self.cache.move_to_end(key)
+            return value
+
+    def put(self, key, value):
+        with self.lock:
+            self.cache[key] = value, time()
+            self.cache.move_to_end(key)
+            if len(self.cache) > self.capacity:
+                self.cache.popitem(last=False)
+
+    def __repr__(self):
+        return f"LRUCache(capacity: {self.capacity}, ttl: {self.ttl_seconds} seconds, {self.cache})"
+
+
+must_use_legacy_prepared_statements = TimeBoundLRUCache(1024, 3600)
+
+
 def connect(*args, **kwargs):
     """Constructor for creating a connection to the database.
 
@@ -117,6 +155,7 @@ class Connection(object):
         http_session=None,
         client_tags=None,
         legacy_primitive_types=False,
+        legacy_prepared_statements=None,
         roles=None,
         timezone=None,
     ):
@@ -162,6 +201,7 @@ class Connection(object):
         self._request = None
         self._transaction = None
         self.legacy_primitive_types = legacy_primitive_types
+        self.legacy_prepared_statements = legacy_prepared_statements
 
     @property
     def isolation_level(self):
@@ -228,9 +268,28 @@ class Connection(object):
         return Cursor(
             self,
             request,
-            # if legacy_primitive_types is not explicitly set in Cursor, take from Connection
+            # if legacy params are not explicitly set in Cursor, take them from Connection
             legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
         )
+
+    def _use_legacy_prepared_statements(self):
+        if self.legacy_prepared_statements is not None:
+            return self.legacy_prepared_statements
+
+        value = must_use_legacy_prepared_statements.get((self.host, self.port))
+        if value is None:
+            try:
+                query = trino.client.TrinoQuery(
+                    self._create_request(),
+                    query="EXECUTE IMMEDIATE 'SELECT 1'")
+                query.execute()
+            except Exception as e:
+                logger.warning(
+                    "EXECUTE IMMEDIATE not available for %s:%s; defaulting to legacy prepared statements (%s)",
+                    self.host, self.port, e)
+                value = True
+                must_use_legacy_prepared_statements.put((self.host, self.port), value)
+        return value
 
 
 class DescribeOutput(NamedTuple):
@@ -280,7 +339,11 @@ class Cursor(object):
 
     """
 
-    def __init__(self, connection, request, legacy_primitive_types: bool = False):
+    def __init__(
+            self,
+            connection,
+            request,
+            legacy_primitive_types: bool = False):
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -391,6 +454,18 @@ class Cursor(object):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
         return trino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
 
+    def _execute_immediate_statement(self, statement: str, params):
+        """
+        Binds parameters and executes a statement in one call.
+
+        :param statement: sql to be executed.
+        :param params: parameters to be bound.
+        """
+        sql = "EXECUTE IMMEDIATE '" + statement.replace("'", "''") + \
+              "' USING " + ",".join(map(self._format_prepared_param, params))
+        return trino.client.TrinoQuery(
+            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types)
+
     def _format_prepared_param(self, param):
         """
         Formats parameters to be passed in an
@@ -492,22 +567,26 @@ class Cursor(object):
                 'parameter values'
             )
 
-            statement_name = self._generate_unique_statement_name()
-            self._prepare_statement(operation, statement_name)
+            if self.connection._use_legacy_prepared_statements():
+                statement_name = self._generate_unique_statement_name()
+                self._prepare_statement(operation, statement_name)
 
-            try:
-                # Send execute statement and assign the return value to `results`
-                # as it will be returned by the function
-                self._query = self._execute_prepared_statement(
-                    statement_name, params
-                )
+                try:
+                    # Send execute statement and assign the return value to `results`
+                    # as it will be returned by the function
+                    self._query = self._execute_prepared_statement(
+                        statement_name, params
+                    )
+                    self._iterator = iter(self._query.execute())
+                finally:
+                    # Send deallocate statement
+                    # At this point the query can be deallocated since it has already
+                    # been executed
+                    # TODO: Consider caching prepared statements if requested by caller
+                    self._deallocate_prepared_statement(statement_name)
+            else:
+                self._query = self._execute_immediate_statement(operation, params)
                 self._iterator = iter(self._query.execute())
-            finally:
-                # Send deallocate statement
-                # At this point the query can be deallocated since it has already
-                # been executed
-                # TODO: Consider caching prepared statements if requested by caller
-                self._deallocate_prepared_statement(statement_name)
 
         else:
             self._query = trino.client.TrinoQuery(self._request, query=operation,
