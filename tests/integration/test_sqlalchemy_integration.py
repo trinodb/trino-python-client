@@ -23,8 +23,11 @@ from trino.sqlalchemy.datatype import JSON
 @pytest.fixture
 def trino_connection(run_trino, request):
     _, host, port = run_trino
+    connect_args = {"source": "test", "max_attempts": 1}
+    if trino_version() <= '417':
+        connect_args["legacy_prepared_statements"] = True
     engine = sqla.create_engine(f"trino://test@{host}:{port}/{request.param}",
-                                connect_args={"source": "test", "max_attempts": 1})
+                                connect_args=connect_args)
     yield engine, engine.connect()
 
 

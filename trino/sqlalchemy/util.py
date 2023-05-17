@@ -23,6 +23,7 @@ def _url(
     extra_credential: Optional[List[Tuple[str, str]]] = None,
     client_tags: Optional[List[str]] = None,
     legacy_primitive_types: Optional[bool] = None,
+    legacy_prepared_statements: Optional[bool] = None,
     access_token: Optional[str] = None,
     cert: Optional[str] = None,
     key: Optional[str] = None,
@@ -84,6 +85,9 @@ def _url(
 
     if legacy_primitive_types is not None:
         trino_url += f"&legacy_primitive_types={json.dumps(legacy_primitive_types)}"
+
+    if legacy_prepared_statements is not None:
+        trino_url += f"&legacy_prepared_statements={json.dumps(legacy_prepared_statements)}"
 
     if access_token is not None:
         trino_url += f"&access_token={quote_plus(access_token)}"
