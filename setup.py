@@ -82,7 +82,8 @@ setup(
         "backports.zoneinfo;python_version<'3.9'",
         "python-dateutil",
         "pytz",
-        "requests",
+        # requests CVE https://github.com/advisories/GHSA-j8r2-6x86-q33q
+        "requests>=2.31.0",
         "tzlocal",
     ],
     extras_require={
