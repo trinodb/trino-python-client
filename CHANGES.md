@@ -6,6 +6,15 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.325.0
+
+* Queries with parameters now uses `EXECUTE IMMEDIATE` instead of `PREPARE`,
+  `EXECUTE` and `DEALLOCATE` if the server supports `EXECUTE IMMEDIATE`. If
+  `EXECUTE IMMEDIATE` is not support the client falls back to using `PREPARE`,
+  `EXECUTE` and `DEALLOCATE`. If you want to always use `PREPARE`, `EXECUTE`
+  and `DEALLOCATE` set the kwarg `legacy_prepared_statements` to `True`.
+  ([#375](https://github.com/trinodb/trino-python-client/issues/375))
+
 ## Release 0.324.0
 
 * Reduce the number of times `SELECT version()` query is sent to Trino when
