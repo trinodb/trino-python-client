@@ -199,6 +199,28 @@ class TestTrinoDialect:
                     source="trino-sqlalchemy",
                 ),
             ),
+            (
+                make_url(trino_url(
+                    user="user",
+                    host="localhost",
+                    client_tags=["1", "sql"],
+                    legacy_prepared_statements=False,
+                )),
+                'trino://user@localhost:8080/'
+                '?client_tags=%5B%221%22%2C+%22sql%22%5D'
+                '&legacy_prepared_statements=false'
+                '&source=trino-sqlalchemy',
+                list(),
+                dict(
+                    host="localhost",
+                    port=8080,
+                    catalog="system",
+                    user="user",
+                    source="trino-sqlalchemy",
+                    client_tags=["1", "sql"],
+                    legacy_prepared_statements=False,
+                ),
+            ),
         ],
     )
     def test_create_connect_args(
