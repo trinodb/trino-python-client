@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
+import time as t
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
@@ -27,7 +28,7 @@ from tzlocal import get_localzone_name  # type: ignore
 import trino
 from tests.integration.conftest import trino_version
 from trino import constants
-from trino.dbapi import Cursor, DescribeOutput
+from trino.dbapi import Cursor, DescribeOutput, TimeBoundLRUCache
 from trino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
 from trino.transaction import IsolationLevel
 
@@ -1780,6 +1781,41 @@ def test_rowcount_insert(trino_connection):
     with _TestTable(trino_connection, "memory.default.test_rowcount_ctas", "(a VARCHAR)") as (table, cur):
         cur.execute(f"INSERT INTO {table.table_name} (a) VALUES ('test')")
         assert cur.rowcount == 1
+
+
+@pytest.mark.parametrize(
+    "legacy_prepared_statements",
+    [
+        True,
+        pytest.param(False, marks=pytest.mark.skipif(
+            trino_version() <= '417',
+            reason="EXECUTE IMMEDIATE was introduced in version 418")),
+        None
+    ]
+)
+def test_prepared_statement_capability_autodetection(legacy_prepared_statements, run_trino):
+    # start with an empty cache
+    trino.dbapi.must_use_legacy_prepared_statements = TimeBoundLRUCache(1024, 3600)
+    user_name = f"user_{t.monotonic_ns()}"
+
+    _, host, port = run_trino
+    connection = trino.dbapi.Connection(
+        host=host,
+        port=port,
+        user=user_name,
+        legacy_prepared_statements=legacy_prepared_statements,
+    )
+    cur = connection.cursor()
+    cur.execute("SELECT ?", [42])
+    cur.fetchall()
+    another = connection.cursor()
+    another.execute("SELECT ?", [100])
+    another.fetchall()
+
+    verify = connection.cursor()
+    rows = verify.execute("SELECT query FROM system.runtime.queries WHERE user = ?", [user_name])
+    statements = [stmt for row in rows for stmt in row]
+    assert statements.count("EXECUTE IMMEDIATE 'SELECT 1'") == (1 if legacy_prepared_statements is None else 0)
 
 
 def get_cursor(legacy_prepared_statements, run_trino):

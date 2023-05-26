@@ -283,12 +283,13 @@ class Connection(object):
                     self._create_request(),
                     query="EXECUTE IMMEDIATE 'SELECT 1'")
                 query.execute()
+                value = False
             except Exception as e:
                 logger.warning(
                     "EXECUTE IMMEDIATE not available for %s:%s; defaulting to legacy prepared statements (%s)",
                     self.host, self.port, e)
                 value = True
-                must_use_legacy_prepared_statements.put((self.host, self.port), value)
+            must_use_legacy_prepared_statements.put((self.host, self.port), value)
         return value
 
 
