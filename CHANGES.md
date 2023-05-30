@@ -6,6 +6,15 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.326.0
+
+* Fix SQLAlchemy URL failing to parse if `legacy_prepared_statements` parameter
+  was specified.
+  ([#380](https://github.com/trinodb/trino-python-client/issues/380))
+* Fix more than required `EXECUTE IMMEDIATE` queries being executed when
+  `legacy_prepared_statements` parameter wasn't explicitly set.
+  ([#380](https://github.com/trinodb/trino-python-client/issues/380))
+
 ## Release 0.325.0
 
 * Queries with parameters now uses `EXECUTE IMMEDIATE` instead of `PREPARE`,
