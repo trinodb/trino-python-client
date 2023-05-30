@@ -14,4 +14,4 @@ from . import auth, client, constants, dbapi, exceptions, logging
 
 __all__ = ['auth', 'dbapi', 'client', 'constants', 'exceptions', 'logging']
 
-__version__ = "0.325.0"
+__version__ = "0.326.0"
