@@ -327,7 +327,9 @@ class TrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return res.first() is not None
 
-    def has_table(self, connection: Connection, table_name: str, schema: str = None, **kw) -> bool:
+    def has_table(
+        self, connection: Connection, table_name: str, schema: str = None, trino_catalog: str = None, **kw
+    ) -> bool:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             return False
@@ -338,8 +340,12 @@ class TrinoDialect(DefaultDialect):
             WHERE "table_schema" = :schema
               AND "table_name" = :table
         """
+            + ('AND "trino_catalog" = :catalog' if trino_catalog is not None else "")
         ).strip()
-        res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
+        res = connection.execute(
+            sql.text(query),
+            {"schema": schema, "table": table_name, "catalog": trino_catalog},
+        )
         return res.first() is not None
 
     def has_sequence(self, connection: Connection, sequence_name: str, schema: str = None, **kw) -> bool:

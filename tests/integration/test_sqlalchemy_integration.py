@@ -522,3 +522,15 @@ def _num_queries_containing_string(connection, query_string):
     result = connection.execute(statement)
     rows = result.fetchall()
     return len(list(filter(lambda rec: query_string in rec[0], rows)))
+
+
+def test_table_from_other_catalog(trino_connection):
+    engine, _ = trino_connection
+    t = sqla.Table(
+        "catalogs",
+        sqla.MetaData(),
+        schema="metadata",
+        trino_catalog="system",
+        autoload_with=engine,
+    )
+    assert "system" in set(sqla.select(t.c.catalog_name).scalars())
