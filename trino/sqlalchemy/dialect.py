@@ -73,6 +73,13 @@ class TrinoDialect(DefaultDialect):
         """
         return trino_dbapi
 
+    @classmethod
+    def import_dbapi(cls):
+        """
+        ref: https://www.python.org/dev/peps/pep-0249/#module-interface
+        """
+        return trino_dbapi
+
     def create_connect_args(self, url: URL) -> Tuple[Sequence[Any], Mapping[str, Any]]:
         args: Sequence[Any] = list()
         kwargs: Dict[str, Any] = dict(host=url.host)
