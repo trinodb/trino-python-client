@@ -787,7 +787,10 @@ class TrinoQuery(object):
         if self.cancelled:
             raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
 
-        response = self._request.post(self._query, additional_http_headers)
+        try:
+            response = self._request.post(self._query, additional_http_headers)
+        except requests.exceptions.RequestException as e:
+            raise trino.exceptions.TrinoConnectionError("failed to execute: {}".format(e))
         status = self._request.process(response)
         self._info_uri = status.info_uri
         self._query_id = status.id
@@ -818,7 +821,10 @@ class TrinoQuery(object):
 
     def fetch(self) -> List[List[Any]]:
         """Continue fetching data for the current query_id"""
-        response = self._request.get(self._request.next_uri)
+        try:
+            response = self._request.get(self._request.next_uri)
+        except requests.exceptions.RequestException as e:
+            raise trino.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
         status = self._request.process(response)
         self._update_state(status)
         logger.debug(status)
@@ -836,7 +842,10 @@ class TrinoQuery(object):
             return
 
         logger.debug("cancelling query: %s", self.query_id)
-        response = self._request.delete(self._next_uri)
+        try:
+            response = self._request.delete(self._next_uri)
+        except requests.exceptions.RequestException as e:
+            raise trino.exceptions.TrinoConnectionError("failed to cancel query: {}".format(e))
         logger.debug(response)
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
