@@ -67,6 +67,10 @@ class TrinoAuthError(OperationalError):
     pass
 
 
+class TrinoConnectionError(OperationalError):
+    pass
+
+
 class TrinoDataError(NotSupportedError):
     pass
 
