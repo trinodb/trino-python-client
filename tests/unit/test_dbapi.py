@@ -184,7 +184,8 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
         conn2.cursor().execute("SELECT 2")
         conn2.cursor().execute("SELECT 3")
 
-    assert len(_post_statement_requests()) == 7
+    assert len(_post_statement_requests()) == 9
+    # assert only a single token request was sent
     assert len(_get_token_requests(challenge_id)) == 1
 
 
@@ -275,37 +276,38 @@ def test_role_is_set_when_specified(mock_client):
 
 
 def test_hostname_parsing():
-    https_server_with_port = Connection("https://mytrinoserver.domain:9999")
+    # Since this test only verifies URL parsing there is no need to attempt actual connection
+    https_server_with_port = Connection("https://mytrinoserver.domain:9999", defer_connect=True)
     assert https_server_with_port.host == "mytrinoserver.domain"
     assert https_server_with_port.port == 9999
     assert https_server_with_port.http_scheme == constants.HTTPS
 
-    https_server_without_port = Connection("https://mytrinoserver.domain")
+    https_server_without_port = Connection("https://mytrinoserver.domain", defer_connect=True)
     assert https_server_without_port.host == "mytrinoserver.domain"
     assert https_server_without_port.port == 8080
     assert https_server_without_port.http_scheme == constants.HTTPS
 
-    http_server_with_port = Connection("http://mytrinoserver.domain:9999")
+    http_server_with_port = Connection("http://mytrinoserver.domain:9999", defer_connect=True)
     assert http_server_with_port.host == "mytrinoserver.domain"
     assert http_server_with_port.port == 9999
     assert http_server_with_port.http_scheme == constants.HTTP
 
-    http_server_without_port = Connection("http://mytrinoserver.domain")
+    http_server_without_port = Connection("http://mytrinoserver.domain", defer_connect=True)
     assert http_server_without_port.host == "mytrinoserver.domain"
     assert http_server_without_port.port == 8080
     assert http_server_without_port.http_scheme == constants.HTTP
 
-    http_server_with_path = Connection("http://mytrinoserver.domain/some_path")
+    http_server_with_path = Connection("http://mytrinoserver.domain/some_path", defer_connect=True)
     assert http_server_with_path.host == "mytrinoserver.domain/some_path"
     assert http_server_with_path.port == 8080
     assert http_server_with_path.http_scheme == constants.HTTP
 
-    only_hostname = Connection("mytrinoserver.domain")
+    only_hostname = Connection("mytrinoserver.domain", defer_connect=True)
     assert only_hostname.host == "mytrinoserver.domain"
     assert only_hostname.port == 8080
     assert only_hostname.http_scheme == constants.HTTP
 
-    only_hostname_with_path = Connection("mytrinoserver.domain/some_path")
+    only_hostname_with_path = Connection("mytrinoserver.domain/some_path", defer_connect=True)
     assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
     assert only_hostname_with_path.port == 8080
     assert only_hostname_with_path.http_scheme == constants.HTTP
