@@ -147,7 +147,6 @@ class Connection(object):
         http_scheme=constants.HTTP,
         auth=constants.DEFAULT_AUTH,
         extra_credential=None,
-        redirect_handler=None,
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
         request_timeout=constants.DEFAULT_REQUEST_TIMEOUT,
         isolation_level=IsolationLevel.AUTOCOMMIT,
@@ -192,7 +191,6 @@ class Connection(object):
         self.http_scheme = http_scheme if not parsed_host.scheme else parsed_host.scheme
         self.auth = auth
         self.extra_credential = extra_credential
-        self.redirect_handler = redirect_handler
         self.max_attempts = max_attempts
         self.request_timeout = request_timeout
         self.client_tags = client_tags
@@ -251,7 +249,6 @@ class Connection(object):
             self._http_session,
             self.http_scheme,
             self.auth,
-            self.redirect_handler,
             self.max_attempts,
             self.request_timeout,
         )

@@ -117,7 +117,6 @@ def test_request_headers(mock_get_and_post):
                 }
             ),
             http_scheme="http",
-            redirect_handler=None,
         )
 
     def assert_headers(headers):
