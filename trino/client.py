@@ -401,7 +401,6 @@ class TrinoRequest(object):
         http_session: Any = None,
         http_scheme: str = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
-        redirect_handler: Any = None,
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=_RetryWithExponentialBackoff(),
@@ -434,7 +433,6 @@ class TrinoRequest(object):
             self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
 
-        self._redirect_handler = redirect_handler
         self._request_timeout = request_timeout
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
@@ -557,22 +555,8 @@ class TrinoRequest(object):
             data=data,
             headers=http_headers,
             timeout=self._request_timeout,
-            allow_redirects=self._redirect_handler is None,
             proxies=PROXIES,
         )
-        if self._redirect_handler is not None:
-            while http_response is not None and http_response.is_redirect:
-                location = http_response.headers["Location"]
-                url = self._redirect_handler.handle(location)
-                logger.info("redirect %s from %s to %s", http_response.status_code, location, url)
-                http_response = self._post(
-                    url,
-                    data=data,
-                    headers=http_headers,
-                    timeout=self._request_timeout,
-                    allow_redirects=False,
-                    proxies=PROXIES,
-                )
         return http_response
 
     def get(self, url: str):
