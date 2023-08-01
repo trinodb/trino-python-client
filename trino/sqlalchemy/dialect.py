@@ -147,7 +147,7 @@ class TrinoDialect(DefaultDialect):
         return args, kwargs
 
     def get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
-        if not self.has_table(connection, table_name, schema):
+        if not self.has_table(connection, table_name, schema, **kw):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
         return self._get_columns(connection, table_name, schema, **kw)
 
@@ -258,7 +258,7 @@ class TrinoDialect(DefaultDialect):
         return res.scalar()
 
     def get_indexes(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
-        if not self.has_table(connection, table_name, schema):
+        if not self.has_table(connection, table_name, schema, **kw):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
 
         partitioned_columns = self._get_columns(connection, f"{table_name}$partitions", schema, **kw)
@@ -322,7 +322,7 @@ class TrinoDialect(DefaultDialect):
             SELECT "schema_name"
             FROM "information_schema"."schemata"
             WHERE "schema_name" = :schema
-        """
+            """
         ).strip()
         res = connection.execute(sql.text(query), {"schema": schema})
         return res.first() is not None
@@ -333,14 +333,19 @@ class TrinoDialect(DefaultDialect):
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             return False
+
+        source = '"information_schema"."tables"'
+
+        if trino_catalog is not None:
+            source = f'"{trino_catalog}".{source}'
+
         query = dedent(
-            """
+            f"""
             SELECT "table_name"
-            FROM "information_schema"."tables"
+            FROM {source}
             WHERE "table_schema" = :schema
               AND "table_name" = :table
-        """
-            + ('AND "trino_catalog" = :catalog' if trino_catalog is not None else "")
+            """
         ).strip()
         res = connection.execute(
             sql.text(query),
