@@ -524,6 +524,7 @@ def _num_queries_containing_string(connection, query_string):
     return len(list(filter(lambda rec: query_string in rec[0], rows)))
 
 
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_table_from_other_catalog(trino_connection):
     engine, _ = trino_connection
     t = sqla.Table(
