@@ -196,6 +196,9 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
     def visit_JSON(self, type_, **kw):
         return 'JSON'
 
+    def visit_MAP(self, type_, **kw):
+        return 'MAP'
+
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
