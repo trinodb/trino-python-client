@@ -396,7 +396,8 @@ class TrinoDialect(DefaultDialect):
     def do_execute(
         self, cursor: Cursor, statement: str, parameters: Tuple[Any, ...], context: DefaultExecutionContext = None
     ):
-        cursor.execute(statement, parameters)
+        execution_options = (context.execution_options or {}) if context else {}
+        cursor.execute(statement, parameters, **execution_options)
 
     def do_rollback(self, dbapi_connection: trino_dbapi.Connection):
         if dbapi_connection.transaction is not None:
