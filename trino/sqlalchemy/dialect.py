@@ -11,6 +11,7 @@
 # limitations under the License.
 import json
 from textwrap import dedent
+from types import ModuleType
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 from urllib.parse import unquote_plus
 
@@ -67,7 +68,7 @@ class TrinoDialect(DefaultDialect):
     cte_follows_insert = True
 
     @classmethod
-    def dbapi(cls):
+    def dbapi(cls) -> ModuleType:
         """
         ref: https://www.python.org/dev/peps/pep-0249/#module-interface
         """
@@ -101,9 +102,13 @@ class TrinoDialect(DefaultDialect):
 
         if url.password:
             if not url.username:
-                raise ValueError("Username is required when specify password in connection URL")
+                raise ValueError(
+                    "Username is required when specify password in connection URL"
+                )
             kwargs["http_scheme"] = "https"
-            kwargs["auth"] = BasicAuthentication(unquote_plus(url.username), unquote_plus(url.password))
+            kwargs["auth"] = BasicAuthentication(
+                unquote_plus(url.username), unquote_plus(url.password)
+            )
 
         if "access_token" in url.query:
             kwargs["http_scheme"] = "https"
@@ -111,7 +116,9 @@ class TrinoDialect(DefaultDialect):
 
         if "cert" and "key" in url.query:
             kwargs["http_scheme"] = "https"
-            kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
+            kwargs["auth"] = CertificateAuthentication(
+                unquote_plus(url.query["cert"]), unquote_plus(url.query["key"])
+            )
 
         if "source" in url.query:
             kwargs["source"] = unquote_plus(url.query["source"])
@@ -119,21 +126,28 @@ class TrinoDialect(DefaultDialect):
             kwargs["source"] = "trino-sqlalchemy"
 
         if "session_properties" in url.query:
-            kwargs["session_properties"] = json.loads(unquote_plus(url.query["session_properties"]))
+            kwargs["session_properties"] = json.loads(
+                unquote_plus(url.query["session_properties"])
+            )
 
         if "http_headers" in url.query:
             kwargs["http_headers"] = json.loads(unquote_plus(url.query["http_headers"]))
 
         if "extra_credential" in url.query:
             kwargs["extra_credential"] = [
-                tuple(extra_credential) for extra_credential in json.loads(unquote_plus(url.query["extra_credential"]))
+                tuple(extra_credential)
+                for extra_credential in json.loads(
+                    unquote_plus(url.query["extra_credential"])
+                )
             ]
 
         if "client_tags" in url.query:
             kwargs["client_tags"] = json.loads(unquote_plus(url.query["client_tags"]))
 
         if "legacy_primitive_types" in url.query:
-            kwargs["legacy_primitive_types"] = json.loads(unquote_plus(url.query["legacy_primitive_types"]))
+            kwargs["legacy_primitive_types"] = json.loads(
+                unquote_plus(url.query["legacy_primitive_types"])
+            )
 
         if "legacy_prepared_statements" in url.query:
             kwargs["legacy_prepared_statements"] = json.loads(unquote_plus(url.query["legacy_prepared_statements"]))
@@ -146,12 +160,24 @@ class TrinoDialect(DefaultDialect):
 
         return args, kwargs
 
-    def get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_columns(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
         return self._get_columns(connection, table_name, schema, **kw)
 
-    def _get_columns(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def _get_columns(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
             """
@@ -166,7 +192,9 @@ class TrinoDialect(DefaultDialect):
             ORDER BY "ordinal_position" ASC
         """
         ).strip()
-        res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
+        res = connection.execute(
+            sql.text(query), {"schema": schema, "table": table_name}
+        )
         columns = []
         for record in res:
             column = dict(
@@ -178,21 +206,37 @@ class TrinoDialect(DefaultDialect):
             columns.append(column)
         return columns
 
-    def get_pk_constraint(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
+    def get_pk_constraint(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> Dict[str, Any]:
         """Trino has no support for primary keys. Returns a dummy"""
         return dict(name=None, constrained_columns=[])
 
-    def get_primary_keys(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[str]:
+    def get_primary_keys(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> List[str]:
         pk = self.get_pk_constraint(connection, table_name, schema)
         return pk.get("constrained_columns")  # type: ignore
 
     def get_foreign_keys(
-        self, connection: Connection, table_name: str, schema: str = None, **kw
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         """Trino has no support for foreign keys. Returns an empty list."""
         return []
 
-    def get_schema_names(self, connection: Connection, **kw) -> List[str]:
+    def get_schema_names(self, connection: Connection, **kw: Dict[str, Any]) -> List[str]:
         query = dedent(
             """
             SELECT "schema_name"
@@ -202,7 +246,9 @@ class TrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query))
         return [row.schema_name for row in res]
 
-    def get_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_table_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Dict[str, Any]
+    ) -> List[str]:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
@@ -217,11 +263,15 @@ class TrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return [row.table_name for row in res]
 
-    def get_temp_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_temp_table_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Dict[str, Any]
+    ) -> List[str]:
         """Trino has no support for temporary tables. Returns an empty list."""
         return []
 
-    def get_view_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_view_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Dict[str, Any]
+    ) -> List[str]:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
@@ -238,11 +288,19 @@ class TrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return [row.table_name for row in res]
 
-    def get_temp_view_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_temp_view_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Dict[str, Any]
+    ) -> List[str]:
         """Trino has no support for temporary views. Returns an empty list."""
         return []
 
-    def get_view_definition(self, connection: Connection, view_name: str, schema: str = None, **kw) -> str:
+    def get_view_definition(
+        self,
+        connection: Connection,
+        view_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> str:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             raise exc.NoSuchTableError("schema is required")
@@ -257,37 +315,61 @@ class TrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema, "view": view_name})
         return res.scalar()
 
-    def get_indexes(self, connection: Connection, table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
+    def get_indexes(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
 
-        partitioned_columns = self._get_columns(connection, f"{table_name}$partitions", schema, **kw)
+        partitioned_columns = self._get_columns(
+            connection, f"{table_name}$partitions", schema, **kw
+        )
         if not partitioned_columns:
             return []
         partition_index = dict(
             name="partition",
             column_names=[col["name"] for col in partitioned_columns],
-            unique=False
+            unique=False,
         )
         return [partition_index]
 
-    def get_sequence_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
+    def get_sequence_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Dict[str, Any]
+    ) -> List[str]:
         """Trino has no support for sequences. Returns an empty list."""
         return []
 
     def get_unique_constraints(
-        self, connection: Connection, table_name: str, schema: str = None, **kw
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         """Trino has no support for unique constraints. Returns an empty list."""
         return []
 
     def get_check_constraints(
-        self, connection: Connection, table_name: str, schema: str = None, **kw
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         """Trino has no support for check constraints. Returns an empty list."""
         return []
 
-    def get_table_comment(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
+    def get_table_comment(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> Dict[str, Any]:
         catalog_name = self._get_default_catalog_name(connection)
         if catalog_name is None:
             raise exc.NoSuchTableError("catalog is required in connection")
@@ -306,13 +388,15 @@ class TrinoDialect(DefaultDialect):
         try:
             res = connection.execute(
                 sql.text(query),
-                {"catalog_name": catalog_name, "schema_name": schema_name, "table_name": table_name}
+                {
+                    "catalog_name": catalog_name,
+                    "schema_name": schema_name,
+                    "table_name": table_name,
+                },
             )
             return dict(text=res.scalar())
         except error.TrinoQueryError as e:
-            if e.error_name in (
-                error.PERMISSION_DENIED,
-            ):
+            if e.error_name in (error.PERMISSION_DENIED,):
                 return dict(text=None)
             raise
 
@@ -327,7 +411,13 @@ class TrinoDialect(DefaultDialect):
         res = connection.execute(sql.text(query), {"schema": schema})
         return res.first() is not None
 
-    def has_table(self, connection: Connection, table_name: str, schema: str = None, **kw) -> bool:
+    def has_table(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> bool:
         schema = schema or self._get_default_schema_name(connection)
         if schema is None:
             return False
@@ -339,10 +429,18 @@ class TrinoDialect(DefaultDialect):
               AND "table_name" = :table
         """
         ).strip()
-        res = connection.execute(sql.text(query), {"schema": schema, "table": table_name})
+        res = connection.execute(
+            sql.text(query), {"schema": schema, "table": table_name}
+        )
         return res.first() is not None
 
-    def has_sequence(self, connection: Connection, sequence_name: str, schema: str = None, **kw) -> bool:
+    def has_sequence(
+        self,
+        connection: Connection,
+        sequence_name: str,
+        schema: Optional[str] = None,
+        **kw: Dict[str, Any],
+    ) -> bool:
         """Trino has no support for sequence. Returns False indicate that given sequence does not exists."""
         return False
 
@@ -361,7 +459,9 @@ class TrinoDialect(DefaultDialect):
         # Make server_version_info lazy in order to only make HTTP calls if user explicitly requests it.
         cls.server_version_info = property(get_server_version_info, lambda instance, value: None)
 
-    def _raw_connection(self, connection: Union[Engine, Connection]) -> trino_dbapi.Connection:
+    def _raw_connection(
+        self, connection: Union[Engine, Connection]
+    ) -> trino_dbapi.Connection:
         if isinstance(connection, Engine):
             return connection.raw_connection()
         return connection.connection
@@ -375,15 +475,21 @@ class TrinoDialect(DefaultDialect):
         return dbapi_connection.schema
 
     def do_execute(
-        self, cursor: Cursor, statement: str, parameters: Tuple[Any, ...], context: DefaultExecutionContext = None
-    ):
+        self,
+        cursor: Cursor,
+        statement: str,
+        parameters: Tuple[Any, ...],
+        context: DefaultExecutionContext = None,
+    ) -> None:
         cursor.execute(statement, parameters)
 
-    def do_rollback(self, dbapi_connection: trino_dbapi.Connection):
+    def do_rollback(self, dbapi_connection: trino_dbapi.Connection) -> None:
         if dbapi_connection.transaction is not None:
             dbapi_connection.rollback()
 
-    def set_isolation_level(self, dbapi_conn: trino_dbapi.Connection, level: str) -> None:
+    def set_isolation_level(
+        self, dbapi_conn: trino_dbapi.Connection, level: str
+    ) -> None:
         dbapi_conn._isolation_level = trino_dbapi.IsolationLevel[level]
 
     def get_isolation_level(self, dbapi_conn: trino_dbapi.Connection) -> str:
@@ -392,10 +498,18 @@ class TrinoDialect(DefaultDialect):
     def get_default_isolation_level(self, dbapi_conn: trino_dbapi.Connection) -> str:
         return trino_dbapi.IsolationLevel.AUTOCOMMIT.name
 
-    def _get_full_table(self, table_name: str, schema: str = None, quote: bool = True) -> str:
-        table_part = self.identifier_preparer.quote_identifier(table_name) if quote else table_name
+    def _get_full_table(
+        self, table_name: str, schema: Optional[str] = None, quote: bool = True
+    ) -> str:
+        table_part = (
+            self.identifier_preparer.quote_identifier(table_name)
+            if quote
+            else table_name
+        )
         if schema:
-            schema_part = self.identifier_preparer.quote_identifier(schema) if quote else schema
+            schema_part = (
+                self.identifier_preparer.quote_identifier(schema) if quote else schema
+            )
             return f"{schema_part}.{table_part}"
 
         return table_part
