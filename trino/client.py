@@ -688,11 +688,11 @@ class TrinoResult(object):
         self._rownumber = 0
 
     @property
-    def rows(self):
+    def rows(self) -> List[Any]:
         return self._rows
 
     @rows.setter
-    def rows(self, rows):
+    def rows(self, rows: List[Any]):
         self._rows = rows
 
     @property
@@ -702,14 +702,13 @@ class TrinoResult(object):
     def __iter__(self):
         # A query only transitions to a FINISHED state when the results are fully consumed:
         # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
-        while not self._query.finished or self._rows is not None:
-            next_rows = self._query.fetch() if not self._query.finished else None
+        while not self._query.finished or self._rows:
             for row in self._rows:
                 self._rownumber += 1
                 logger.debug("row %s", row)
                 yield row
 
-            self._rows = next_rows
+            self._rows = self._query.fetch() if not self._query.finished else []
 
 
 class TrinoQuery(object):
