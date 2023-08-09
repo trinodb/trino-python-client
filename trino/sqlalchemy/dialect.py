@@ -192,6 +192,16 @@ class TrinoDialect(DefaultDialect):
         """Trino has no support for foreign keys. Returns an empty list."""
         return []
 
+    def get_catalog_names(self, connection: Connection, **kw) -> List[str]:
+        query = dedent(
+            """
+            SELECT "table_cat"
+            FROM "system"."jdbc"."catalogs"
+        """
+        ).strip()
+        res = connection.execute(sql.text(query))
+        return [row.table_cat for row in res]
+
     def get_schema_names(self, connection: Connection, **kw) -> List[str]:
         query = dedent(
             """

@@ -410,6 +410,15 @@ def test_json_column(trino_connection, json_object):
         metadata.drop_all(engine)
 
 
+@pytest.mark.parametrize('trino_connection', ['system'], indirect=True)
+def test_get_catalog_names(trino_connection):
+    engine, conn = trino_connection
+
+    schemas = engine.dialect.get_catalog_names(conn)
+    assert len(schemas) == 5
+    assert set(schemas) == {"jmx", "memory", "system", "tpcds", "tpch"}
+
+
 @pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
 def test_get_table_comment(trino_connection):
     engine, conn = trino_connection
