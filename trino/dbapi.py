@@ -706,7 +706,8 @@ class Cursor(object):
         self._query.cancel()
 
     def close(self):
-        self.cancel()
+        if self._query is not None:
+            self.cancel()
         # TODO: Cancel not only the last query executed on this cursor
         #  but also any other outstanding queries executed through this cursor.
 
