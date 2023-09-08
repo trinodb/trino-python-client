@@ -12,18 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import ast
-import re
+import os
 import textwrap
+from codecs import open
+from typing import Any
 
 from setuptools import find_packages, setup
 
-_version_re = re.compile(r"__version__\s+=\s+(.*)")
-
-with open("trino/__init__.py", "rb") as f:
-    trino_version = _version_re.search(f.read().decode("utf-8"))
-    assert trino_version is not None
-    version = str(ast.literal_eval(trino_version.group(1)))
+about = {}  # type: dict[str, Any]
+here = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
+    exec(f.read(), about)
 
 kerberos_require = ["requests_kerberos"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
@@ -44,14 +43,14 @@ tests_require = all_require + [
 ]
 
 setup(
-    name="trino",
-    author="Trino Team",
-    author_email="python-client@trino.io",
-    version=version,
-    url="https://github.com/trinodb/trino-python-client",
+    name=about["__title__"],
+    author=about["__author__"],
+    author_email=about["__author_email__"],
+    version=about["__version__"],
+    url=about["__url__"],
     packages=find_packages(include=["trino", "trino.*"]),
     package_data={"": ["LICENSE", "README.md"]},
-    description="Client for the Trino distributed SQL Engine",
+    description=about["__description__"],
     long_description=textwrap.dedent(
         """
     Client for Trino (https://trino.io), a distributed SQL engine for
@@ -59,7 +58,7 @@ setup(
     a DBAPI 2.0 implementation.
     """
     ),
-    license="Apache 2.0",
+    license=about["__license__"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
