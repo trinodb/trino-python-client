@@ -61,7 +61,7 @@ rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 
 **Compatibility**
 
-`trino.sqlalchemy` is compatible with the latest 1.3.x and 1.4.x SQLAlchemy
+`trino.sqlalchemy` is compatible with the latest 1.3.x, 1.4.x and 2.0.x SQLAlchemy
 versions at the time of release of a particular version of the client.
 
 **Installation**
