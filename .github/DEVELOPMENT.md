@@ -118,7 +118,7 @@ the code base like `ttl` are allowed and encouraged.
   ```bash
   git fetch -a && git status
   ```
-- Change version in `trino/__init__.py` to a new version, e.g. `0.123.0`.
+- Change version in `trino/_version.py` to a new version, e.g. `0.123.0`.
 - Commit
   ```bash
   git commit -a -m "Bump version to 0.123.0"

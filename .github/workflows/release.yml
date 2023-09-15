@@ -27,7 +27,7 @@ jobs:
           VERSION_NUMBER="$(./setup.py --version)"
           NEXT_VERSION_NUMBER="$(echo ${VERSION_NUMBER} | awk -F. -v OFS=. '{$2 += 1 ; print}')"
           echo "Current version: ${VERSION_NUMBER}; Next version number: ${NEXT_VERSION_NUMBER}"
-          sed -i "s/${VERSION_NUMBER}/${NEXT_VERSION_NUMBER}/g" trino/__init__.py
+          sed -i "s/${VERSION_NUMBER}/${NEXT_VERSION_NUMBER}/g" trino/_version.py
 
           # Export for use in next steps
           echo "VERSION_NUMBER=${VERSION_NUMBER}" >> $GITHUB_ENV
