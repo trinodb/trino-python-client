@@ -87,6 +87,7 @@ def test_request_headers(mock_get_and_post):
     catalog = "test_catalog"
     schema = "test_schema"
     user = "test_user"
+    authorization_user = "test_authorization_user"
     source = "test_source"
     timezone = "Europe/Brussels"
     accept_encoding_header = "accept-encoding"
@@ -100,6 +101,7 @@ def test_request_headers(mock_get_and_post):
             port=8080,
             client_session=ClientSession(
                 user=user,
+                authorization_user=authorization_user,
                 source=source,
                 catalog=catalog,
                 schema=schema,
@@ -124,6 +126,7 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SCHEMA] == schema
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
+        assert headers[constants.HEADER_AUTHORIZATION_USER] == authorization_user
         assert headers[constants.HEADER_SESSION] == ""
         assert headers[constants.HEADER_TIMEZONE] == timezone
         assert headers[constants.HEADER_CLIENT_CAPABILITIES] == "PARAMETRIC_DATETIME"
@@ -135,7 +138,7 @@ def test_request_headers(mock_get_and_post):
             "catalog1=NONE,"
             "catalog2=" + urllib.parse.quote("ROLE{catalog2_role}")
         )
-        assert len(headers.keys()) == 11
+        assert len(headers.keys()) == 12
 
     req.post("URL")
     _, post_kwargs = post.call_args
