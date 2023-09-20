@@ -62,6 +62,7 @@ from tzlocal import get_localzone_name  # type: ignore
 
 import trino.logging
 from trino import constants, exceptions
+from trino._version import __version__
 
 __all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 
@@ -447,7 +448,7 @@ class TrinoRequest(object):
 
     @property
     def http_headers(self) -> Dict[str, str]:
-        headers = {}
+        headers = requests.structures.CaseInsensitiveDict()
 
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
@@ -455,6 +456,7 @@ class TrinoRequest(object):
         headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME'
+        headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
                 # ``name`` must not contain ``=``

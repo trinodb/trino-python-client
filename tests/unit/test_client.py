@@ -38,7 +38,7 @@ from tests.unit.oauth_test_utils import (
     _get_token_requests,
     _post_statement_requests,
 )
-from trino import constants
+from trino import __version__, constants
 from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
 from trino.client import (
     ClientSession,
@@ -125,6 +125,7 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SOURCE] == source
         assert headers[constants.HEADER_USER] == user
         assert headers[constants.HEADER_SESSION] == ""
+        assert headers[constants.HEADER_TRANSACTION] is None
         assert headers[constants.HEADER_TIMEZONE] == timezone
         assert headers[constants.HEADER_CLIENT_CAPABILITIES] == "PARAMETRIC_DATETIME"
         assert headers[accept_encoding_header] == accept_encoding_value
@@ -135,7 +136,8 @@ def test_request_headers(mock_get_and_post):
             "catalog1=NONE,"
             "catalog2=" + urllib.parse.quote("ROLE{catalog2_role}")
         )
-        assert len(headers.keys()) == 11
+        assert headers["User-Agent"] == f"{constants.CLIENT_NAME}/{__version__}"
+        assert len(headers.keys()) == 12
 
     req.post("URL")
     _, post_kwargs = post.call_args
