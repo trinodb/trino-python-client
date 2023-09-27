@@ -1,7 +1,8 @@
 # Trino Python client
 
-A [Trino](https://trino.io/) client for the [Python](https://www.python.org/) programming language.
-It supports Python>=3.7 and pypy.
+Client for [Trino](https://trino.io/), a distributed SQL engine for interactive and batch big data processing.
+Provides a low-level client and a DBAPI 2.0 implementation and a SQLAlchemy adapter.
+It supports Python>=3.7 and PyPy.
 
 [![Build Status](https://github.com/trinodb/trino-python-client/workflows/ci/badge.svg)](https://github.com/trinodb/trino-python-client/actions?query=workflow%3Aci+event%3Apush+branch%3Amaster)
 [![Trino Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://trino.io/slack.html)
