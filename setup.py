@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-import textwrap
 from codecs import open
 from typing import Any
 
@@ -23,6 +22,9 @@ about = {}  # type: dict[str, Any]
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
     exec(f.read(), about)
+
+with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
+    readme = f.read()
 
 kerberos_require = ["requests_kerberos"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
@@ -51,13 +53,8 @@ setup(
     packages=find_packages(include=["trino", "trino.*"]),
     package_data={"": ["LICENSE", "README.md"]},
     description=about["__description__"],
-    long_description=textwrap.dedent(
-        """
-    Client for Trino (https://trino.io), a distributed SQL engine for
-    interactive and batch big data processing. Provides a low-level client and
-    a DBAPI 2.0 implementation.
-    """
-    ),
+    long_description=readme,
+    long_description_content_type="text/markdown",
     license=about["__license__"],
     classifiers=[
         "Development Status :: 4 - Beta",
