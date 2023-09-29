@@ -6,6 +6,20 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.327.0
+
+* Implement `get_catalog_names` for SQLAlchemy to get the list of catalogs
+  present on the cluster.
+  ([#401](https://github.com/trinodb/trino-python-client/issues/401))
+* Use `OAuth2Authentication` if `externalAuthentication` parameter is set on
+  the connection url when using SQLAlchemy.
+  ([#343](https://github.com/trinodb/trino-python-client/issues/343))
+* Set the `User-Agent` HTTP header in all requests to `Trino Python
+  Client/<client_version>`.
+  ([#411](https://github.com/trinodb/trino-python-client/issues/411))
+* Raise `TrinoConnectionError` for all connection related errors.
+  ([#364](https://github.com/trinodb/trino-python-client/issues/364))
+
 ## Release 0.326.0
 
 * Fix SQLAlchemy URL failing to parse if `legacy_prepared_statements` parameter
