@@ -1328,6 +1328,15 @@ def test_select_tpch_1000(trino_connection):
     assert len(rows) == 1000
 
 
+def test_fetch_cursor(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 1000")
+    for _ in range(100):
+        cur.fetchone()
+    assert len(cur.fetchmany(400)) == 400
+    assert len(cur.fetchall()) == 500
+
+
 def test_cancel_query(trino_connection):
     cur = trino_connection.cursor()
     cur.execute("SELECT * FROM tpch.sf1.customer")
