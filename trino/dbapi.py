@@ -23,6 +23,7 @@ import math
 import uuid
 from collections import OrderedDict
 from decimal import Decimal
+from itertools import islice
 from threading import Lock
 from time import time
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
@@ -661,14 +662,7 @@ class Cursor(object):
         if size is None:
             size = self.arraysize
 
-        result = []
-        for _ in range(size):
-            row = self.fetchone()
-            if row is None:
-                break
-            result.append(row)
-
-        return result
+        return list(islice(iter(self.fetchone, None), size))
 
     def describe(self, sql: str) -> List[DescribeOutput]:
         """
@@ -696,7 +690,7 @@ class Cursor(object):
         return self._query.result
 
     def fetchall(self) -> List[List[Any]]:
-        return list(self.genall())
+        return list(iter(self.fetchone, None))
 
     def cancel(self):
         if self._query is None:
