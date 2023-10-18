@@ -309,3 +309,9 @@ def test_hostname_parsing():
     assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
     assert only_hostname_with_path.port == 8080
     assert only_hostname_with_path.http_scheme == constants.HTTP
+
+
+def test_description_is_none_when_cursor_is_not_executed():
+    connection = Connection("sample_trino_cluster:443")
+    cursor = connection.cursor()
+    assert hasattr(cursor, 'description')

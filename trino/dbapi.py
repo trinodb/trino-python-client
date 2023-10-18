@@ -376,7 +376,7 @@ class Cursor(object):
 
     @property
     def description(self) -> List[ColumnDescription]:
-        if self._query.columns is None:
+        if self._query is None or self._query.columns is None:
             return None
 
         # [ (name, type_code, display_size, internal_size, precision, scale, null_ok) ]
