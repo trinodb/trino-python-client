@@ -39,7 +39,14 @@ class TestTrinoDialect:
                 )),
                 'trino://user@localhost:443/?source=trino-sqlalchemy',
                 list(),
-                dict(host="localhost", port=443, catalog="system", user="user", source="trino-sqlalchemy"),
+                dict(
+                    host="localhost",
+                    port=443,
+                    catalog="system",
+                    user="user",
+                    source="trino-sqlalchemy",
+                    http_scheme="https",
+                ),
             ),
             (
                 make_url(trino_url(

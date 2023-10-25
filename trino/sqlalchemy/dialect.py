@@ -91,6 +91,8 @@ class TrinoDialect(DefaultDialect):
 
         if url.port:
             kwargs["port"] = url.port
+            if url.port == 443:
+                kwargs["http_scheme"] = "https"
 
         db_parts = (url.database or "system").split("/")
         if len(db_parts) == 1:
