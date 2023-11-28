@@ -19,6 +19,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
+from sqlalchemy.sql import sqltypes
 
 from trino import dbapi as trino_dbapi
 from trino import logging
@@ -31,10 +32,25 @@ from trino.auth import (
 from trino.dbapi import Cursor
 from trino.sqlalchemy import compiler, datatype, error
 
+from .datatype import JSONIndexType, JSONPathType
+
 logger = logging.get_logger(__name__)
+
+colspecs = {
+    sqltypes.JSON.JSONIndexType: JSONIndexType,
+    sqltypes.JSON.JSONPathType: JSONPathType,
+}
 
 
 class TrinoDialect(DefaultDialect):
+    def __init__(self,
+                 json_serializer=None,
+                 json_deserializer=None,
+                 **kwargs):
+        DefaultDialect.__init__(self, **kwargs)
+        self._json_serializer = json_serializer
+        self._json_deserializer = json_deserializer
+
     name = "trino"
     driver = "rest"
 
@@ -70,6 +86,7 @@ class TrinoDialect(DefaultDialect):
 
     # Support proper ordering of CTEs in regard to an INSERT statement
     cte_follows_insert = True
+    colspecs = colspecs
 
     @classmethod
     def dbapi(cls):
