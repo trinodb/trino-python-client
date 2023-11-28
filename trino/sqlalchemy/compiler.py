@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from sqlalchemy.sql import compiler
+from sqlalchemy.sql import compiler, sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
 
 # https://trino.io/docs/current/language/reserved.html
@@ -124,6 +124,19 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
         catalog = table.dialect_options['trino']['catalog']
         sql = f'"{catalog}".{sql}'
         return sql
+
+    def visit_json_getitem_op_binary(self, binary, operator, **kw):
+        return self._render_json_extract_from_binary(binary, operator, **kw)
+
+    def visit_json_path_getitem_op_binary(self, binary, operator, **kw):
+        return self._render_json_extract_from_binary(binary, operator, **kw)
+
+    def _render_json_extract_from_binary(self, binary, operator, **kw):
+        if binary.type._type_affinity is sqltypes.JSON:
+            return "JSON_EXTRACT(%s, %s)" % (
+                self.process(binary.left, **kw),
+                self.process(binary.right, **kw),
+            )
 
 
 class TrinoDDLCompiler(compiler.DDLCompiler):

@@ -9,15 +9,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import re
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
 
 import sqlalchemy
-from sqlalchemy import util
+from sqlalchemy import func, util
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
-from sqlalchemy.types import String
+from sqlalchemy.types import JSON
 
 SQLType = Union[TypeEngine, Type[TypeEngine]]
 
@@ -75,16 +74,59 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
 
 
 class JSON(TypeDecorator):
-    impl = String
+    impl = JSON
 
-    def process_bind_param(self, value, dialect):
-        return json.dumps(value)
+    def bind_expression(self, bindvalue):
+        return func.JSON_PARSE(bindvalue)
 
-    def process_result_value(self, value, dialect):
-        return json.loads(value)
 
-    def get_col_spec(self, **kw):
-        return 'JSON'
+class _FormatTypeMixin:
+    def _format_value(self, value):
+        raise NotImplementedError()
+
+    def bind_processor(self, dialect):
+        super_proc = self.string_bind_processor(dialect)
+
+        def process(value):
+            value = self._format_value(value)
+            if super_proc:
+                value = super_proc(value)
+            return value
+
+        return process
+
+    def literal_processor(self, dialect):
+        super_proc = self.string_literal_processor(dialect)
+
+        def process(value):
+            value = self._format_value(value)
+            if super_proc:
+                value = super_proc(value)
+            return value
+
+        return process
+
+
+class _JSONFormatter:
+    @staticmethod
+    def format_index(value):
+        return "$[\"%s\"]" % value
+
+    @staticmethod
+    def format_path(value):
+        return "$%s" % (
+            "".join(["[\"%s\"]" % elem for elem in value])
+        )
+
+
+class JSONIndexType(_FormatTypeMixin, sqltypes.JSON.JSONIndexType):
+    def _format_value(self, value):
+        return _JSONFormatter.format_index(value)
+
+
+class JSONPathType(_FormatTypeMixin, sqltypes.JSON.JSONPathType):
+    def _format_value(self, value):
+        return _JSONFormatter.format_path(value)
 
 
 # https://trino.io/docs/current/language/types.html

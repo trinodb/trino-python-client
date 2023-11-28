@@ -402,10 +402,76 @@ def test_json_column(trino_connection, json_object):
         ins = table_with_json.insert()
         conn.execute(ins, {"id": 1, "json_column": json_object})
         query = sqla.select(table_with_json)
+        assert isinstance(table_with_json.c.json_column.type, JSON)
         result = conn.execute(query)
         rows = result.fetchall()
         assert len(rows) == 1
         assert rows[0] == (1, json_object)
+    finally:
+        metadata.drop_all(engine)
+
+
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_json_column_operations(trino_connection):
+    engine, conn = trino_connection
+
+    metadata = sqla.MetaData()
+
+    json_object = {
+        "a": {"c": 1},
+        100: {"z": 200},
+        "b": 2,
+        10: 20,
+        "foo-bar": {"z": 200}
+    }
+
+    try:
+        table_with_json = sqla.Table(
+            'table_with_json',
+            metadata,
+            sqla.Column('json_column', JSON),
+            schema="default"
+        )
+        metadata.create_all(engine)
+        ins = table_with_json.insert()
+        conn.execute(ins, {"json_column": json_object})
+
+        # JSONPathType
+        query = sqla.select(table_with_json.c.json_column["a", "c"])
+        conn.execute(query)
+        result = conn.execute(query)
+        assert result.fetchall()[0][0] == 1
+
+        query = sqla.select(table_with_json.c.json_column[100, "z"])
+        conn.execute(query)
+        result = conn.execute(query)
+        assert result.fetchall()[0][0] == 200
+
+        query = sqla.select(table_with_json.c.json_column["foo-bar", "z"])
+        conn.execute(query)
+        result = conn.execute(query)
+        assert result.fetchall()[0][0] == 200
+
+        # JSONIndexType
+        query = sqla.select(table_with_json.c.json_column["b"])
+        conn.execute(query)
+        result = conn.execute(query)
+        assert result.fetchall()[0][0] == 2
+
+        query = sqla.select(table_with_json.c.json_column[10])
+        conn.execute(query)
+        result = conn.execute(query)
+        assert result.fetchall()[0][0] == 20
+
+        query = sqla.select(table_with_json.c.json_column["foo-bar"])
+        conn.execute(query)
+        result = conn.execute(query)
+        assert result.fetchall()[0][0] == {'z': 200}
+
     finally:
         metadata.drop_all(engine)
 
