@@ -33,7 +33,7 @@ logger = trino.logging.get_logger(__name__)
 class Authentication(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def set_http_session(self, http_session: Session) -> Session:
-        pass
+        raise NotImplementedError
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return tuple()
@@ -209,11 +209,11 @@ class _OAuth2TokenCache(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
-        pass
+        raise NotImplementedError
 
     @abc.abstractmethod
     def store_token_to_cache(self, host: Optional[str], token: str) -> None:
-        pass
+        raise NotImplementedError
 
 
 class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
