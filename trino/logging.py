@@ -11,12 +11,21 @@
 # limitations under the License.
 
 import logging
+import os
+from typing import Optional
 
-LEVEL = logging.INFO
+_level = os.environ.get('TRINO_LOGLEVEL', 'INFO')
+if _level.upper() == _level and hasattr(logging, _level) and isinstance(getattr(logging, _level), int):
+    LEVEL = getattr(logging, _level)
+elif _level == 'NONE':
+    LEVEL = None
+else:
+    LEVEL = logging.INFO
 
 
 # TODO: provide interface to use ``logging.dictConfig``
-def get_logger(name: str, log_level: int = LEVEL) -> logging.Logger:
+def get_logger(name: str, log_level: Optional[int] = LEVEL) -> logging.Logger:
     logger = logging.getLogger(name)
-    logger.setLevel(log_level)
+    if log_level is not None:
+        logger.setLevel(log_level)
     return logger
