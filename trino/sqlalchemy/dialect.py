@@ -280,7 +280,12 @@ class TrinoDialect(DefaultDialect):
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
 
-        partitioned_columns = self._get_columns(connection, f"{table_name}$partitions", schema, **kw)
+        partitioned_columns = None
+        try:
+            partitioned_columns = self._get_columns(connection, f"{table_name}$partitions", schema, **kw)
+        except Exception as e:
+            # e.g. it's not a Hive table or an unpartitioned Hive table
+            logger.debug("Couldn't fetch partition columns. schema: %s, table: %s, error: %s", schema, table_name, e)
         if not partitioned_columns:
             return []
         partition_index = dict(
