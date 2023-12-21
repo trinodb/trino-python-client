@@ -1343,10 +1343,9 @@ def test_cancel_query(trino_connection):
     cur.fetchone()
     cur.cancel()  # would raise an exception if cancel fails
 
+    # verify that it doesn't fail in the absence of a previously running query
     cur = trino_connection.cursor()
-    with pytest.raises(Exception) as cancel_error:
-        cur.cancel()
-    assert "Cancel query failed; no running query" in str(cancel_error.value)
+    cur.cancel()
 
 
 def test_close_cursor(trino_connection):
@@ -1355,10 +1354,9 @@ def test_close_cursor(trino_connection):
     cur.fetchone()
     cur.close()  # would raise an exception if cancel fails
 
+    # verify that it doesn't fail in the absence of a previously running query
     cur = trino_connection.cursor()
-    with pytest.raises(Exception) as cancel_error:
-        cur.close()
-    assert "Cancel query failed; no running query" in str(cancel_error.value)
+    cur.close()
 
 
 def test_session_properties(run_trino):
