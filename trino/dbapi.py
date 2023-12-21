@@ -694,9 +694,7 @@ class Cursor(object):
 
     def cancel(self):
         if self._query is None:
-            raise trino.exceptions.OperationalError(
-                "Cancel query failed; no running query"
-            )
+            return
         self._query.cancel()
 
     def close(self):
