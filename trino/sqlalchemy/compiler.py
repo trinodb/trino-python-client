@@ -9,8 +9,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import compiler, sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
+from sqlalchemy.sql.functions import GenericFunction
 
 # https://trino.io/docs/current/language/reserved.html
 RESERVED_WORDS = {
@@ -137,6 +139,41 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
                 self.process(binary.left, **kw),
                 self.process(binary.right, **kw),
             )
+
+    class GenericIgnoreNulls(GenericFunction):
+        ignore_nulls = False
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            if kwargs.get('ignore_nulls'):
+                self.ignore_nulls = True
+
+    class FirstValue(GenericIgnoreNulls):
+        name = 'first_value'
+
+    class LastValue(GenericIgnoreNulls):
+        name = 'last_value'
+
+    class NthValue(GenericIgnoreNulls):
+        name = 'nth_value'
+
+    class Lead(GenericIgnoreNulls):
+        name = 'lead'
+
+    class Lag(GenericIgnoreNulls):
+        name = 'lag'
+
+    @staticmethod
+    @compiles(FirstValue)
+    @compiles(LastValue)
+    @compiles(NthValue)
+    @compiles(Lead)
+    @compiles(Lag)
+    def compile_ignore_nulls(element, compiler, **kwargs):
+        compiled = f'{element.name}({compiler.process(element.clauses)})'
+        if element.ignore_nulls:
+            compiled += ' IGNORE NULLS'
+        return compiled
 
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
