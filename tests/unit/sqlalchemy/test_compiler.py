@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from sqlalchemy import Column, Integer, MetaData, String, Table, insert, select
+from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
 
@@ -113,3 +113,41 @@ def test_table_clause(dialect):
     statement = select(table("user", column("id"), column("name"), column("description")))
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT user.id, user.name, user.description \nFROM user'
+
+
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
+@pytest.mark.parametrize(
+    'function,element',
+    [
+        ('first_value', func.first_value),
+        ('last_value', func.last_value),
+        ('nth_value', func.nth_value),
+        ('lead', func.lead),
+        ('lag', func.lag),
+    ]
+)
+def test_ignore_nulls(dialect, function, element):
+    statement = select(
+        element(
+            table_without_catalog.c.id,
+            ignore_nulls=True,
+        ).over(partition_by=table_without_catalog.c.name).label('window')
+    )
+    query = statement.compile(dialect=dialect)
+    assert str(query) == \
+           f'SELECT {function}("table".id) IGNORE NULLS OVER (PARTITION BY "table".name) AS window '\
+           f'\nFROM "table"'
+
+    statement = select(
+        element(
+            table_without_catalog.c.id,
+            ignore_nulls=False,
+        ).over(partition_by=table_without_catalog.c.name).label('window')
+    )
+    query = statement.compile(dialect=dialect)
+    assert str(query) == \
+           f'SELECT {function}("table".id) OVER (PARTITION BY "table".name) AS window ' \
+           f'\nFROM "table"'
