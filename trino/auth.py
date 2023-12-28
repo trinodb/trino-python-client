@@ -245,7 +245,8 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
             logger.info("keyring module not found. OAuth2 token will not be stored in keyring.")
 
     def is_keyring_available(self) -> bool:
-        return self._keyring is not None
+        return self._keyring is not None \
+            and not isinstance(self._keyring.get_keyring(), self._keyring.backends.fail.Keyring)
 
     def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
         try:
