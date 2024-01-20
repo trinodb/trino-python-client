@@ -163,11 +163,12 @@ _type_map = {
     # 'map':   MAP
     # 'row':   ROW
     #
-    # === Mixed ===
+    # === Others ===
     # 'ipaddress': IPADDRESS
     # 'uuid': UUID,
     # 'hyperloglog': HYPERLOGLOG,
     # 'p4hyperloglog': P4HYPERLOGLOG,
+    # 'setdigest': SETDIGEST,
     # 'qdigest': QDIGEST,
     # 'tdigest': TDIGEST,
 }
