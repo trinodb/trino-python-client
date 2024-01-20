@@ -8,10 +8,7 @@ from typing import Any, Dict, Generic, List, TypeVar, Union
 from dateutil import tz
 
 PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])
-POWERS_OF_TEN: Dict[int, Decimal] = {}
-for i in range(0, 13):
-    POWERS_OF_TEN[i] = Decimal(10 ** i)
-
+POWERS_OF_TEN: Dict[int, Decimal] = {i: Decimal(10**i) for i in range(0, 13)}
 MAX_PYTHON_TEMPORAL_PRECISION_POWER = 6
 MAX_PYTHON_TEMPORAL_PRECISION = POWERS_OF_TEN[MAX_PYTHON_TEMPORAL_PRECISION_POWER]
 
