@@ -223,7 +223,7 @@ class RowMapperFactory:
         if col_type == 'array':
             value_mapper = self._create_value_mapper(column['arguments'][0]['value'])
             return ArrayValueMapper(value_mapper)
-        elif col_type == 'row':
+        if col_type == 'row':
             mappers = []
             names = []
             types = []
@@ -232,30 +232,29 @@ class RowMapperFactory:
                 names.append(arg['value']['fieldName']['name'] if "fieldName" in arg['value'] else None)
                 types.append(arg['value']['typeSignature']['rawType'])
             return RowValueMapper(mappers, names, types)
-        elif col_type == 'map':
+        if col_type == 'map':
             key_mapper = self._create_value_mapper(column['arguments'][0]['value'])
             value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
             return MapValueMapper(key_mapper, value_mapper)
-        elif col_type.startswith('decimal'):
+        if col_type.startswith('decimal'):
             return DecimalValueMapper()
-        elif col_type.startswith('double') or col_type.startswith('real'):
+        if col_type.startswith('double') or col_type.startswith('real'):
             return DoubleValueMapper()
-        elif col_type.startswith('timestamp') and 'with time zone' in col_type:
+        if col_type.startswith('timestamp') and 'with time zone' in col_type:
             return TimestampWithTimeZoneValueMapper(self._get_precision(column))
-        elif col_type.startswith('timestamp'):
+        if col_type.startswith('timestamp'):
             return TimestampValueMapper(self._get_precision(column))
-        elif col_type.startswith('time') and 'with time zone' in col_type:
+        if col_type.startswith('time') and 'with time zone' in col_type:
             return TimeWithTimeZoneValueMapper(self._get_precision(column))
-        elif col_type.startswith('time'):
+        if col_type.startswith('time'):
             return TimeValueMapper(self._get_precision(column))
-        elif col_type == 'date':
+        if col_type == 'date':
             return DateValueMapper()
-        elif col_type == 'varbinary':
+        if col_type == 'varbinary':
             return BinaryValueMapper()
-        elif col_type == 'uuid':
+        if col_type == 'uuid':
             return UuidValueMapper()
-        else:
-            return NoOpValueMapper()
+        return NoOpValueMapper()
 
     def _get_precision(self, column: Dict[str, Any]):
         args = column['arguments']
