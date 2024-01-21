@@ -236,17 +236,17 @@ class RowMapperFactory:
             key_mapper = self._create_value_mapper(column['arguments'][0]['value'])
             value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
             return MapValueMapper(key_mapper, value_mapper)
-        if col_type.startswith('decimal'):
+        if col_type == 'decimal':
             return DecimalValueMapper()
-        if col_type.startswith('double') or col_type.startswith('real'):
+        if col_type in {'double', 'real'}:
             return DoubleValueMapper()
-        if col_type.startswith('timestamp') and 'with time zone' in col_type:
+        if col_type == 'timestamp with time zone':
             return TimestampWithTimeZoneValueMapper(self._get_precision(column))
-        if col_type.startswith('timestamp'):
+        if col_type == 'timestamp':
             return TimestampValueMapper(self._get_precision(column))
-        if col_type.startswith('time') and 'with time zone' in col_type:
+        if col_type == 'time with time zone':
             return TimeWithTimeZoneValueMapper(self._get_precision(column))
-        if col_type.startswith('time'):
+        if col_type == 'time':
             return TimeValueMapper(self._get_precision(column))
         if col_type == 'date':
             return DateValueMapper()
