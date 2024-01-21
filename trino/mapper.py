@@ -31,18 +31,6 @@ class ValueMapper(abc.ABC, Generic[T]):
         pass
 
 
-class NoOpValueMapper(ValueMapper[Any]):
-    def map(self, value) -> Optional[Any]:
-        return value
-
-
-class DecimalValueMapper(ValueMapper[Decimal]):
-    def map(self, value) -> Optional[Decimal]:
-        if value is None:
-            return None
-        return Decimal(value)
-
-
 class DoubleValueMapper(ValueMapper[float]):
     def map(self, value) -> Optional[float]:
         if value is None:
@@ -56,19 +44,25 @@ class DoubleValueMapper(ValueMapper[float]):
         return float(value)
 
 
-def _create_tzinfo(timezone_str: str) -> tzinfo:
-    if timezone_str.startswith("+") or timezone_str.startswith("-"):
-        hours = timezone_str[1:3]
-        minutes = timezone_str[4:6]
-        if timezone_str.startswith("-"):
-            return timezone(-timedelta(hours=int(hours), minutes=int(minutes)))
-        return timezone(timedelta(hours=int(hours), minutes=int(minutes)))
-    else:
-        return ZoneInfo(timezone_str)
+class DecimalValueMapper(ValueMapper[Decimal]):
+    def map(self, value) -> Optional[Decimal]:
+        if value is None:
+            return None
+        return Decimal(value)
 
 
-def _fraction_to_decimal(fractional_str: str) -> Decimal:
-    return Decimal(fractional_str or 0) / POWERS_OF_TEN[len(fractional_str)]
+class BinaryValueMapper(ValueMapper[bytes]):
+    def map(self, value) -> Optional[bytes]:
+        if value is None:
+            return None
+        return base64.b64decode(value.encode("utf8"))
+
+
+class DateValueMapper(ValueMapper[date]):
+    def map(self, value) -> Optional[date]:
+        if value is None:
+            return None
+        return date.fromisoformat(value)
 
 
 class TimeValueMapper(ValueMapper[time]):
@@ -103,13 +97,6 @@ class TimeWithTimeZoneValueMapper(TimeValueMapper):
         ).round_to(self.precision).to_python_type()
 
 
-class DateValueMapper(ValueMapper[date]):
-    def map(self, value) -> Optional[date]:
-        if value is None:
-            return None
-        return date.fromisoformat(value)
-
-
 class TimestampValueMapper(ValueMapper[datetime]):
     def __init__(self, precision):
         self.datetime_default_size = 19  # size of 'YYYY-MM-DD HH:MM:SS' (the datetime string up to the seconds)
@@ -139,11 +126,19 @@ class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
         ).round_to(self.precision).to_python_type()
 
 
-class BinaryValueMapper(ValueMapper[bytes]):
-    def map(self, value) -> Optional[bytes]:
-        if value is None:
-            return None
-        return base64.b64decode(value.encode("utf8"))
+def _create_tzinfo(timezone_str: str) -> tzinfo:
+    if timezone_str.startswith("+") or timezone_str.startswith("-"):
+        hours = timezone_str[1:3]
+        minutes = timezone_str[4:6]
+        if timezone_str.startswith("-"):
+            return timezone(-timedelta(hours=int(hours), minutes=int(minutes)))
+        return timezone(timedelta(hours=int(hours), minutes=int(minutes)))
+    else:
+        return ZoneInfo(timezone_str)
+
+
+def _fraction_to_decimal(fractional_str: str) -> Decimal:
+    return Decimal(fractional_str or 0) / POWERS_OF_TEN[len(fractional_str)]
 
 
 class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
@@ -154,6 +149,19 @@ class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
         if values is None:
             return None
         return [self.mapper.map(value) for value in values]
+
+
+class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
+    def __init__(self, key_mapper: ValueMapper[Any], value_mapper: ValueMapper[Any]):
+        self.key_mapper = key_mapper
+        self.value_mapper = value_mapper
+
+    def map(self, values: Any) -> Optional[Dict[Any, Optional[Any]]]:
+        if values is None:
+            return None
+        return {
+            self.key_mapper.map(key): self.value_mapper.map(value) for key, value in values.items()
+        }
 
 
 class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
@@ -172,24 +180,16 @@ class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
         )
 
 
-class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
-    def __init__(self, key_mapper: ValueMapper[Any], value_mapper: ValueMapper[Any]):
-        self.key_mapper = key_mapper
-        self.value_mapper = value_mapper
-
-    def map(self, values: Any) -> Optional[Dict[Any, Optional[Any]]]:
-        if values is None:
-            return None
-        return {
-            self.key_mapper.map(key): self.value_mapper.map(value) for key, value in values.items()
-        }
-
-
 class UuidValueMapper(ValueMapper[uuid.UUID]):
     def map(self, value: Any) -> Optional[uuid.UUID]:
         if value is None:
             return None
         return uuid.UUID(value)
+
+
+class NoOpValueMapper(ValueMapper[Any]):
+    def map(self, value) -> Optional[Any]:
+        return value
 
 
 class NoOpRowMapper:
@@ -220,9 +220,32 @@ class RowMapperFactory:
     def _create_value_mapper(self, column) -> ValueMapper:
         col_type = column['rawType']
 
+        # primitive types
+        if col_type in {'double', 'real'}:
+            return DoubleValueMapper()
+        if col_type == 'decimal':
+            return DecimalValueMapper()
+        if col_type == 'varbinary':
+            return BinaryValueMapper()
+        if col_type == 'date':
+            return DateValueMapper()
+        if col_type == 'time':
+            return TimeValueMapper(self._get_precision(column))
+        if col_type == 'time with time zone':
+            return TimeWithTimeZoneValueMapper(self._get_precision(column))
+        if col_type == 'timestamp':
+            return TimestampValueMapper(self._get_precision(column))
+        if col_type == 'timestamp with time zone':
+            return TimestampWithTimeZoneValueMapper(self._get_precision(column))
+
+        # structural types
         if col_type == 'array':
             value_mapper = self._create_value_mapper(column['arguments'][0]['value'])
             return ArrayValueMapper(value_mapper)
+        if col_type == 'map':
+            key_mapper = self._create_value_mapper(column['arguments'][0]['value'])
+            value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
+            return MapValueMapper(key_mapper, value_mapper)
         if col_type == 'row':
             mappers = []
             names = []
@@ -232,26 +255,8 @@ class RowMapperFactory:
                 names.append(arg['value']['fieldName']['name'] if "fieldName" in arg['value'] else None)
                 types.append(arg['value']['typeSignature']['rawType'])
             return RowValueMapper(mappers, names, types)
-        if col_type == 'map':
-            key_mapper = self._create_value_mapper(column['arguments'][0]['value'])
-            value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
-            return MapValueMapper(key_mapper, value_mapper)
-        if col_type == 'decimal':
-            return DecimalValueMapper()
-        if col_type in {'double', 'real'}:
-            return DoubleValueMapper()
-        if col_type == 'timestamp with time zone':
-            return TimestampWithTimeZoneValueMapper(self._get_precision(column))
-        if col_type == 'timestamp':
-            return TimestampValueMapper(self._get_precision(column))
-        if col_type == 'time with time zone':
-            return TimeWithTimeZoneValueMapper(self._get_precision(column))
-        if col_type == 'time':
-            return TimeValueMapper(self._get_precision(column))
-        if col_type == 'date':
-            return DateValueMapper()
-        if col_type == 'varbinary':
-            return BinaryValueMapper()
+
+        # others
         if col_type == 'uuid':
             return UuidValueMapper()
         return NoOpValueMapper()
