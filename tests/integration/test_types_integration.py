@@ -117,6 +117,7 @@ def test_varchar(trino_connection):
 def test_char(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST('ccc' AS CHAR)", python='c') \
+        .add_field(sql="CAST('ccc' AS CHAR(5))", python='ccc  ') \
         .add_field(sql="CAST(null AS CHAR)", python=None) \
         .add_field(sql="CAST('ddd' AS CHAR(1))", python='d') \
         .add_field(sql="CAST('😂' AS CHAR(1))", python='😂') \
