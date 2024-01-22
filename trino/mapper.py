@@ -31,6 +31,29 @@ class ValueMapper(abc.ABC, Generic[T]):
         pass
 
 
+class BooleanValueMapper(ValueMapper[bool]):
+    def map(self, value: Any) -> Optional[bool]:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if str(value).lower() == 'true':
+            return True
+        if str(value).lower() == 'false':
+            return False
+        raise ValueError(f"Server sent unexpected value {value} of type {type(value)} for boolean")
+
+
+class IntegerValueMapper(ValueMapper[int]):
+    def map(self, value: Any) -> Optional[int]:
+        if value is None:
+            return None
+        if isinstance(value, int):
+            return value
+        # int(3.1) == 3 but server won't send such values for integer types
+        return int(value)
+
+
 class DoubleValueMapper(ValueMapper[float]):
     def map(self, value) -> Optional[float]:
         if value is None:
@@ -221,6 +244,10 @@ class RowMapperFactory:
         col_type = column['rawType']
 
         # primitive types
+        if col_type == 'boolean':
+            return BooleanValueMapper()
+        if col_type in {'tinyint', 'smallint', 'integer', 'bigint'}:
+            return IntegerValueMapper()
         if col_type in {'double', 'real'}:
             return DoubleValueMapper()
         if col_type == 'decimal':
