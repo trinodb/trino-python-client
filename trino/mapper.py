@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import abc
 import base64
+import sys
 import uuid
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
-try:
+if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
-except ModuleNotFoundError:
+else:
     from backports.zoneinfo import ZoneInfo
 
 import trino.exceptions
