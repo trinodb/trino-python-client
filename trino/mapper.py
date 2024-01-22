@@ -176,10 +176,10 @@ class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
     def __init__(self, mapper: ValueMapper[Any]):
         self.mapper = mapper
 
-    def map(self, values: List[Any]) -> Optional[List[Any]]:
-        if values is None:
+    def map(self, value: List[Any]) -> Optional[List[Any]]:
+        if value is None:
             return None
-        return [self.mapper.map(value) for value in values]
+        return [self.mapper.map(v) for v in value]
 
 
 class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
@@ -187,11 +187,11 @@ class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
         self.key_mapper = key_mapper
         self.value_mapper = value_mapper
 
-    def map(self, values: Any) -> Optional[Dict[Any, Optional[Any]]]:
-        if values is None:
+    def map(self, value: Any) -> Optional[Dict[Any, Optional[Any]]]:
+        if value is None:
             return None
         return {
-            self.key_mapper.map(key): self.value_mapper.map(value) for key, value in values.items()
+            self.key_mapper.map(k): self.value_mapper.map(v) for k, v in value.items()
         }
 
 
@@ -201,11 +201,11 @@ class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
         self.names = names
         self.types = types
 
-    def map(self, values: List[Any]) -> Optional[Tuple[Optional[Any], ...]]:
-        if values is None:
+    def map(self, value: List[Any]) -> Optional[Tuple[Optional[Any], ...]]:
+        if value is None:
             return None
         return NamedRowTuple(
-            list(self.mappers[index].map(value) for index, value in enumerate(values)),
+            list(self.mappers[i].map(v) for i, v in enumerate(value)),
             self.names,
             self.types
         )
