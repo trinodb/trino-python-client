@@ -799,11 +799,9 @@ def test_map(trino_connection):
         SqlTest(trino_connection)
         .add_field(sql="CAST(null AS MAP(VARCHAR, INTEGER))", python=None)
         .add_field(sql="MAP()", python={})
-        # TODO: boolean map keys get returned as strings
-        # .add_field(sql="MAP(ARRAY[true, false], ARRAY[false, true])", python={True: False, False: True})
-        # .add_field(sql="MAP(ARRAY[true, false], ARRAY[true, null])", python={True: True, False: None})
-        # TODO: integer map keys get returned as strings
-        # .add_field(sql="MAP(ARRAY[1, 2], ARRAY[1, null])", python={1: 1, 2: None})
+        .add_field(sql="MAP(ARRAY[true, false], ARRAY[false, true])", python={True: False, False: True})
+        .add_field(sql="MAP(ARRAY[true, false], ARRAY[true, null])", python={True: True, False: None})
+        .add_field(sql="MAP(ARRAY[1, 2], ARRAY[1, null])", python={1: 1, 2: None})
         .add_field(sql="MAP("
                        "ARRAY[CAST('NaN' AS REAL), CAST('-Infinity' AS REAL), CAST(3.4028235E38 AS REAL), CAST(1.4E-45 AS REAL), CAST('Infinity' AS REAL), CAST(1 AS REAL)], "  # noqa: E501
                        "ARRAY[CAST('NaN' AS REAL), CAST('-Infinity' AS REAL), CAST(3.4028235E38 AS REAL), CAST(1.4E-45 AS REAL), CAST('Infinity' AS REAL), null])",  # noqa: E501
