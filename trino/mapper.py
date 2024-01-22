@@ -74,6 +74,13 @@ class DecimalValueMapper(ValueMapper[Decimal]):
         return Decimal(value)
 
 
+class StringValueMapper(ValueMapper[str]):
+    def map(self, value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        return str(value)
+
+
 class BinaryValueMapper(ValueMapper[bytes]):
     def map(self, value) -> Optional[bytes]:
         if value is None:
@@ -252,8 +259,12 @@ class RowMapperFactory:
             return DoubleValueMapper()
         if col_type == 'decimal':
             return DecimalValueMapper()
+        if col_type in {'varchar', 'char'}:
+            return StringValueMapper()
         if col_type == 'varbinary':
             return BinaryValueMapper()
+        if col_type == 'json':
+            return StringValueMapper()
         if col_type == 'date':
             return DateValueMapper()
         if col_type == 'time':
