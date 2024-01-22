@@ -56,7 +56,7 @@ class IntegerValueMapper(ValueMapper[int]):
 
 
 class DoubleValueMapper(ValueMapper[float]):
-    def map(self, value) -> Optional[float]:
+    def map(self, value: Any) -> Optional[float]:
         if value is None:
             return None
         if value == 'Infinity':
@@ -69,7 +69,7 @@ class DoubleValueMapper(ValueMapper[float]):
 
 
 class DecimalValueMapper(ValueMapper[Decimal]):
-    def map(self, value) -> Optional[Decimal]:
+    def map(self, value: Any) -> Optional[Decimal]:
         if value is None:
             return None
         return Decimal(value)
@@ -83,25 +83,25 @@ class StringValueMapper(ValueMapper[str]):
 
 
 class BinaryValueMapper(ValueMapper[bytes]):
-    def map(self, value) -> Optional[bytes]:
+    def map(self, value: Any) -> Optional[bytes]:
         if value is None:
             return None
         return base64.b64decode(value.encode("utf8"))
 
 
 class DateValueMapper(ValueMapper[date]):
-    def map(self, value) -> Optional[date]:
+    def map(self, value: Any) -> Optional[date]:
         if value is None:
             return None
         return date.fromisoformat(value)
 
 
 class TimeValueMapper(ValueMapper[time]):
-    def __init__(self, precision):
+    def __init__(self, precision: int):
         self.time_default_size = 8  # size of 'HH:MM:SS'
         self.precision = precision
 
-    def map(self, value) -> Optional[time]:
+    def map(self, value: Any) -> Optional[time]:
         if value is None:
             return None
         whole_python_temporal_value = value[:self.time_default_size]
@@ -116,7 +116,7 @@ class TimeValueMapper(ValueMapper[time]):
 
 
 class TimeWithTimeZoneValueMapper(TimeValueMapper):
-    def map(self, value) -> Optional[time]:
+    def map(self, value: Any) -> Optional[time]:
         if value is None:
             return None
         whole_python_temporal_value = value[:self.time_default_size]
@@ -129,11 +129,11 @@ class TimeWithTimeZoneValueMapper(TimeValueMapper):
 
 
 class TimestampValueMapper(ValueMapper[datetime]):
-    def __init__(self, precision):
+    def __init__(self, precision: int):
         self.datetime_default_size = 19  # size of 'YYYY-MM-DD HH:MM:SS' (the datetime string up to the seconds)
         self.precision = precision
 
-    def map(self, value) -> Optional[datetime]:
+    def map(self, value: Any) -> Optional[datetime]:
         if value is None:
             return None
         whole_python_temporal_value = value[:self.datetime_default_size]
@@ -145,7 +145,7 @@ class TimestampValueMapper(ValueMapper[datetime]):
 
 
 class TimestampWithTimeZoneValueMapper(TimestampValueMapper):
-    def map(self, value) -> Optional[datetime]:
+    def map(self, value: Any) -> Optional[datetime]:
         if value is None:
             return None
         datetime_with_fraction, timezone_part = value.rsplit(' ', 1)
@@ -219,7 +219,7 @@ class UuidValueMapper(ValueMapper[uuid.UUID]):
 
 
 class NoOpValueMapper(ValueMapper[Any]):
-    def map(self, value) -> Optional[Any]:
+    def map(self, value: Any) -> Optional[Any]:
         return value
 
 
