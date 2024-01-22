@@ -176,7 +176,7 @@ class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
     def __init__(self, mapper: ValueMapper[Any]):
         self.mapper = mapper
 
-    def map(self, value: List[Any]) -> Optional[List[Any]]:
+    def map(self, value: Optional[List[Any]]) -> Optional[List[Any]]:
         if value is None:
             return None
         return [self.mapper.map(v) for v in value]
@@ -196,17 +196,18 @@ class MapValueMapper(ValueMapper[Dict[Any, Optional[Any]]]):
 
 
 class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
-    def __init__(self, mappers: List[ValueMapper[Any]], names: List[str], types: List[str]):
+    def __init__(self, mappers: List[ValueMapper[Any]], names: List[Optional[str]], types: List[str]):
         self.mappers = mappers
         self.names = names
         self.types = types
 
-    def map(self, value: List[Any]) -> Optional[Tuple[Optional[Any], ...]]:
+    def map(self, value: Optional[List[Any]]) -> Optional[Tuple[Optional[Any], ...]]:
         if value is None:
             return None
+        # TODO: Fix typing for self.names
         return NamedRowTuple(
             list(self.mappers[i].map(v) for i, v in enumerate(value)),
-            self.names,
+            self.names,  # type: ignore
             self.types
         )
 
@@ -229,7 +230,7 @@ class NoOpRowMapper:
     Used when legacy_primitive_types is False.
     """
 
-    def map(self, rows):
+    def map(self, rows: List[List[Any]]) -> List[List[Any]]:
         return rows
 
 
@@ -241,14 +242,14 @@ class RowMapperFactory:
     """
     NO_OP_ROW_MAPPER = NoOpRowMapper()
 
-    def create(self, columns, legacy_primitive_types):
+    def create(self, columns: List[Any], legacy_primitive_types: bool) -> RowMapper | NoOpRowMapper:
         assert columns is not None
 
         if not legacy_primitive_types:
             return RowMapper([self._create_value_mapper(column['typeSignature']) for column in columns])
         return RowMapperFactory.NO_OP_ROW_MAPPER
 
-    def _create_value_mapper(self, column) -> ValueMapper:
+    def _create_value_mapper(self, column: Dict[str, Any]) -> ValueMapper[Any]:
         col_type = column['rawType']
 
         # primitive types
@@ -286,9 +287,9 @@ class RowMapperFactory:
             value_mapper = self._create_value_mapper(column['arguments'][1]['value'])
             return MapValueMapper(key_mapper, value_mapper)
         if col_type == 'row':
-            mappers = []
-            names = []
-            types = []
+            mappers: List[ValueMapper[Any]] = []
+            names: List[Optional[str]] = []
+            types: List[str] = []
             for arg in column['arguments']:
                 mappers.append(self._create_value_mapper(arg['value']['typeSignature']))
                 names.append(arg['value']['fieldName']['name'] if "fieldName" in arg['value'] else None)
@@ -300,7 +301,7 @@ class RowMapperFactory:
             return UuidValueMapper()
         return NoOpValueMapper()
 
-    def _get_precision(self, column: Dict[str, Any]):
+    def _get_precision(self, column: Dict[str, Any]) -> int:
         args = column['arguments']
         if len(args) == 0:
             return 3
@@ -311,18 +312,18 @@ class RowMapper:
     """
     Maps a row of data given a list of mapping functions
     """
-    def __init__(self, columns):
+    def __init__(self, columns: List[ValueMapper[Any]]):
         self.columns = columns
 
-    def map(self, rows):
+    def map(self, rows: List[List[Any]]) -> List[List[Any]]:
         if len(self.columns) == 0:
             return rows
         return [self._map_row(row) for row in rows]
 
-    def _map_row(self, row):
+    def _map_row(self, row: List[Any]) -> List[Any]:
         return [self._map_value(value, self.columns[index]) for index, value in enumerate(row)]
 
-    def _map_value(self, value, value_mapper: ValueMapper[T]) -> Optional[T]:
+    def _map_value(self, value: Any, value_mapper: ValueMapper[T]) -> Optional[T]:
         try:
             return value_mapper.map(value)
         except ValueError as e:
