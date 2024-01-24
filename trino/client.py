@@ -675,11 +675,11 @@ class TrinoResult(object):
         self._rownumber = 0
 
     @property
-    def rows(self):
+    def rows(self) -> List[Any]:
         return self._rows
 
     @rows.setter
-    def rows(self, rows):
+    def rows(self, rows: List[Any]):
         self._rows = rows
 
     @property
@@ -689,14 +689,13 @@ class TrinoResult(object):
     def __iter__(self):
         # A query only transitions to a FINISHED state when the results are fully consumed:
         # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
-        while not self._query.finished or self._rows is not None:
-            next_rows = self._query.fetch() if not self._query.finished else None
+        while not self._query.finished or self._rows:
             for row in self._rows:
                 self._rownumber += 1
                 logger.debug("row %s", row)
                 yield row
 
-            self._rows = next_rows
+            self._rows = self._query.fetch() if not self._query.finished else []
 
 
 class TrinoQuery(object):
@@ -765,13 +764,18 @@ class TrinoQuery(object):
     def info_uri(self):
         return self._info_uri
 
-    def execute(self, additional_http_headers=None) -> TrinoResult:
-        """Initiate a Trino query by sending the SQL statement
+    def execute(
+        self,
+        additional_http_headers: Optional[Dict[str, Any]] = None,
+        deferred_fetch: bool = False,
+    ) -> TrinoResult:
+        """Initiate a Trino query by sending the SQL statement to the coordinator.
+        To fetch all rows, call fetch() until finished is true.
 
-        This is the first HTTP request sent to the coordinator.
-        It sets the query_id and returns a Result object used to
-        track the rows returned by the query. To fetch all rows,
-        call fetch() until finished is true.
+        Parameters:
+            additional_http_headers: extra headers send to the Trino server.
+            deferred_fetch: By default, the execution is blocked until at least one row is received
+                or query is finished or cancelled. To continue without waiting the result, set deferred_fetch=True.
         """
         if self.cancelled:
             raise exceptions.TrinoUserError("Query has been cancelled", self.query_id)
@@ -792,9 +796,11 @@ class TrinoQuery(object):
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
-        # Execute should block until at least one row is received or query is finished or cancelled
-        while not self.finished and not self.cancelled and len(self._result.rows) == 0:
-            self._result.rows += self.fetch()
+        if not deferred_fetch:
+            # Execute should block until at least one row is received or query is finished or cancelled
+            while not self.finished and not self.cancelled and len(self._result.rows) == 0:
+                self._result.rows += self.fetch()
+
         return self._result
 
     def _update_state(self, status):

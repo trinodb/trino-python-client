@@ -1018,6 +1018,57 @@ def test_trino_query_response_headers(sample_get_response_data):
         assert isinstance(result, TrinoResult)
 
 
+def test_trino_query_deferred_fetch(sample_get_response_data):
+    """
+    Validates that the `TrinoQuery.execute` function deferred_fetch and non-block execution
+    """
+
+    class MockResponse(mock.Mock):
+        # Fake response class
+        @property
+        def headers(self):
+            return {
+                'X-Trino-Fake-1': 'one',
+                'X-Trino-Fake-2': 'two',
+            }
+
+        def json(self):
+            return sample_get_response_data
+
+    rows = sample_get_response_data['data']
+    sample_get_response_data['data'] = []
+    sql = 'SELECT 1'
+    request = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http",
+    )
+    query = TrinoQuery(
+        request=request,
+        query=sql
+    )
+
+    with \
+            mock.patch.object(request, 'post', return_value=MockResponse()), \
+            mock.patch.object(query, 'fetch', return_value=rows) as mock_fetch:
+        result = query.execute()
+        mock_fetch.assert_called_once()
+        assert result.rows == rows
+
+    with \
+            mock.patch.object(request, 'post', return_value=MockResponse()), \
+            mock.patch.object(query, 'fetch', return_value=rows) as mock_fetch:
+        result = query.execute(deferred_fetch=True)
+        mock_fetch.assert_not_called()
+
+
 def test_delay_exponential_without_jitter():
     max_delay = 1200.0
     get_delay = _DelayExponential(base=5, jitter=False, max_delay=max_delay)

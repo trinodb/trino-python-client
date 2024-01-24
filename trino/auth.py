@@ -395,7 +395,7 @@ class _OAuth2TokenBearer(AuthBase):
 
 
 class OAuth2Authentication(Authentication):
-    def __init__(self, redirect_auth_url_handler: CompositeRedirectHandler = CompositeRedirectHandler([
+    def __init__(self, redirect_auth_url_handler: RedirectHandler = CompositeRedirectHandler([
         WebBrowserRedirectHandler(),
         ConsoleRedirectHandler()
     ])):

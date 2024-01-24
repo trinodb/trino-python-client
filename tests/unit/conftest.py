@@ -14,8 +14,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.unit.oauth_test_utils import SERVER_ADDRESS
 
-@pytest.fixture(scope="session")
+
+@pytest.fixture
 def sample_post_response_data():
     """
     This is the response to the first HTTP request (a POST) from an actual
@@ -38,10 +40,10 @@ def sample_post_response_data():
     """
 
     yield {
-        "nextUri": "https://coordinator:8080/v1/statement/20210817_140827_00000_arvdv/1",
+        "nextUri": f"{SERVER_ADDRESS}:8080/v1/statement/20210817_140827_00000_arvdv/1",
         "id": "20210817_140827_00000_arvdv",
         "taskDownloadUris": [],
-        "infoUri": "https://coordinator:8080/query.html?20210817_140827_00000_arvdv",
+        "infoUri": f"{SERVER_ADDRESS}:8080/query.html?20210817_140827_00000_arvdv",
         "stats": {
             "scheduled": False,
             "runningSplits": 0,
@@ -60,7 +62,7 @@ def sample_post_response_data():
     }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def sample_get_response_data():
     """
     This is the response to the second HTTP request (a GET) from an actual
@@ -73,7 +75,7 @@ def sample_get_response_data():
     """
     yield {
         "id": "20210817_140827_00000_arvdv",
-        "nextUri": "coordinator:8080/v1/statement/20210817_140827_00000_arvdv/2",
+        "nextUri": f"{SERVER_ADDRESS}:8080/v1/statement/20210817_140827_00000_arvdv/2",
         "data": [
             ["UUID-0", "http://worker0:8080", "0.157", False, "active"],
             ["UUID-1", "http://worker1:8080", "0.157", False, "active"],
@@ -132,7 +134,7 @@ def sample_get_response_data():
             },
         ],
         "taskDownloadUris": [],
-        "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
+        "partialCancelUri": f"{SERVER_ADDRESS}:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
         "stats": {
             "nodes": 2,
             "processedBytes": 880,
@@ -181,11 +183,11 @@ def sample_get_response_data():
             "queuedSplits": 0,
             "wallTimeMillis": 36,
         },
-        "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
+        "infoUri": f"{SERVER_ADDRESS}:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
     }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def sample_get_error_response_data():
     yield {
         "error": {
@@ -195,8 +197,7 @@ def sample_get_error_response_data():
             "errorType": "USER_ERROR",
             "failureInfo": {
                 "errorLocation": {"columnNumber": 15, "lineNumber": 1},
-                "message": "line 1:15: Schema must be specified "
-                "when session schema is not set",
+                "message": "line 1:15: Schema must be specified when session schema is not set",
                 "stack": [
                     "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:48)",
                     "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)",
@@ -241,7 +242,7 @@ def sample_get_error_response_data():
             "message": "line 1:15: Schema must be specified when session schema is not set",
         },
         "id": "20210817_140827_00000_arvdv",
-        "infoUri": "http://localhost:8080/query.html?20210817_140827_00000_arvdv",
+        "infoUri": f"{SERVER_ADDRESS}:8080/query.html?20210817_140827_00000_arvdv",
         "stats": {
             "completedSplits": 0,
             "cpuTimeMillis": 0,
