@@ -705,6 +705,32 @@ def test_trino_fetch_request(mock_requests, sample_get_response_data):
 
 
 @mock.patch("trino.client.TrinoRequest.http")
+def test_trino_fetch_request_data_none(mock_requests, sample_get_response_data_none):
+    mock_requests.Response.return_value.json.return_value = sample_get_response_data_none
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http",
+    )
+
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 200
+    status = req.process(http_resp)
+
+    assert status.next_uri == sample_get_response_data_none["nextUri"]
+    assert status.id == sample_get_response_data_none["id"]
+    assert status.rows == []
+
+
+@mock.patch("trino.client.TrinoRequest.http")
 def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
     mock_requests.Response.return_value.json.return_value = sample_get_error_response_data
 

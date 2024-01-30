@@ -633,6 +633,8 @@ class TrinoRequest(object):
 
         self._next_uri = response.get("nextUri")
 
+        data = response.get("data") if response.get("data") else []
+
         return TrinoStatus(
             id=response["id"],
             stats=response["stats"],
@@ -641,7 +643,7 @@ class TrinoRequest(object):
             next_uri=self._next_uri,
             update_type=response.get("updateType"),
             update_count=response.get("updateCount"),
-            rows=response.get("data", []),
+            rows=data,
             columns=response.get("columns"),
         )
 
