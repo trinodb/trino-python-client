@@ -186,6 +186,29 @@ def sample_get_response_data():
 
 
 @pytest.fixture(scope="session")
+def sample_get_response_data_none():
+    """
+    This is the response to the second HTTP request (a GET) from an actual
+    Trino session. It is deliberately not truncated to document such response
+    and allow to use it for other tests. After doing the steps above, do:
+
+    ::
+        >>> cur.fetchall()
+
+    """
+    yield {
+        "id": "20210817_140827_00000_arvdv",
+        "nextUri": "coordinator:8080/v1/statement/20210817_140827_00000_arvdv/2",
+        "data": None,
+        "columns": [],
+        "taskDownloadUris": [],
+        "partialCancelUri": "http://localhost:8080/v1/stage/20210817_140827_00000_arvdv.0",  # NOQA: E501
+        "stats": {},
+        "infoUri": "http://coordinator:8080/query.html?20210817_140827_00000_arvdv",  # NOQA: E501
+    }
+
+
+@pytest.fixture(scope="session")
 def sample_get_error_response_data():
     yield {
         "error": {
