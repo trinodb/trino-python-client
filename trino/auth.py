@@ -320,7 +320,7 @@ class _OAuth2TokenBearer(AuthBase):
             raise exceptions.TrinoAuthError(f"Error: header info didn't match {auth_info}")
 
         auth_info_headers = parse_dict_header(
-            _OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))  # type: ignore
+            _OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info))  # type: ignore
 
         auth_server = auth_info_headers.get('x_redirect_server')
         token_server = auth_info_headers.get('x_token_server')
