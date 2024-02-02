@@ -17,7 +17,7 @@ import os
 import re
 import threading
 import webbrowser
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 from urllib.parse import urlparse
 
 from requests import PreparedRequest, Request, Response, Session
@@ -26,6 +26,7 @@ from requests.utils import parse_dict_header
 
 import trino.logging
 from trino.client import exceptions
+from trino.constants import HEADER_USER
 
 logger = trino.logging.get_logger(__name__)
 
@@ -218,7 +219,8 @@ class _OAuth2TokenCache(metaclass=abc.ABCMeta):
 
 class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
     """
-    In-memory token cache implementation. The token is stored per host, so multiple clients can share the same cache.
+    Multiple clients can share the same cache only if each connection explicitly specifies
+    a user otherwise the first cached token will be used to authenticate all other users.
     """
 
     def __init__(self) -> None:
@@ -233,7 +235,7 @@ class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
 
 class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
     """
-    Keyring Token Cache implementation
+    Keyring token cache implementation
     """
 
     def __init__(self) -> None:
@@ -268,7 +270,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
 
 class _OAuth2TokenBearer(AuthBase):
     """
-    Custom implementation of Trino Oauth2 based authorization to get the token
+    Custom implementation of Trino OAuth2 based authentication to get the token
     """
     MAX_OAUTH_ATTEMPTS = 5
     _BEARER_PREFIX = re.compile(r"bearer", flags=re.IGNORECASE)
@@ -283,7 +285,9 @@ class _OAuth2TokenBearer(AuthBase):
 
     def __call__(self, r: PreparedRequest) -> PreparedRequest:
         host = self._determine_host(r.url)
-        token = self._get_token_from_cache(host)
+        user = self._determine_user(r.headers)
+        key = self._construct_cache_key(host, user)
+        token = self._get_token_from_cache(key)
 
         if token is not None:
             r.headers['Authorization'] = "Bearer " + token
@@ -341,7 +345,9 @@ class _OAuth2TokenBearer(AuthBase):
 
         request = response.request
         host = self._determine_host(request.url)
-        self._store_token_to_cache(host, token)
+        user = self._determine_user(request.headers)
+        key = self._construct_cache_key(host, user)
+        self._store_token_to_cache(key, token)
 
     def _retry_request(self, response: Response, **kwargs: Any) -> Optional[Response]:
         request = response.request.copy()
@@ -349,7 +355,9 @@ class _OAuth2TokenBearer(AuthBase):
         request.prepare_cookies(request._cookies)  # type: ignore
 
         host = self._determine_host(response.request.url)
-        token = self._get_token_from_cache(host)
+        user = self._determine_user(request.headers)
+        key = self._construct_cache_key(host, user)
+        token = self._get_token_from_cache(key)
         if token is not None:
             request.headers['Authorization'] = "Bearer " + token
         retry_response = response.connection.send(request, **kwargs)  # type: ignore
@@ -393,6 +401,17 @@ class _OAuth2TokenBearer(AuthBase):
     @staticmethod
     def _determine_host(url: Optional[str]) -> Any:
         return urlparse(url).hostname
+
+    @staticmethod
+    def _determine_user(headers: Mapping[Any, Any]) -> Optional[Any]:
+        return headers.get(HEADER_USER)
+
+    @staticmethod
+    def _construct_cache_key(host: Optional[str], user: Optional[str]) -> Optional[str]:
+        if user is None:
+            return host
+        else:
+            return f"{host}@{user}"
 
 
 class OAuth2Authentication(Authentication):
