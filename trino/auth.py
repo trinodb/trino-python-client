@@ -208,11 +208,11 @@ class _OAuth2TokenCache(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
+    def get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
         pass
 
     @abc.abstractmethod
-    def store_token_to_cache(self, host: Optional[str], token: str) -> None:
+    def store_token_to_cache(self, key: Optional[str], token: str) -> None:
         pass
 
 
@@ -224,11 +224,11 @@ class _OAuth2TokenInMemoryCache(_OAuth2TokenCache):
     def __init__(self) -> None:
         self._cache: Dict[Optional[str], str] = {}
 
-    def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
-        return self._cache.get(host)
+    def get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
+        return self._cache.get(key)
 
-    def store_token_to_cache(self, host: Optional[str], token: str) -> None:
-        self._cache[host] = token
+    def store_token_to_cache(self, key: Optional[str], token: str) -> None:
+        self._cache[key] = token
 
 
 class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
@@ -248,18 +248,18 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
         return self._keyring is not None \
             and not isinstance(self._keyring.get_keyring(), self._keyring.backends.fail.Keyring)
 
-    def get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
+    def get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
         try:
-            return self._keyring.get_password(host, "token")
+            return self._keyring.get_password(key, "token")
         except self._keyring.errors.NoKeyringError as e:
             raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
                                                      "detected, check https://pypi.org/project/keyring/ for more "
                                                      "information.") from e
 
-    def store_token_to_cache(self, host: Optional[str], token: str) -> None:
+    def store_token_to_cache(self, key: Optional[str], token: str) -> None:
         try:
             # keyring is installed, so we can store the token for reuse within multiple threads
-            self._keyring.set_password(host, "token", token)
+            self._keyring.set_password(key, "token", token)
         except self._keyring.errors.NoKeyringError as e:
             raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
                                                      "detected, check https://pypi.org/project/keyring/ for more "
@@ -382,13 +382,13 @@ class _OAuth2TokenBearer(AuthBase):
 
         raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
 
-    def _get_token_from_cache(self, host: Optional[str]) -> Optional[str]:
+    def _get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
         with self._token_lock:
-            return self._token_cache.get_token_from_cache(host)
+            return self._token_cache.get_token_from_cache(key)
 
-    def _store_token_to_cache(self, host: Optional[str], token: str) -> None:
+    def _store_token_to_cache(self, key: Optional[str], token: str) -> None:
         with self._token_lock:
-            self._token_cache.store_token_to_cache(host, token)
+            self._token_cache.store_token_to_cache(key, token)
 
     @staticmethod
     def _determine_host(url: Optional[str]) -> Any:
