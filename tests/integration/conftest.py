@@ -100,7 +100,7 @@ def wait_for_trino_coordinator(stream, timeout=180):
             time.sleep(5)
             return True
         if time.time() - t0 > timeout:
-            logger.error("coordinator took longer than {} to start".format(timeout))
+            logger.error("coordinator took longer than %s to start", timeout)
             raise TimeoutError
     return False
 
