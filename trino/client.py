@@ -591,7 +591,6 @@ class TrinoRequest(object):
 
         http_response.encoding = "utf-8"
         response = http_response.json()
-        logger.debug("HTTP %s: %s", http_response.status_code, response)
         if "error" in response:
             raise self._process_error(response["error"], response.get("id"))
 
@@ -695,7 +694,6 @@ class TrinoResult(object):
             next_rows = self._query.fetch() if not self._query.finished else None
             for row in self._rows:
                 self._rownumber += 1
-                logger.debug("row %s", row)
                 yield row
 
             self._rows = next_rows
@@ -818,7 +816,6 @@ class TrinoQuery(object):
             raise trino.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
         status = self._request.process(response)
         self._update_state(status)
-        logger.debug(status)
         if status.next_uri is None:
             self._finished = True
 
@@ -837,7 +834,6 @@ class TrinoQuery(object):
             response = self._request.delete(self._next_uri)
         except requests.exceptions.RequestException as e:
             raise trino.exceptions.TrinoConnectionError("failed to cancel query: {}".format(e))
-        logger.debug(response)
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
