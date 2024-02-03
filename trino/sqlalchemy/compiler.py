@@ -246,6 +246,13 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
     def visit_JSON(self, type_, **kw):
         return 'JSON'
 
+    def visit_MAP(self, type_, **kw):
+        # the key and value types themselves need to be processed otherwise sqltypes.MAP(Float, Float) will get
+        # rendered as MAP(FLOAT, FLOAT) instead of MAP(REAL, REAL) or MAP(DOUBLE, DOUBLE)
+        key_type = self.process(type_.key_type, **kw)
+        value_type = self.process(type_.value_type, **kw)
+        return f'MAP({key_type}, {value_type})'
+
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
