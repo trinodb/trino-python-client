@@ -204,10 +204,9 @@ class RowValueMapper(ValueMapper[Tuple[Optional[Any], ...]]):
     def map(self, value: Optional[List[Any]]) -> Optional[Tuple[Optional[Any], ...]]:
         if value is None:
             return None
-        # TODO: Fix typing for self.names
         return NamedRowTuple(
             list(self.mappers[i].map(v) for i, v in enumerate(value)),
-            self.names,  # type: ignore
+            self.names,
             self.types
         )
 
