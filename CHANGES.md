@@ -6,6 +6,43 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.328.0
+
+* Add support for Python 3.12 and drop support for Python 3.7 and PyPy 3.8
+  which are end-of-life.
+  ([#438](https://github.com/trinodb/trino-python-client/issues/438))
+* Add support for `JSON` data type to SQLAlchemy dialect.
+  ([#387](https://github.com/trinodb/trino-python-client/issues/387))
+* Add support for `IGNORE NULLS` in window functions when using SQLAlchemy.
+  ([#429](https://github.com/trinodb/trino-python-client/issues/429))
+* Add support for `MAP` type to SQLAlchemy dialect.
+  ([#397](https://github.com/trinodb/trino-python-client/issues/397))
+* Add support for per-user OAuth2 token cache if the `user` is provided when
+  creating the connection. If `user` is not provided the previous behaviour of
+  a per-host token cache is used.
+  ([#430](https://github.com/trinodb/trino-python-client/issues/430))
+* Add support to configure log level for all modules via the root logger. The
+  root logger is named `trino`.
+  ([#434](https://github.com/trinodb/trino-python-client/issues/434))
+* Allow using `keyring.backends.null.Keyring` to disable keyring when using
+  OAuth2.
+  ([#431](https://github.com/trinodb/trino-python-client/issues/431))
+* Fix `fetchall` returning already returned rows if called after `fetchone` or
+  `fetchmany`.
+  ([#414](https://github.com/trinodb/trino-python-client/issues/414))
+* Fix possible failures when retrieving query results if the server returns
+  empty data.
+  ([#443](https://github.com/trinodb/trino-python-client/issues/443))
+* Fix error when closing a cursor without executing a query.
+  ([#428](https://github.com/trinodb/trino-python-client/issues/428))
+* Fix `get_indexes` in SQLAlchemy to not fail when called for non-Hive tables.
+  ([#426](https://github.com/trinodb/trino-python-client/issues/426))
+* Fix reading and writing `MAP` types with boolean or integer keys.
+  ([#441](https://github.com/trinodb/trino-python-client/issues/441))
+* Fix incompatibility when using trino-python-client with
+  [Ray](https://github.com/ray-project/ray).
+  ([#420](https://github.com/trinodb/trino-python-client/issues/420))
+
 ## Release 0.327.0
 
 * Implement `get_catalog_names` for SQLAlchemy to get the list of catalogs
