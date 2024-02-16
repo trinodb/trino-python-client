@@ -14,11 +14,11 @@
 
 import os
 from codecs import open
-from typing import Any
+from typing import Any, Dict
 
 from setuptools import find_packages, setup
 
-about = {}  # type: dict[str, Any]
+about: Dict[str, Any] = {}
 here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
     exec(f.read(), about)

@@ -23,7 +23,7 @@ def assert_sqltype():
         if isinstance(that, type):
             that = that()
 
-        assert type(this) == type(that)
+        assert type(this) is type(that)
 
         if isinstance(this, ARRAY):
             _assert_sqltype(this.item_type, that.item_type)
