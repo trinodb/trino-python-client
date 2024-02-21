@@ -22,6 +22,7 @@ import httpretty
 import pytest
 import requests
 from httpretty import httprettified
+from requests_gssapi.exceptions import SPNEGOExchangeError
 from requests_kerberos.exceptions import KerberosExchangeError
 from tzlocal import get_localzone_name  # type: ignore
 
@@ -39,7 +40,7 @@ from tests.unit.oauth_test_utils import (
     _post_statement_requests,
 )
 from trino import __version__, constants
-from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
+from trino.auth import GSSAPIAuthentication, KerberosAuthentication, _OAuth2TokenBearer
 from trino.client import (
     ClientSession,
     TrinoQuery,
@@ -883,15 +884,22 @@ class RetryRecorder(object):
         return self._retry_count
 
 
-def test_authentication_fail_retry(monkeypatch):
-    post_retry = RetryRecorder(error=KerberosExchangeError())
+@pytest.mark.parametrize(
+    "auth_method, retry_exception",
+    [
+        (KerberosAuthentication, KerberosExchangeError),
+        (GSSAPIAuthentication, SPNEGOExchangeError),
+    ]
+)
+def test_authentication_fail_retry(auth_class, retry_exception_class, monkeypatch):
+    post_retry = RetryRecorder(error=retry_exception_class())
     monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
 
-    get_retry = RetryRecorder(error=KerberosExchangeError())
+    get_retry = RetryRecorder(error=retry_exception_class())
     monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
 
     attempts = 3
-    kerberos_auth = KerberosAuthentication()
+    kerberos_auth = auth_class()
     req = TrinoRequest(
         host="coordinator",
         port=8080,
@@ -903,11 +911,11 @@ def test_authentication_fail_retry(monkeypatch):
         max_attempts=attempts,
     )
 
-    with pytest.raises(KerberosExchangeError):
+    with pytest.raises(retry_exception_class):
         req.post("URL")
     assert post_retry.retry_count == attempts
 
-    with pytest.raises(KerberosExchangeError):
+    with pytest.raises(retry_exception_class):
         req.get("URL")
     assert post_retry.retry_count == attempts
 
