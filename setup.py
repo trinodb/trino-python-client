@@ -27,7 +27,7 @@ with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
 kerberos_require = ["requests_kerberos"]
-gssapi_require = ["requests_kerberos"]
+gssapi_require = ["requests_gssapi"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
 external_authentication_token_cache_require = ["keyring"]
 
