@@ -27,6 +27,7 @@ with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
 kerberos_require = ["requests_kerberos"]
+gssapi_require = ["requests_kerberos"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
 external_authentication_token_cache_require = ["keyring"]
 
@@ -86,6 +87,7 @@ setup(
     extras_require={
         "all": all_require,
         "kerberos": kerberos_require,
+        "gssapi": gssapi_require,
         "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
         "external-authentication-token-cache": external_authentication_token_cache_require,
