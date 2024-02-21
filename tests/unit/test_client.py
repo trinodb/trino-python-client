@@ -885,7 +885,7 @@ class RetryRecorder(object):
 
 
 @pytest.mark.parametrize(
-    "auth_method, retry_exception",
+    "auth_class, retry_exception_class",
     [
         (KerberosAuthentication, KerberosExchangeError),
         (GSSAPIAuthentication, SPNEGOExchangeError),
