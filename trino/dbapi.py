@@ -28,6 +28,8 @@ from time import time
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
 from urllib.parse import urlparse
 
+from requests.exceptions import RequestException
+
 try:
     from zoneinfo import ZoneInfo
 except ModuleNotFoundError:
@@ -157,6 +159,7 @@ class Connection(object):
         legacy_prepared_statements=None,
         roles=None,
         timezone=None,
+        defer_connect=False,
     ):
         # Automatically assign http_schema, port based on hostname
         parsed_host = urlparse(host, allow_fragments=False)
@@ -200,6 +203,31 @@ class Connection(object):
         self._transaction = None
         self.legacy_primitive_types = legacy_primitive_types
         self.legacy_prepared_statements = legacy_prepared_statements
+
+        if not defer_connect:
+            self.connect()
+
+    def connect(self) -> None:
+        connection_test_request = trino.client.TrinoRequest(
+            self.host,
+            self.port,
+            self._client_session,
+            self._http_session,
+            self.http_scheme,
+            self.auth,
+            self.max_attempts,
+            self.request_timeout,
+            verify=self._http_session.verify,
+        )
+        try:
+            test_response = connection_test_request.post("<not-going-to-be-executed>")
+            response_content = test_response.content if test_response.content else ""
+            if not test_response.ok:
+                raise trino.exceptions.TrinoConnectionError(
+                    "error {}: {}".format(test_response.status_code, response_content))
+
+        except RequestException as e:
+            raise trino.exceptions.TrinoConnectionError("connection failed: {}".format(e))
 
     @property
     def isolation_level(self):
