@@ -1066,6 +1066,33 @@ def test_5XX_error_retry(status_code, attempts, monkeypatch):
     assert post_retry.retry_count == attempts
 
 
+def test_429_error_retry(monkeypatch):
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 429
+    http_resp.headers["Retry-After"] = 1
+
+    post_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+        ),
+        max_attempts=3
+    )
+
+    req.post("URL")
+    assert post_retry.retry_count == 3
+
+    req.get("URL")
+    assert post_retry.retry_count == 3
+
+
 @pytest.mark.parametrize("status_code", [
     501
 ])
