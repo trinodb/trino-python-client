@@ -507,9 +507,9 @@ class TrinoRequest(object):
             self._handle_retry,
             handled_exceptions=self._exceptions,
             conditions=(
-                # need retry when there is no exception but the status code is 502, 503, or 504
+                # need retry when there is no exception but the status code is 429, 502, 503, or 504
                 lambda response: getattr(response, "status_code", None)
-                in (502, 503, 504),
+                in (429, 502, 503, 504),
             ),
             max_attempts=self._max_attempts,
         )
