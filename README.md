@@ -326,6 +326,43 @@ the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerb
     )
     ```
 
+### GSSAPI authentication
+
+The `GSSAPIAuthentication` class can be used to connect to a Trino cluster configured with
+the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerberos.html):
+
+It follows the interface for `KerberosAuthentication`, but is using
+[requests-gssapi](https://github.com/pythongssapi/requests-gssapi), instead of [requests-kerberos](https://github.com/requests/requests-kerberos) under the hood.
+
+- DBAPI
+
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import GSSAPIAuthentication
+
+    conn = connect(
+        user="<username>",
+        auth=GSSAPIAuthentication(...),
+        http_scheme="https",
+        ...
+    )
+    ```
+
+- SQLAlchemy
+
+    ```python
+    from sqlalchemy import create_engine
+    from trino.auth import GSSAPIAuthentication
+
+    engine = create_engine(
+        "trino://<username>@<host>:<port>/<catalog>",
+        connect_args={
+            "auth": GSSAPIAuthentication(...),
+            "http_scheme": "https",
+        }
+    )
+    ```
+
 ## User impersonation
 
 In the case where user who submits the query is not the same as user who authenticates to Trino server (e.g in Superset),

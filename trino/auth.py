@@ -107,6 +107,103 @@ class KerberosAuthentication(Authentication):
                 and self._ca_bundle == other._ca_bundle)
 
 
+class GSSAPIAuthentication(Authentication):
+    def __init__(
+        self,
+        config: Optional[str] = None,
+        service_name: Optional[str] = None,
+        mutual_authentication: bool = False,
+        force_preemptive: bool = False,
+        hostname_override: Optional[str] = None,
+        sanitize_mutual_error_response: bool = True,
+        principal: Optional[str] = None,
+        delegate: bool = False,
+        ca_bundle: Optional[str] = None,
+    ) -> None:
+        self._config = config
+        self._service_name = service_name
+        self._mutual_authentication = mutual_authentication
+        self._force_preemptive = force_preemptive
+        self._hostname_override = hostname_override
+        self._sanitize_mutual_error_response = sanitize_mutual_error_response
+        self._principal = principal
+        self._delegate = delegate
+        self._ca_bundle = ca_bundle
+
+    def set_http_session(self, http_session: Session) -> Session:
+        try:
+            import requests_gssapi
+        except ImportError:
+            raise RuntimeError("unable to import requests_gssapi")
+
+        if self._config:
+            os.environ["KRB5_CONFIG"] = self._config
+        http_session.trust_env = False
+        http_session.auth = requests_gssapi.HTTPSPNEGOAuth(
+            mutual_authentication=self._mutual_authentication,
+            opportunistic_auth=self._force_preemptive,
+            target_name=self._get_target_name(self._hostname_override, self._service_name),
+            sanitize_mutual_error_response=self._sanitize_mutual_error_response,
+            creds=self._get_credentials(self._principal),
+            delegate=self._delegate,
+        )
+        if self._ca_bundle:
+            http_session.verify = self._ca_bundle
+        return http_session
+
+    def _get_credentials(self, principal: Optional[str] = None) -> Any:
+        if principal:
+            try:
+                import gssapi
+            except ImportError:
+                raise RuntimeError("unable to import gssapi")
+
+            name = gssapi.Name(principal, gssapi.NameType.user)
+            return gssapi.Credentials(name=name, usage="initiate")
+
+        return None
+
+    def _get_target_name(
+            self,
+            hostname_override: Optional[str] = None,
+            service_name: Optional[str] = None,
+    ) -> Any:
+        if service_name is not None:
+            try:
+                import gssapi
+            except ImportError:
+                raise RuntimeError("unable to import gssapi")
+
+            if hostname_override is None:
+                raise ValueError("service name must be used together with hostname_override")
+
+            kerb_spn = "{0}@{1}".format(service_name, hostname_override)
+            return gssapi.Name(kerb_spn, gssapi.NameType.hostbased_service)
+
+        return hostname_override
+
+    def get_exceptions(self) -> Tuple[Any, ...]:
+        try:
+            from requests_gssapi.exceptions import SPNEGOExchangeError
+
+            return SPNEGOExchangeError,
+        except ImportError:
+            raise RuntimeError("unable to import requests_kerberos")
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GSSAPIAuthentication):
+            return False
+        return (self._config == other._config
+                and self._service_name == other._service_name
+                and self._mutual_authentication == other._mutual_authentication
+                and self._force_preemptive == other._force_preemptive
+                and self._hostname_override == other._hostname_override
+                and self._sanitize_mutual_error_response == other._sanitize_mutual_error_response
+                and self._principal == other._principal
+                and self._delegate == other._delegate
+                and self._ca_bundle == other._ca_bundle)
+
+
 class BasicAuthentication(Authentication):
     def __init__(self, username: str, password: str):
         self._username = username
