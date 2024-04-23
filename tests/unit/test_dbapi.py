@@ -27,9 +27,9 @@ from tests.unit.oauth_test_utils import (
     _get_token_requests,
     _post_statement_requests,
 )
-from trino import constants
-from trino.auth import OAuth2Authentication
-from trino.dbapi import Connection, connect
+from trino_client import constants
+from trino_client.auth import OAuth2Authentication
+from trino_client.dbapi import Connection, connect
 
 
 @patch("trino.dbapi.trino.client")

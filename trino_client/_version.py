@@ -1,4 +1,4 @@
-__title__ = "trino"
+__title__ = "trino_client"
 __description__ = "Client for the Trino distributed SQL Engine"
 __url__ = "https://github.com/trinodb/trino-python-client"
 __version__ = "0.328.0"

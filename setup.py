@@ -20,7 +20,7 @@ from setuptools import find_packages, setup
 
 about: Dict[str, Any] = {}
 here = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
+with open(os.path.join(here, "trino_client", "_version.py"), "r", "utf-8") as f:
     exec(f.read(), about)
 
 with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
@@ -50,7 +50,7 @@ setup(
     author_email=about["__author_email__"],
     version=about["__version__"],
     url=about["__url__"],
-    packages=find_packages(include=["trino", "trino.*"]),
+    packages=find_packages(include=["trino_client", "trino_client.*"]),
     package_data={"": ["LICENSE", "README.md"]},
     description=about["__description__"],
     long_description=readme,
@@ -92,7 +92,7 @@ setup(
     },
     entry_points={
         "sqlalchemy.dialects": [
-            "trino = trino.sqlalchemy.dialect:TrinoDialect",
+            "trino = trino_client.sqlalchemy.dialect:TrinoDialect",
         ]
     },
 )

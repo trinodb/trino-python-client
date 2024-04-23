@@ -17,7 +17,7 @@ from collections import namedtuple
 
 import httpretty
 
-from trino import constants
+from trino_client import constants
 
 SERVER_ADDRESS = "https://coordinator"
 REDIRECT_PATH = "oauth2/initiate"

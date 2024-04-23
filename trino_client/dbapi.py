@@ -33,12 +33,12 @@ try:
 except ModuleNotFoundError:
     from backports.zoneinfo import ZoneInfo
 
-import trino.client
-import trino.exceptions
-import trino.logging
-from trino import constants
-from trino.constants import LENGTH_TYPES, PRECISION_TYPES, SCALE_TYPES
-from trino.exceptions import (
+import trino_client.client
+import trino_client.exceptions
+import trino_client.logging
+from trino_client import constants
+from trino_client.constants import LENGTH_TYPES, PRECISION_TYPES, SCALE_TYPES
+from trino_client.exceptions import (
     DatabaseError,
     DataError,
     Error,
@@ -50,7 +50,7 @@ from trino.exceptions import (
     ProgrammingError,
     Warning,
 )
-from trino.transaction import NO_TRANSACTION, IsolationLevel, Transaction
+from trino_client.transaction import NO_TRANSACTION, IsolationLevel, Transaction
 
 __all__ = [
     # https://www.python.org/dev/peps/pep-0249/#globals
@@ -78,7 +78,7 @@ apilevel = "2.0"
 threadsafety = 2
 paramstyle = "qmark"
 
-logger = trino.logging.get_logger(__name__)
+logger = trino_client.logging.get_logger(__name__)
 
 
 class TimeBoundLRUCache:
@@ -168,7 +168,7 @@ class Connection(object):
         self.catalog = catalog
         self.schema = schema
         self.session_properties = session_properties
-        self._client_session = trino.client.ClientSession(
+        self._client_session = trino_client.client.ClientSession(
             user=user,
             catalog=catalog,
             schema=schema,
@@ -183,7 +183,7 @@ class Connection(object):
         )
         # mypy cannot follow module import
         if http_session is None:
-            self._http_session = trino.client.TrinoRequest.http.Session()
+            self._http_session = trino_client.client.TrinoRequest.http.Session()
             self._http_session.verify = verify
         else:
             self._http_session = http_session
@@ -242,7 +242,7 @@ class Connection(object):
         self._transaction = None
 
     def _create_request(self):
-        return trino.client.TrinoRequest(
+        return trino_client.client.TrinoRequest(
             self.host,
             self.port,
             self._client_session,
@@ -276,7 +276,7 @@ class Connection(object):
         value = must_use_legacy_prepared_statements.get((self.host, self.port))
         if value is None:
             try:
-                query = trino.client.TrinoQuery(
+                query = trino_client.client.TrinoQuery(
                     self._create_request(),
                     query="EXECUTE IMMEDIATE 'SELECT 1'")
                 query.execute()
@@ -426,10 +426,10 @@ class Cursor(object):
         return None
 
     def setinputsizes(self, sizes):
-        raise trino.exceptions.NotSupportedError
+        raise trino_client.exceptions.NotSupportedError
 
     def setoutputsize(self, size, column):
-        raise trino.exceptions.NotSupportedError
+        raise trino_client.exceptions.NotSupportedError
 
     def _prepare_statement(self, statement: str, name: str) -> None:
         """
@@ -440,7 +440,7 @@ class Cursor(object):
         :param name: name that will be assigned to the prepared statement.
         """
         sql = f"PREPARE {name} FROM {statement}"
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
+        query = trino_client.client.TrinoQuery(self.connection._create_request(), query=sql,
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
@@ -450,7 +450,7 @@ class Cursor(object):
         params
     ):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
-        return trino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
+        return trino_client.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
 
     def _execute_immediate_statement(self, statement: str, params):
         """
@@ -461,7 +461,7 @@ class Cursor(object):
         """
         sql = "EXECUTE IMMEDIATE '" + statement.replace("'", "''") + \
               "' USING " + ",".join(map(self._format_prepared_param, params))
-        return trino.client.TrinoQuery(
+        return trino_client.client.TrinoQuery(
             self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types)
 
     def _format_prepared_param(self, param):
@@ -544,11 +544,11 @@ class Cursor(object):
         if isinstance(param, Decimal):
             return "DECIMAL '%s'" % format(param, "f")
 
-        raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
+        raise trino_client.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
         sql = 'DEALLOCATE PREPARE ' + statement_name
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
+        query = trino_client.client.TrinoQuery(self.connection._create_request(), query=sql,
                                         legacy_primitive_types=self._legacy_primitive_types)
         query.execute()
 
@@ -584,7 +584,7 @@ class Cursor(object):
                 self._iterator = iter(self._query.execute())
 
         else:
-            self._query = trino.client.TrinoQuery(self._request, query=operation,
+            self._query = trino_client.client.TrinoQuery(self._request, query=operation,
                                                   legacy_primitive_types=self._legacy_primitive_types)
             self._iterator = iter(self._query.execute())
         return self
@@ -631,8 +631,8 @@ class Cursor(object):
             return next(self._iterator)
         except StopIteration:
             return None
-        except trino.exceptions.HttpError as err:
-            raise trino.exceptions.OperationalError(str(err))
+        except trino_client.exceptions.HttpError as err:
+            raise trino_client.exceptions.OperationalError(str(err))
 
     def fetchmany(self, size=None) -> List[List[Any]]:
         """
@@ -671,7 +671,7 @@ class Cursor(object):
         self._prepare_statement(sql, statement_name)
         try:
             sql = f"DESCRIBE OUTPUT {statement_name}"
-            self._query = trino.client.TrinoQuery(
+            self._query = trino_client.client.TrinoQuery(
                 self._request,
                 query=sql,
                 legacy_primitive_types=self._legacy_primitive_types,

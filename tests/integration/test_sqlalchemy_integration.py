@@ -19,7 +19,7 @@ from sqlalchemy.sql import and_, not_, or_
 
 from tests.integration.conftest import trino_version
 from tests.unit.conftest import sqlalchemy_version
-from trino.sqlalchemy.datatype import JSON, MAP
+from trino_client.sqlalchemy.datatype import JSON, MAP
 
 
 @pytest.fixture

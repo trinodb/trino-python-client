@@ -19,11 +19,11 @@ from uuid import uuid4
 
 import pytest
 
-import trino.logging
-from trino.client import ClientSession, TrinoQuery, TrinoRequest
-from trino.constants import DEFAULT_PORT
+import trino_client.logging
+from trino_client.client import ClientSession, TrinoQuery, TrinoRequest
+from trino_client.constants import DEFAULT_PORT
 
-logger = trino.logging.get_logger(__name__)
+logger = trino_client.logging.get_logger(__name__)
 
 
 TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"

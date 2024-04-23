@@ -23,14 +23,14 @@ def sample_post_response_data():
     and allow to use it for other tests.
     To get some HTTP response, set logging level to DEBUG with
     ``logging.basicConfig(level=logging.DEBUG)`` or
-    ``trino.client.logger.setLevel(logging.DEBUG)``.
+    ``trino_client.client.logger.setLevel(logging.DEBUG)``.
 
     ::
-        from trino import dbapi
+        from trino_client import dbapi
 
         >>> import logging
-        >>> import trino.client
-        >>> trino.client.logger.setLevel(logging.DEBUG)
+        >>> import trino_client.client
+        >>> trino_client.client.logger.setLevel(logging.DEBUG)
         >>> conn = dbapi.Connection('localhost', 8080, 'ggreg', 'test')
         >>> cur = conn.cursor()
         >>> res = cur.execute('select * from system.runtime.nodes')

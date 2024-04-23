@@ -25,19 +25,19 @@ import pytest
 import requests
 from tzlocal import get_localzone_name  # type: ignore
 
-import trino
+import trino_client
 from tests.integration.conftest import trino_version
-from trino import constants
-from trino.dbapi import Cursor, DescribeOutput, TimeBoundLRUCache
-from trino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
-from trino.transaction import IsolationLevel
+from trino_client import constants
+from trino_client.dbapi import Cursor, DescribeOutput, TimeBoundLRUCache
+from trino_client.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
+from trino_client.transaction import IsolationLevel
 
 
 @pytest.fixture
 def trino_connection(run_trino):
     _, host, port = run_trino
 
-    yield trino.dbapi.Connection(
+    yield trino_client.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
     )
 
@@ -46,7 +46,7 @@ def trino_connection(run_trino):
 def trino_connection_with_transaction(run_trino):
     _, host, port = run_trino
 
-    yield trino.dbapi.Connection(
+    yield trino_client.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -60,7 +60,7 @@ def trino_connection_with_transaction(run_trino):
 def trino_connection_in_autocommit(run_trino):
     _, host, port = run_trino
 
-    yield trino.dbapi.Connection(
+    yield trino_client.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -266,7 +266,7 @@ def test_legacy_primitive_types_with_connection_and_cursor(
 ):
     _, host, port = run_trino
 
-    connection = trino.dbapi.Connection(
+    connection = trino_client.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -581,7 +581,7 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(legacy_prepared_stateme
 
     # This is a datetime that lies within a DST transition and not actually exists.
     params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=ZoneInfo('Europe/Brussels'))
-    with pytest.raises(trino.exceptions.TrinoUserError):
+    with pytest.raises(trino_client.exceptions.TrinoUserError):
         cur.execute("SELECT ?", params=(params,))
         cur.fetchall()
 
@@ -653,7 +653,7 @@ def test_unsupported_python_dates(trino_connection):
         '-4999999-01-01',  # Trino min date
         '5000000-12-31',  # Trino max date
     ]:
-        with pytest.raises(trino.exceptions.TrinoDataError):
+        with pytest.raises(trino_client.exceptions.TrinoDataError):
             cur.execute(f"SELECT DATE '{unsupported_date}'")
             cur.fetchall()
 
@@ -1316,7 +1316,7 @@ def test_select_query_stats(trino_connection):
 
 def test_select_failed_query(trino_connection):
     cur = trino_connection.cursor()
-    with pytest.raises(trino.exceptions.TrinoUserError):
+    with pytest.raises(trino_client.exceptions.TrinoUserError):
         cur.execute("SELECT * FROM catalog.schema.do_not_exist")
         cur.fetchall()
 
@@ -1362,7 +1362,7 @@ def test_close_cursor(trino_connection):
 def test_session_properties(run_trino):
     _, host, port = run_trino
 
-    connection = trino.dbapi.Connection(
+    connection = trino_client.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -1510,7 +1510,7 @@ def test_client_tags_special_characters(run_trino):
 def retrieve_client_tags_from_query(run_trino, client_tags):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host,
         port=port,
         user="test",
@@ -1559,7 +1559,7 @@ def test_use_catalog_schema(trino_connection):
 def test_use_schema(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", source="test", catalog="tpch", max_attempts=1
     )
     cur = trino_connection.cursor()
@@ -1586,7 +1586,7 @@ def test_use_schema(run_trino):
 def test_set_role(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch"
     )
     cur = trino_connection.cursor()
@@ -1606,7 +1606,7 @@ def test_set_role(run_trino):
 def test_set_role_in_connection(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch", roles={"system": "ALL"}
     )
     cur = trino_connection.cursor()
@@ -1618,7 +1618,7 @@ def test_set_role_in_connection(run_trino):
 def test_set_system_role_in_connection(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch", roles="ALL"
     )
     cur = trino_connection.cursor()
@@ -1673,7 +1673,7 @@ def test_prepared_statements(legacy_prepared_statements, run_trino):
 def test_set_timezone_in_connection(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch", timezone="Europe/Brussels"
     )
     cur = trino_connection.cursor()
@@ -1685,7 +1685,7 @@ def test_set_timezone_in_connection(run_trino):
 def test_connection_without_timezone(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch"
     )
     cur = trino_connection.cursor()
@@ -1701,7 +1701,7 @@ def test_connection_without_timezone(run_trino):
 def test_describe(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch",
     )
     cur = trino_connection.cursor()
@@ -1717,7 +1717,7 @@ def test_describe(run_trino):
 def test_describe_table_query(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
+    trino_connection = trino_client.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch",
     )
     cur = trino_connection.cursor()
@@ -1802,11 +1802,11 @@ def test_rowcount_insert(trino_connection):
 )
 def test_prepared_statement_capability_autodetection(legacy_prepared_statements, run_trino):
     # start with an empty cache
-    trino.dbapi.must_use_legacy_prepared_statements = TimeBoundLRUCache(1024, 3600)
+    trino_client.dbapi.must_use_legacy_prepared_statements = TimeBoundLRUCache(1024, 3600)
     user_name = f"user_{t.monotonic_ns()}"
 
     _, host, port = run_trino
-    connection = trino.dbapi.Connection(
+    connection = trino_client.dbapi.Connection(
         host=host,
         port=port,
         user=user_name,
@@ -1828,7 +1828,7 @@ def test_prepared_statement_capability_autodetection(legacy_prepared_statements,
 def get_cursor(legacy_prepared_statements, run_trino):
     _, host, port = run_trino
 
-    connection = trino.dbapi.Connection(
+    connection = trino_client.dbapi.Connection(
         host=host,
         port=port,
         user="test",

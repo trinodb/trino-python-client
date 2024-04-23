@@ -12,7 +12,7 @@
 import pytest
 from sqlalchemy.sql.sqltypes import ARRAY
 
-from trino.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP, SQLType
+from trino_client.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP, SQLType
 
 
 @pytest.fixture(scope="session")

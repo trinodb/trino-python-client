@@ -21,16 +21,16 @@ from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
 from sqlalchemy.engine.url import URL
 from sqlalchemy.sql import sqltypes
 
-from trino import dbapi as trino_dbapi
-from trino import logging
-from trino.auth import (
+from trino_client import dbapi as trino_dbapi
+from trino_client import logging
+from trino_client.auth import (
     BasicAuthentication,
     CertificateAuthentication,
     JWTAuthentication,
     OAuth2Authentication,
 )
-from trino.dbapi import Cursor
-from trino.sqlalchemy import compiler, datatype, error
+from trino_client.dbapi import Cursor
+from trino_client.sqlalchemy import compiler, datatype, error
 
 from .datatype import JSONIndexType, JSONPathType
 

@@ -12,12 +12,12 @@
 from enum import Enum, unique
 from typing import Iterable
 
-import trino.client
-import trino.exceptions
-import trino.logging
-from trino import constants
+import trino_client.client
+import trino_client.exceptions
+import trino_client.logging
+from trino_client import constants
 
-logger = trino.logging.get_logger(__name__)
+logger = trino_client.logging.get_logger(__name__)
 
 
 NO_TRANSACTION = "NONE"
@@ -50,7 +50,7 @@ class IsolationLevel(Enum):
 
 
 class Transaction(object):
-    def __init__(self, request: trino.client.TrinoRequest) -> None:
+    def __init__(self, request: trino_client.client.TrinoRequest) -> None:
         self._request = request
         self._id = NO_TRANSACTION
 
@@ -59,13 +59,13 @@ class Transaction(object):
         return self._id
 
     @property
-    def request(self) -> trino.client.TrinoRequest:
+    def request(self) -> trino_client.client.TrinoRequest:
         return self._request
 
     def begin(self) -> None:
         response = self._request.post(START_TRANSACTION)
         if not response.ok:
-            raise trino.exceptions.DatabaseError(
+            raise trino_client.exceptions.DatabaseError(
                 "failed to start transaction: {}".format(response.status_code)
             )
         transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
@@ -82,22 +82,22 @@ class Transaction(object):
         logger.info("transaction started: %s", self._id)
 
     def commit(self) -> None:
-        query = trino.client.TrinoQuery(self._request, COMMIT)
+        query = trino_client.client.TrinoQuery(self._request, COMMIT)
         try:
             list(query.execute())
         except Exception as err:
-            raise trino.exceptions.DatabaseError(
+            raise trino_client.exceptions.DatabaseError(
                 "failed to commit transaction {}: {}".format(self._id, err)
             )
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
     def rollback(self) -> None:
-        query = trino.client.TrinoQuery(self._request, ROLLBACK)
+        query = trino_client.client.TrinoQuery(self._request, ROLLBACK)
         try:
             list(query.execute())
         except Exception as err:
-            raise trino.exceptions.DatabaseError(
+            raise trino_client.exceptions.DatabaseError(
                 "failed to rollback transaction {}: {}".format(self._id, err)
             )
         self._id = NO_TRANSACTION

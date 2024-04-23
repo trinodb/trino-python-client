@@ -46,7 +46,7 @@ from dataclasses import dataclass
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from trino.mapper import RowMapper, RowMapperFactory
+from trino_client.mapper import RowMapper, RowMapperFactory
 
 try:
     from zoneinfo import ZoneInfo
@@ -56,13 +56,13 @@ except ModuleNotFoundError:
 import requests
 from tzlocal import get_localzone_name  # type: ignore
 
-import trino.logging
-from trino import constants, exceptions
-from trino._version import __version__
+import trino_client.logging
+from trino_client import constants, exceptions
+from trino_client._version import __version__
 
 __all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 
-logger = trino.logging.get_logger(__name__)
+logger = trino_client.logging.get_logger(__name__)
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
@@ -779,7 +779,7 @@ class TrinoQuery(object):
         try:
             response = self._request.post(self._query, additional_http_headers)
         except requests.exceptions.RequestException as e:
-            raise trino.exceptions.TrinoConnectionError("failed to execute: {}".format(e))
+            raise trino_client.exceptions.TrinoConnectionError("failed to execute: {}".format(e))
         status = self._request.process(response)
         self._info_uri = status.info_uri
         self._query_id = status.id
@@ -813,7 +813,7 @@ class TrinoQuery(object):
         try:
             response = self._request.get(self._request.next_uri)
         except requests.exceptions.RequestException as e:
-            raise trino.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
+            raise trino_client.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
         status = self._request.process(response)
         self._update_state(status)
         if status.next_uri is None:
@@ -833,7 +833,7 @@ class TrinoQuery(object):
         try:
             response = self._request.delete(self._next_uri)
         except requests.exceptions.RequestException as e:
-            raise trino.exceptions.TrinoConnectionError("failed to cancel query: {}".format(e))
+            raise trino_client.exceptions.TrinoConnectionError("failed to cancel query: {}".format(e))
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)

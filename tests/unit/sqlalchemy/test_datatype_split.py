@@ -13,7 +13,7 @@ from typing import List
 
 import pytest
 
-from trino.sqlalchemy import datatype
+from trino_client.sqlalchemy import datatype
 
 split_string_testcases = {
     "10": ["10"],

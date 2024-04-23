@@ -13,8 +13,8 @@ if sys.version_info >= (3, 9):
 else:
     from backports.zoneinfo import ZoneInfo
 
-import trino.exceptions
-from trino.types import (
+import trino_client.exceptions
+from trino_client.types import (
     POWERS_OF_TEN,
     NamedRowTuple,
     Time,
@@ -327,4 +327,4 @@ class RowMapper:
             return value_mapper.map(value)
         except ValueError as e:
             error_str = f"Could not convert '{value}' into the associated python type"
-            raise trino.exceptions.TrinoDataError(error_str) from e
+            raise trino_client.exceptions.TrinoDataError(error_str) from e

@@ -4,15 +4,15 @@ from unittest import mock
 import pytest
 from sqlalchemy.engine.url import URL, make_url
 
-from trino.auth import BasicAuthentication, OAuth2Authentication
-from trino.dbapi import Connection
-from trino.sqlalchemy import URL as trino_url
-from trino.sqlalchemy.dialect import (
+from trino_client.auth import BasicAuthentication, OAuth2Authentication
+from trino_client.dbapi import Connection
+from trino_client.sqlalchemy import URL as trino_url
+from trino_client.sqlalchemy.dialect import (
     CertificateAuthentication,
     JWTAuthentication,
     TrinoDialect,
 )
-from trino.transaction import IsolationLevel
+from trino_client.transaction import IsolationLevel
 
 
 class TestTrinoDialect:

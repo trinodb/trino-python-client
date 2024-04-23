@@ -16,9 +16,9 @@ defined in pep-0249.
 """
 from typing import Any, Dict, Optional, Tuple
 
-import trino.logging
+import trino_client.logging
 
-logger = trino.logging.get_logger(__name__)
+logger = trino_client.logging.get_logger(__name__)
 
 
 # PEP 249 Errors

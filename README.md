@@ -32,7 +32,7 @@ Use the DBAPI interface to query Trino:
 if `host` is a valid url, the port and http schema will be automatically determined. For example `https://my-trino-server:9999` will assign the `http_schema` property to `https` and port to `9999`.
 
 ```python
-from trino.dbapi import connect
+from trino_client.dbapi import connect
 
 conn = connect(
     host="<host>",
@@ -108,7 +108,7 @@ Attributes can also be passed in the connection string.
 
 ```python
 from sqlalchemy import create_engine
-from trino.sqlalchemy import URL
+from trino_client.sqlalchemy import URL
 
 engine = create_engine(
     URL(
@@ -149,8 +149,8 @@ the [Password file, LDAP or Salesforce authentication type](https://trino.io/doc
 - DBAPI
 
     ```python
-    from trino.dbapi import connect
-    from trino.auth import BasicAuthentication
+    from trino_client.dbapi import connect
+    from trino_client.auth import BasicAuthentication
 
     conn = connect(
         user="<username>",
@@ -168,7 +168,7 @@ the [Password file, LDAP or Salesforce authentication type](https://trino.io/doc
     engine = create_engine("trino://<username>:<password>@<host>:<port>/<catalog>")
 
     # or as connect_args
-    from trino.auth import BasicAuthentication
+    from trino_client.auth import BasicAuthentication
     engine = create_engine(
         "trino://<username>@<host>:<port>/<catalog>",
         connect_args={
@@ -186,8 +186,8 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
 - DBAPI
 
     ```python
-    from trino.dbapi import connect
-    from trino.auth import JWTAuthentication
+    from trino_client.dbapi import connect
+    from trino_client.auth import JWTAuthentication
 
     conn = connect(
         user="<username>",
@@ -205,7 +205,7 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
     engine = create_engine("trino://<username>@<host>:<port>/<catalog>/<schema>?access_token=<jwt_token>")
 
     # or as connect_args
-    from trino.auth import JWTAuthentication
+    from trino_client.auth import JWTAuthentication
     engine = create_engine(
         "trino://<username>@<host>:<port>/<catalog>",
         connect_args={
@@ -230,8 +230,8 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
 - DBAPI
 
     ```python
-    from trino.dbapi import connect
-    from trino.auth import OAuth2Authentication
+    from trino_client.dbapi import connect
+    from trino_client.auth import OAuth2Authentication
 
     conn = connect(
         user="<username>",
@@ -245,7 +245,7 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
 
     ```python
     from sqlalchemy import create_engine
-    from trino.auth import OAuth2Authentication
+    from trino_client.auth import OAuth2Authentication
 
     engine = create_engine(
     "trino://<username>@<host>:<port>/<catalog>",
@@ -263,8 +263,8 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
 - DBAPI
 
     ```python
-    from trino.dbapi import connect
-    from trino.auth import CertificateAuthentication
+    from trino_client.dbapi import connect
+    from trino_client.auth import CertificateAuthentication
 
     conn = connect(
         user="<username>",
@@ -278,7 +278,7 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
 
     ```python
     from sqlalchemy import create_engine
-    from trino.auth import CertificateAuthentication
+    from trino_client.auth import CertificateAuthentication
 
     engine = create_engine("trino://<username>@<host>:<port>/<catalog>/<schema>?cert=<cert>&key=<key>")
 
@@ -300,8 +300,8 @@ the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerb
 - DBAPI
 
     ```python
-    from trino.dbapi import connect
-    from trino.auth import KerberosAuthentication
+    from trino_client.dbapi import connect
+    from trino_client.auth import KerberosAuthentication
 
     conn = connect(
         user="<username>",
@@ -315,7 +315,7 @@ the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerb
 
     ```python
     from sqlalchemy import create_engine
-    from trino.auth import KerberosAuthentication
+    from trino_client.auth import KerberosAuthentication
 
     engine = create_engine(
         "trino://<username>@<host>:<port>/<catalog>",
@@ -338,7 +338,7 @@ You need to make sure that [`principal_id` has permission to impersonate `userna
 [`Extra credentials`](https://trino.io/docs/current/develop/client-protocol.html#client-request-headers) can be sent as:
 
 ```python
-import trino
+import trino_client
 conn = trino.dbapi.connect(
     host='localhost',
     port=443,
@@ -356,7 +356,7 @@ rows = cur.fetchall()
 Authorization roles to use for catalogs, specified as a dict with key-value pairs for the catalog and role. For example, `{"catalog1": "roleA", "catalog2": "roleB"}` sets `roleA` for `catalog1` and `roleB` for `catalog2`. See Trino docs.
 
 ```python
-import trino
+import trino_client
 conn = trino.dbapi.connect(
     host='localhost',
     port=443,
@@ -368,7 +368,7 @@ conn = trino.dbapi.connect(
 You could also pass `system` role without explicitly specifing "system" catalog:
 
 ```python
-import trino
+import trino_client
 conn = trino.dbapi.connect(
     host='localhost',
     port=443,
@@ -383,7 +383,7 @@ The time zone for the session can be explicitly set using the IANA time zone
 name. When not set the time zone defaults to the client side local timezone.
 
 ```python
-import trino
+import trino_client
 conn = trino.dbapi.connect(
     host='localhost',
     port=443,
@@ -402,8 +402,8 @@ conn = trino.dbapi.connect(
 In order to disable SSL verification, set the `verify` parameter to `False`.
 
 ```python
-from trino.dbapi import connect
-from trino.auth import BasicAuthentication
+from trino_client.dbapi import connect
+from trino_client.auth import BasicAuthentication
 
 conn = connect(
     user="<username>",
@@ -419,8 +419,8 @@ To use self-signed certificates, specify a path to the certificate in `verify` p
 More details can be found in [the Python requests library documentation](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification).
 
 ```python
-from trino.dbapi import connect
-from trino.auth import BasicAuthentication
+from trino_client.dbapi import connect
+from trino_client.auth import BasicAuthentication
 
 conn = connect(
     user="<username>",
@@ -436,8 +436,8 @@ The client runs by default in *autocommit* mode. To enable transactions, set
 *isolation_level* to a value different than `IsolationLevel.AUTOCOMMIT`:
 
 ```python
-from trino.dbapi import connect
-from trino.transaction import IsolationLevel
+from trino_client.dbapi import connect
+from trino_client.transaction import IsolationLevel
 
 with connect(
         isolation_level=IsolationLevel.REPEATABLE_READ,
@@ -467,7 +467,7 @@ exception `trino.exceptions.TrinoDataError` if the query returns a value that ca
 type.
 
 ```python
-import trino
+import trino_client
 
 conn = trino.dbapi.connect(
     legacy_primitive_types=True,

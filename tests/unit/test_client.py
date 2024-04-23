@@ -25,7 +25,7 @@ from httpretty import httprettified
 from requests_kerberos.exceptions import KerberosExchangeError
 from tzlocal import get_localzone_name  # type: ignore
 
-import trino.exceptions
+import trino_client.exceptions
 from tests.unit.oauth_test_utils import (
     REDIRECT_RESOURCE,
     SERVER_ADDRESS,
@@ -38,9 +38,9 @@ from tests.unit.oauth_test_utils import (
     _get_token_requests,
     _post_statement_requests,
 )
-from trino import __version__, constants
-from trino.auth import KerberosAuthentication, _OAuth2TokenBearer
-from trino.client import (
+from trino_client import __version__, constants
+from trino_client.auth import KerberosAuthentication, _OAuth2TokenBearer
+from trino_client.client import (
     ClientSession,
     TrinoQuery,
     TrinoRequest,
@@ -401,7 +401,7 @@ def test_oauth2_authentication_flow(attempts, sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
     response = request.post("select 1")
 
     assert response.request.headers['Authorization'] == f"Bearer {token}"
@@ -434,7 +434,7 @@ def test_oauth2_refresh_token_flow(sample_post_response_data):
         body=get_token_callback)
 
     redirect_handler = RedirectHandlerWithException(
-        trino.exceptions.TrinoAuthError(
+        trino_client.exceptions.TrinoAuthError(
             "Do not use redirect handler when there is no redirect_uri in the response"))
 
     request = TrinoRequest(
@@ -444,7 +444,7 @@ def test_oauth2_refresh_token_flow(sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
 
     response = request.post("select 1")
 
@@ -486,8 +486,8 @@ def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
-    with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
+        auth=trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+    with pytest.raises(trino_client.exceptions.TrinoAuthError) as exp:
         request.post("select 1")
 
     assert str(exp.value) == "Exceeded max attempts while getting the token"
@@ -519,9 +519,9 @@ def test_oauth2_authentication_missing_headers(header, error):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=RedirectHandler()))
+        auth=trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=RedirectHandler()))
 
-    with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
+    with pytest.raises(trino_client.exceptions.TrinoAuthError) as exp:
         request.post("select 1")
 
     assert str(exp.value) == error
@@ -572,7 +572,7 @@ def test_oauth2_header_parsing(header, sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+        auth=trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
     ).post("select 1")
 
     assert response.request.headers['Authorization'] == f"Bearer {token}"
@@ -614,9 +614,9 @@ def test_oauth2_authentication_fail_token_server(http_status, sample_post_respon
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
 
-    with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
+    with pytest.raises(trino_client.exceptions.TrinoAuthError) as exp:
         request.post("select 1")
 
     assert redirect_handler.redirect_server == redirect_server
@@ -628,7 +628,7 @@ def test_oauth2_authentication_fail_token_server(http_status, sample_post_respon
 @httprettified
 def test_multithreaded_oauth2_authentication_flow(sample_post_response_data):
     redirect_handler = RedirectHandler()
-    auth = trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+    auth = trino_client.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
 
     token_server = MultithreadedTokenServer(sample_post_response_data)
 
@@ -749,7 +749,7 @@ def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
 
     http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 200
-    with pytest.raises(trino.exceptions.TrinoUserError) as exception_info:
+    with pytest.raises(trino_client.exceptions.TrinoUserError) as exception_info:
         req.process(http_resp)
     error = exception_info.value
     assert error.error_code == 1
@@ -770,9 +770,9 @@ def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
 @pytest.mark.parametrize(
     "error_code, error_type, error_message",
     [
-        (503, trino.exceptions.Http503Error, "service unavailable"),
-        (504, trino.exceptions.Http504Error, "gateway timeout"),
-        (404, trino.exceptions.HttpError, "error 404"),
+        (503, trino_client.exceptions.Http503Error, "service unavailable"),
+        (504, trino_client.exceptions.Http504Error, "gateway timeout"),
+        (404, trino_client.exceptions.HttpError, "error 404"),
     ],
 )
 def test_trino_connection_error(monkeypatch, error_code, error_type, error_message):

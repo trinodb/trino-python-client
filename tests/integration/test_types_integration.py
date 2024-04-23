@@ -11,7 +11,7 @@ except ModuleNotFoundError:
 
 import pytest
 
-import trino
+import trino_client
 from tests.integration.conftest import trino_version
 
 
@@ -19,7 +19,7 @@ from tests.integration.conftest import trino_version
 def trino_connection(run_trino):
     _, host, port = run_trino
 
-    yield trino.dbapi.Connection(
+    yield trino_client.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
     )
 

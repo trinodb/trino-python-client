@@ -9,7 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from trino.exceptions import TrinoQueryError  # noqa
+from trino_client.exceptions import TrinoQueryError  # noqa
 
 # ref: https://github.com/trinodb/trino/blob/master/core/trino-spi/src/main/java/io/trino/spi/StandardErrorCode.java
 NOT_FOUND = "NOT_FOUND"

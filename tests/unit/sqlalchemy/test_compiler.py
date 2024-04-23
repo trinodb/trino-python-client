@@ -15,7 +15,7 @@ from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
 
 from tests.unit.conftest import sqlalchemy_version
-from trino.sqlalchemy.dialect import TrinoDialect
+from trino_client.sqlalchemy.dialect import TrinoDialect
 
 metadata = MetaData()
 table_without_catalog = Table(

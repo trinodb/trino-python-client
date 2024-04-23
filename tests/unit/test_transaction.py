@@ -12,7 +12,7 @@
 
 import pytest
 
-from trino.transaction import IsolationLevel
+from trino_client.transaction import IsolationLevel
 
 
 def test_isolation_level_levels() -> None:

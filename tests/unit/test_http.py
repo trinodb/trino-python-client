@@ -10,8 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from trino import constants
-from trino.client import (
+from trino_client import constants
+from trino_client.client import (
     get_header_values,
     get_prepared_statement_values,
     get_roles_values,

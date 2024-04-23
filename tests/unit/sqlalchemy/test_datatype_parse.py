@@ -14,8 +14,8 @@ from sqlalchemy.exc import UnsupportedCompilationError
 from sqlalchemy.sql.sqltypes import ARRAY, CHAR, DATE, DECIMAL, INTEGER, VARCHAR
 from sqlalchemy.sql.type_api import TypeEngine
 
-from trino.sqlalchemy import datatype
-from trino.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP
+from trino_client.sqlalchemy import datatype
+from trino_client.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP
 
 
 @pytest.mark.parametrize(

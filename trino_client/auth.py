@@ -24,11 +24,11 @@ from requests import PreparedRequest, Request, Response, Session
 from requests.auth import AuthBase, extract_cookies_to_jar
 from requests.utils import parse_dict_header
 
-import trino.logging
-from trino.client import exceptions
-from trino.constants import HEADER_USER
+import trino_client.logging
+from trino_client.client import exceptions
+from trino_client.constants import HEADER_USER
 
-logger = trino.logging.get_logger(__name__)
+logger = trino_client.logging.get_logger(__name__)
 
 
 class Authentication(metaclass=abc.ABCMeta):
@@ -254,7 +254,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
         try:
             return self._keyring.get_password(key, "token")
         except self._keyring.errors.NoKeyringError as e:
-            raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
+            raise trino_client.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
                                                      "detected, check https://pypi.org/project/keyring/ for more "
                                                      "information.") from e
 
@@ -263,7 +263,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
             # keyring is installed, so we can store the token for reuse within multiple threads
             self._keyring.set_password(key, "token", token)
         except self._keyring.errors.NoKeyringError as e:
-            raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
+            raise trino_client.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
                                                      "detected, check https://pypi.org/project/keyring/ for more "
                                                      "information.") from e
 
