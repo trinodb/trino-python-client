@@ -867,6 +867,41 @@ def test_extra_credential_value_encoding(mock_get_and_post):
     assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "foo=bar+%E7%9A%84"
 
 
+def test_extra_credential_value_object(mock_get_and_post):
+    _, post = mock_get_and_post
+
+    class TestCredential(object):
+        value = "initial"
+
+        def __str__(self):
+            return self.value
+
+    credential = TestCredential()
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        client_session=ClientSession(
+            user="test",
+            extra_credential=[("foo", credential)]
+        )
+    )
+
+    req.post("SELECT 1")
+    _, post_kwargs = post.call_args
+    headers = post_kwargs["headers"]
+    assert constants.HEADER_EXTRA_CREDENTIAL in headers
+    assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "foo=initial"
+
+    # Make a second request, assert that credential has changed
+    credential.value = "changed"
+    req.post("SELECT 1")
+    _, post_kwargs = post.call_args
+    headers = post_kwargs["headers"]
+    assert constants.HEADER_EXTRA_CREDENTIAL in headers
+    assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "foo=changed"
+
+
 class MockGssapiCredentials:
     def __init__(self, name: gssapi.Name, usage: str):
         self.name = name
