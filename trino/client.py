@@ -486,7 +486,8 @@ class TrinoRequest(object):
             # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
             headers[constants.HEADER_EXTRA_CREDENTIAL] = \
                 ", ".join(
-                    [f"{tup[0]}={urllib.parse.quote_plus(tup[1])}" for tup in self._client_session.extra_credential])
+                    [f"{tup[0]}={urllib.parse.quote_plus(str(tup[1]))}"
+                     for tup in self._client_session.extra_credential])
 
         return headers
 
