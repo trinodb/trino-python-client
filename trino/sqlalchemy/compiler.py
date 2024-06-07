@@ -253,6 +253,12 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
         value_type = self.process(type_.value_type, **kw)
         return f'MAP({key_type}, {value_type})'
 
+    def visit_ARRAY(self, type_, **kw):
+        return f'ARRAY({self.process(type_.item_type, **kw)})'
+
+    def visit_ROW(self, type_, **kw):
+        return f'ROW({", ".join(f"{name} {self.process(attr_type, **kw)}" for name, attr_type in type_.attr_types)})'
+
 
 class TrinoIdentifierPreparer(compiler.IdentifierPreparer):
     reserved_words = RESERVED_WORDS
