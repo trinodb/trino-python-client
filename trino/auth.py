@@ -22,7 +22,6 @@ from urllib.parse import urlparse
 
 from requests import PreparedRequest, Request, Response, Session
 from requests.auth import AuthBase, extract_cookies_to_jar
-from requests.utils import parse_dict_header
 
 import trino.logging
 from trino.client import exceptions
@@ -421,10 +420,13 @@ class _OAuth2TokenBearer(AuthBase):
         if not _OAuth2TokenBearer._BEARER_PREFIX.search(auth_info):
             raise exceptions.TrinoAuthError(f"Error: header info didn't match {auth_info}")
 
-        auth_info_headers = parse_dict_header(
-            _OAuth2TokenBearer._BEARER_PREFIX.sub("", auth_info, count=1))  # type: ignore
+        # Example www-authenticate header value:
+        # 'Basic realm="Trino", Bearer realm="Trino", token_type="JWT",
+        # Bearer x_redirect_server="https://trino.com/oauth2/token/uuid4",
+        # x_token_server="https://trino.com/oauth2/token/uuid4"'
+        auth_info_headers = self._parse_authenticate_header(auth_info)
 
-        auth_server = auth_info_headers.get('x_redirect_server')
+        auth_server = auth_info_headers.get('bearer x_redirect_server', auth_info_headers.get('x_redirect_server'))
         token_server = auth_info_headers.get('x_token_server')
         if token_server is None:
             raise exceptions.TrinoAuthError("Error: header info didn't have x_token_server")
@@ -509,6 +511,21 @@ class _OAuth2TokenBearer(AuthBase):
             return host
         else:
             return f"{host}@{user}"
+
+    @staticmethod
+    def _parse_authenticate_header(header: str) -> Dict[str, str]:
+        split_challenge = header.split(" ", 1)
+        trimmed_challenge = split_challenge[1] if len(split_challenge) > 1 else ""
+        auth_info_headers = {}
+
+        for item in trimmed_challenge.split(","):
+            comps = item.split("=")
+            if len(comps) == 2:
+                key = comps[0].strip(' "')
+                value = comps[1].strip(' "')
+                if key:
+                    auth_info_headers[key.lower()] = value
+        return auth_info_headers
 
 
 class OAuth2Authentication(Authentication):
