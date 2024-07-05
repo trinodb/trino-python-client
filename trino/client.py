@@ -323,7 +323,7 @@ class TrinoStatus:
 
 class _DelayExponential(object):
     def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
+            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
     ):
         self._base = base
         self._exponent = exponent
@@ -340,7 +340,7 @@ class _DelayExponential(object):
 
 class _RetryWithExponentialBackoff(object):
     def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
+            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
     ):
         self._get_delay = _DelayExponential(base, exponent, jitter, max_delay)
 
