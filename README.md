@@ -294,6 +294,7 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
 
 ### Kerberos authentication
 
+Make sure that the Kerberos support is installed using `pip install trino[kerberos]`.
 The `KerberosAuthentication` class can be used to connect to a Trino cluster configured with
 the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerberos.html):
 
@@ -328,6 +329,7 @@ the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerb
 
 ### GSSAPI authentication
 
+Make sure that the GSSAPI support is installed using `pip install trino[gssapi]`.
 The `GSSAPIAuthentication` class can be used to connect to a Trino cluster configured with
 the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerberos.html):
 
