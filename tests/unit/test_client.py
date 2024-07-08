@@ -875,7 +875,7 @@ def test_extra_credential_value_encoding(mock_get_and_post):
 def test_extra_credential_value_object(mock_get_and_post):
     _, post = mock_get_and_post
 
-    class TestCredential(object):
+    class TestCredential:
         value = "initial"
 
         def __str__(self):
@@ -974,7 +974,7 @@ def test_authentication_gssapi_init_arguments(
         assert session.auth.creds == expected_credentials
 
 
-class RetryRecorder(object):
+class RetryRecorder:
     def __init__(self, error=None, result=None):
         self.__name__ = "RetryRecorder"
         self._retry_count = 0
@@ -1060,6 +1060,33 @@ def test_5XX_error_retry(status_code, attempts, monkeypatch):
     assert post_retry.retry_count == attempts
 
 
+def test_429_error_retry(monkeypatch):
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 429
+    http_resp.headers["Retry-After"] = 1
+
+    post_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+        ),
+        max_attempts=3
+    )
+
+    req.post("URL")
+    assert post_retry.retry_count == 3
+
+    req.get("URL")
+    assert post_retry.retry_count == 3
+
+
 @pytest.mark.parametrize("status_code", [
     501
 ])
@@ -1089,7 +1116,7 @@ def test_error_no_retry(status_code, monkeypatch):
     assert post_retry.retry_count == 1
 
 
-class FakeGatewayResponse(object):
+class FakeGatewayResponse:
     def __init__(self, http_response, redirect_count=1):
         self.__name__ = "FakeGatewayResponse"
         self.http_response = http_response
@@ -1199,7 +1226,7 @@ def test_retry_with():
         max_attempts=max_attempts,
     )
 
-    class FailerUntil(object):
+    class FailerUntil:
         def __init__(self, until=1):
             self.attempt = 0
             self._until = until

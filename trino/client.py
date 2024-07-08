@@ -43,6 +43,8 @@ import threading
 import urllib.parse
 import warnings
 from dataclasses import dataclass
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -76,7 +78,7 @@ _HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
 ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
 
 
-class ClientSession(object):
+class ClientSession:
     """
     Manage the current Client Session properties of a specific connection. This class is thread-safe.
 
@@ -319,9 +321,9 @@ class TrinoStatus:
         )
 
 
-class _DelayExponential(object):
+class _DelayExponential:
     def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
+            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
     ):
         self._base = base
         self._exponent = exponent
@@ -336,9 +338,9 @@ class _DelayExponential(object):
         return delay
 
 
-class _RetryWithExponentialBackoff(object):
+class _RetryWithExponentialBackoff:
     def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=2 * 3600  # 100ms  # 2 hours
+            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
     ):
         self._get_delay = _DelayExponential(base, exponent, jitter, max_delay)
 
@@ -347,7 +349,15 @@ class _RetryWithExponentialBackoff(object):
         sleep(delay)
 
 
-class TrinoRequest(object):
+class _RetryAfterSleep:
+    def __init__(self, retry_after_header):
+        self._retry_after_header = retry_after_header
+
+    def retry(self):
+        sleep(self._retry_after_header)
+
+
+class TrinoRequest:
     """
     Manage the HTTP requests of a Trino query.
 
@@ -523,9 +533,9 @@ class TrinoRequest(object):
             self._handle_retry,
             handled_exceptions=self._exceptions,
             conditions=(
-                # need retry when there is no exception but the status code is 502, 503, or 504
+                # need retry when there is no exception but the status code is 429, 502, 503, or 504
                 lambda response: getattr(response, "status_code", None)
-                in (502, 503, 504),
+                in (429, 502, 503, 504),
             ),
             max_attempts=self._max_attempts,
         )
@@ -683,7 +693,7 @@ class TrinoRequest(object):
             raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
 
-class TrinoResult(object):
+class TrinoResult:
     """
     Represent the result of a Trino query as an iterator on rows.
 
@@ -721,7 +731,7 @@ class TrinoResult(object):
             self._rows = next_rows
 
 
-class TrinoQuery(object):
+class TrinoQuery:
     """Represent the execution of a SQL statement by Trino."""
 
     def __init__(
@@ -887,7 +897,12 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
                 try:
                     result = func(*args, **kwargs)
                     if any(guard(result) for guard in conditions):
-                        handle_retry.retry(func, args, kwargs, None, attempt)
+                        if result.status_code == 429 and "Retry-After" in result.headers:
+                            retry_after = _parse_retry_after_header(result.headers.get("Retry-After"))
+                            handle_retry_sleep = _RetryAfterSleep(retry_after)
+                            handle_retry_sleep.retry()
+                        else:
+                            handle_retry.retry(func, args, kwargs, None, attempt)
                         continue
                     return result
                 except Exception as err:
@@ -904,3 +919,14 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
         return decorated
 
     return wrapper
+
+
+def _parse_retry_after_header(retry_after):
+    if isinstance(retry_after, int):
+        return retry_after
+    elif isinstance(retry_after, str) and retry_after.isdigit():
+        return int(retry_after)
+    else:
+        retry_date = parsedate_to_datetime(retry_after)
+        now = datetime.utcnow()
+        return (retry_date - now).total_seconds()
