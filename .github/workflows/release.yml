@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{env.PYTHON_VERSION}}
+      - name: Install setuptools
+        run: pip install setuptools
 
       - name: Configure Git user
         run: |
