@@ -6,6 +6,17 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.329.0
+
+* Add support for `SET SESSION AUTHORIZATION`.
+  ([#349](https://github.com/trinodb/trino-python-client/issues/349))
+* Add support for GSSAPI based Kerberos authentication. Use `auth=GSSAPIAuthentication(...)` to use it.
+  ([#454](https://github.com/trinodb/trino-python-client/issues/454))
+* Add support to SQLAlchemy dialect for `ROW` and `ARRAY` DDL generation.
+  ([#458](https://github.com/trinodb/trino-python-client/issues/458))
+* Fix possible OAuth2 authentication failures when identity providers return multiple challenges.
+  ([#444](https://github.com/trinodb/trino-python-client/issues/444))
+
 ## Release 0.328.0
 
 * Add support for Python 3.12 and drop support for Python 3.7 and PyPy 3.8
