@@ -126,7 +126,7 @@ def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
 
 
-class Connection(object):
+class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
     statement, can also be cancelled. Transactions are not supported by this
@@ -329,7 +329,7 @@ class ColumnDescription(NamedTuple):
         )
 
 
-class Cursor(object):
+class Cursor:
     """Database cursor.
 
     Cursors are not isolated, i.e., any changes done to the database by a

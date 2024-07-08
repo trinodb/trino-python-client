@@ -78,7 +78,7 @@ _HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
 ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
 
 
-class ClientSession(object):
+class ClientSession:
     """
     Manage the current Client Session properties of a specific connection. This class is thread-safe.
 
@@ -321,7 +321,7 @@ class TrinoStatus:
         )
 
 
-class _DelayExponential(object):
+class _DelayExponential:
     def __init__(
             self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
     ):
@@ -338,7 +338,7 @@ class _DelayExponential(object):
         return delay
 
 
-class _RetryWithExponentialBackoff(object):
+class _RetryWithExponentialBackoff:
     def __init__(
             self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
     ):
@@ -349,7 +349,7 @@ class _RetryWithExponentialBackoff(object):
         sleep(delay)
 
 
-class _RetryAfterSleep(object):
+class _RetryAfterSleep:
     def __init__(self, retry_after_header):
         self._retry_after_header = retry_after_header
 
@@ -357,7 +357,7 @@ class _RetryAfterSleep(object):
         sleep(self._retry_after_header)
 
 
-class TrinoRequest(object):
+class TrinoRequest:
     """
     Manage the HTTP requests of a Trino query.
 
@@ -693,7 +693,7 @@ class TrinoRequest(object):
             raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
 
-class TrinoResult(object):
+class TrinoResult:
     """
     Represent the result of a Trino query as an iterator on rows.
 
@@ -731,7 +731,7 @@ class TrinoResult(object):
             self._rows = next_rows
 
 
-class TrinoQuery(object):
+class TrinoQuery:
     """Represent the execution of a SQL statement by Trino."""
 
     def __init__(

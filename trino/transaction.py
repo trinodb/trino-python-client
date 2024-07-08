@@ -49,7 +49,7 @@ class IsolationLevel(Enum):
         return level
 
 
-class Transaction(object):
+class Transaction:
     def __init__(self, request: trino.client.TrinoRequest) -> None:
         self._request = request
         self._id = NO_TRANSACTION
