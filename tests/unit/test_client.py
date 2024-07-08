@@ -881,7 +881,7 @@ def test_extra_credential_value_encoding(mock_get_and_post):
 def test_extra_credential_value_object(mock_get_and_post):
     _, post = mock_get_and_post
 
-    class TestCredential(object):
+    class TestCredential:
         value = "initial"
 
         def __str__(self):
@@ -980,7 +980,7 @@ def test_authentication_gssapi_init_arguments(
         assert session.auth.creds == expected_credentials
 
 
-class RetryRecorder(object):
+class RetryRecorder:
     def __init__(self, error=None, result=None):
         self.__name__ = "RetryRecorder"
         self._retry_count = 0
@@ -1122,7 +1122,7 @@ def test_error_no_retry(status_code, monkeypatch):
     assert post_retry.retry_count == 1
 
 
-class FakeGatewayResponse(object):
+class FakeGatewayResponse:
     def __init__(self, http_response, redirect_count=1):
         self.__name__ = "FakeGatewayResponse"
         self.http_response = http_response
@@ -1232,7 +1232,7 @@ def test_retry_with():
         max_attempts=max_attempts,
     )
 
-    class FailerUntil(object):
+    class FailerUntil:
         def __init__(self, until=1):
             self.attempt = 0
             self._until = until
