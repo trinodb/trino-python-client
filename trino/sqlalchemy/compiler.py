@@ -176,7 +176,7 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
         return compiled
 
     def visit_try_cast(self, element, **kw):
-        return f"try_cast ({self.process(element.clause, **kw)} as {self.process(element.typeclause, **kw)})"
+        return f"try_cast({self.process(element.clause, **kw)} as {self.process(element.typeclause, **kw)})"
 
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
