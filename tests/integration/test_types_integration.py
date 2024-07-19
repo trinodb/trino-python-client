@@ -6,6 +6,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
+from dateutil.relativedelta import relativedelta
 
 import trino
 from tests.integration.conftest import trino_version
@@ -733,13 +734,30 @@ def create_timezone(timezone_str: str) -> tzinfo:
         return ZoneInfo(timezone_str)
 
 
-def test_interval(trino_connection):
+def test_interval_year_to_month(trino_connection):
     SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS INTERVAL YEAR TO MONTH)", python=None) \
+        .add_field(sql="INTERVAL '10' YEAR", python=relativedelta(years=10)) \
+        .add_field(sql="INTERVAL '-5' YEAR", python=relativedelta(years=-5)) \
+        .add_field(sql="INTERVAL '3' MONTH", python=relativedelta(months=3)) \
+        .add_field(sql="INTERVAL '-18' MONTH", python=relativedelta(years=-1, months=-6)) \
+        .add_field(sql="INTERVAL '30' MONTH", python=relativedelta(years=2, months=6)) \
+        .add_field(sql="INTERVAL '124-30' YEAR TO MONTH", python=relativedelta(years=126, months=6)) \
+        .execute()
+
+
+def test_interval_day_to_second(trino_connection):
+    SqlTest(trino_connection) \
         .add_field(sql="CAST(null AS INTERVAL DAY TO SECOND)", python=None) \
-        .add_field(sql="INTERVAL '3' MONTH", python='0-3') \
-        .add_field(sql="INTERVAL '2' DAY", python='2 00:00:00.000') \
-        .add_field(sql="INTERVAL '-2' DAY", python='-2 00:00:00.000') \
+        .add_field(sql="INTERVAL '2' DAY", python=timedelta(days=2)) \
+        .add_field(sql="INTERVAL '-2' DAY", python=timedelta(days=-2)) \
+        .add_field(sql="INTERVAL '-2' SECOND", python=timedelta(seconds=-2)) \
+        .add_field(sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
+                   python=timedelta(days=1, seconds=40271, microseconds=116000)) \
+        .add_field(sql="INTERVAL '-5 23:59:57.000' DAY TO SECOND", python=timedelta(days=-6, seconds=3)) \
+        .add_field(sql="INTERVAL '12 10:45' DAY TO MINUTE", python=timedelta(days=12, seconds=38700)) \
+        .add_field(sql="INTERVAL '45:32.123' MINUTE TO SECOND", python=timedelta(seconds=2732, microseconds=123000)) \
+        .add_field(sql="INTERVAL '32.123' SECOND", python=timedelta(seconds=32, microseconds=123000)) \
         .execute()
 
 
