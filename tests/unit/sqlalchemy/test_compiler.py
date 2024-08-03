@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select, try_cast
+from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column, table
 
@@ -152,7 +152,12 @@ def test_ignore_nulls(dialect, function, element):
            f'SELECT {function}("table".id) OVER (PARTITION BY "table".name) AS window ' \
            f'\nFROM "table"'
 
+@pytest.mark.skipif(
+    sqlalchemy_version() < "2.0",
+    reason="ImportError: cannot import name 'try_cast' from 'sqlalchemy'"
+)
 def test_try_cast(dialect):
+    from sqlalchemy import try_cast
     statement = select(try_cast(table_without_catalog.c.id,String))
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT try_cast("table".id as VARCHAR) AS id \nFROM "table"'
