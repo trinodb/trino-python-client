@@ -175,6 +175,9 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
             compiled += ' IGNORE NULLS'
         return compiled
 
+    def visit_try_cast(self, element, **kw):
+        return f"try_cast({self.process(element.clause, **kw)} as {self.process(element.typeclause, **kw)})"
+
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
     pass
