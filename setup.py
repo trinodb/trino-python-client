@@ -27,7 +27,10 @@ with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
 kerberos_require = ["requests_kerberos"]
-gssapi_require = ["requests_gssapi"]
+gssapi_require = [""
+                  "requests_gssapi",
+                  # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
+                  "krb5 == 0.5.1"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
 external_authentication_token_cache_require = ["keyring"]
 

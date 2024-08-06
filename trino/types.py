@@ -5,8 +5,6 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast
 
-from dateutil import tz
-
 PythonTemporalType = TypeVar("PythonTemporalType", bound=Union[time, datetime])
 POWERS_OF_TEN: Dict[int, Decimal] = {i: Decimal(10**i) for i in range(0, 13)}
 MAX_PYTHON_TEMPORAL_PRECISION_POWER = 6
@@ -39,11 +37,6 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
         if digits > precision:
             rounding_factor = POWERS_OF_TEN[precision]
             rounded = remaining_fractional_seconds.quantize(Decimal(1 / rounding_factor))
-            if rounded == rounding_factor:
-                return self.new_instance(
-                    self.normalize(self.add_time_delta(timedelta(seconds=1))),
-                    Decimal(0)
-                )
             return self.new_instance(self._whole_python_temporal_value, rounded)
         return self
 
@@ -53,13 +46,6 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
             This method shall be overriden to implement fraction arithmetics.
         """
         pass
-
-    def normalize(self, value: PythonTemporalType) -> PythonTemporalType:
-        """
-            If `add_time_delta` results in value crossing DST boundaries, this method should
-            return a normalized version of the value to account for it.
-        """
-        return value
 
 
 class Time(TemporalType[time]):
@@ -99,13 +85,6 @@ class Timestamp(TemporalType[datetime]):
 class TimestampWithTimeZone(Timestamp, TemporalType[datetime]):
     def new_instance(self, value: datetime, fraction: Decimal) -> TimestampWithTimeZone:
         return TimestampWithTimeZone(value, fraction)
-
-    def normalize(self, value: datetime) -> datetime:
-        if tz.datetime_ambiguous(value):
-            # This appears to be dead code since tzinfo doesn't actually have a `normalize` method.
-            # TODO: Fix this or remove. (https://github.com/trinodb/trino-python-client/issues/449)
-            return self._whole_python_temporal_value.tzinfo.normalize(value)    # type: ignore
-        return value
 
 
 class NamedRowTuple(Tuple[Any, ...]):

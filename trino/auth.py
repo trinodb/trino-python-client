@@ -388,7 +388,7 @@ class _OAuth2TokenBearer(AuthBase):
         if token is not None:
             r.headers['Authorization'] = "Bearer " + token
 
-        r.register_hook('response', self._authenticate)  # type: ignore
+        r.register_hook('response', self._authenticate)
 
         return r
 
@@ -450,8 +450,8 @@ class _OAuth2TokenBearer(AuthBase):
 
     def _retry_request(self, response: Response, **kwargs: Any) -> Optional[Response]:
         request = response.request.copy()
-        extract_cookies_to_jar(request._cookies, response.request, response.raw)  # type: ignore
-        request.prepare_cookies(request._cookies)  # type: ignore
+        extract_cookies_to_jar(request._cookies, response.request, response.raw)
+        request.prepare_cookies(request._cookies)
 
         host = self._determine_host(response.request.url)
         user = self._determine_user(request.headers)
@@ -459,7 +459,7 @@ class _OAuth2TokenBearer(AuthBase):
         token = self._get_token_from_cache(key)
         if token is not None:
             request.headers['Authorization'] = "Bearer " + token
-        retry_response = response.connection.send(request, **kwargs)  # type: ignore
+        retry_response = response.connection.send(request, **kwargs)
         retry_response.history.append(response)
         retry_response.request = request
         return retry_response
@@ -468,7 +468,7 @@ class _OAuth2TokenBearer(AuthBase):
         attempts = 0
         while attempts < self.MAX_OAUTH_ATTEMPTS:
             attempts += 1
-            with response.connection.send(Request(  # type: ignore
+            with response.connection.send(Request(
                     method='GET', url=token_server).prepare(), **kwargs) as response:
                 if response.status_code == 200:
                     token_response = json.loads(response.text)
