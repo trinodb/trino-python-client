@@ -10,8 +10,6 @@ repos:
     hooks:
       - id: "mypy"
         name: "Python: types"
-        additional_dependencies:
-          - "types-all"
 
   - repo: https://github.com/pycqa/isort
     rev: "5.13.2"
