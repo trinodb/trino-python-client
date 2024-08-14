@@ -46,6 +46,7 @@ tests_require = all_require + gssapi_require + [
     "pre-commit",
     "black",
     "isort",
+    "keyring"
 ]
 
 setup(

@@ -119,7 +119,7 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
         conn2.cursor().execute("SELECT 2")
         conn2.cursor().execute("SELECT 3")
 
-    assert len(_get_token_requests(challenge_id)) == 2
+    assert len(_get_token_requests(challenge_id)) == 1
 
 
 @httprettified

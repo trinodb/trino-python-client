@@ -25,7 +25,7 @@ from requests.auth import AuthBase, extract_cookies_to_jar
 
 import trino.logging
 from trino.client import exceptions
-from trino.constants import HEADER_USER
+from trino.constants import HEADER_USER, MAX_NT_PASSWORD_SIZE
 
 logger = trino.logging.get_logger(__name__)
 
@@ -347,17 +347,49 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
             and not isinstance(self._keyring.get_keyring(), self._keyring.backends.fail.Keyring)
 
     def get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
+        password = self._keyring.get_password(key, "token")
+
         try:
-            return self._keyring.get_password(key, "token")
+            password_as_dict = json.loads(str(password))
+            if password_as_dict.get("sharded_password"):
+                # if password was stored shared, reconstruct it
+                shard_count = int(password_as_dict.get("shard_count"))
+
+                password = ""
+                for i in range(shard_count):
+                    password += str(self._keyring.get_password(key, f"token__{i}"))
+
         except self._keyring.errors.NoKeyringError as e:
             raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
                                                      "detected, check https://pypi.org/project/keyring/ for more "
                                                      "information.") from e
+        except ValueError:
+            pass
+
+        return password
 
     def store_token_to_cache(self, key: Optional[str], token: str) -> None:
+        # keyring is installed, so we can store the token for reuse within multiple threads
         try:
-            # keyring is installed, so we can store the token for reuse within multiple threads
-            self._keyring.set_password(key, "token", token)
+            # if not Windows or "small" password, stick to the default
+            if os.name != "nt" or len(token) < MAX_NT_PASSWORD_SIZE:
+                self._keyring.set_password(key, "token", token)
+            else:
+                logger.debug(f"password is {len(token)} characters, sharding it.")
+
+                password_shards = [
+                    token[i: i + MAX_NT_PASSWORD_SIZE] for i in range(0, len(token), MAX_NT_PASSWORD_SIZE)
+                ]
+                shard_info = {
+                    "sharded_password": True,
+                    "shard_count": len(password_shards),
+                }
+
+                # store the "shard info" as the "base" password
+                self._keyring.set_password(key, "token", json.dumps(shard_info))
+                # then store all shards with the shard number as postfix
+                for i, s in enumerate(password_shards):
+                    self._keyring.set_password(key, f"token__{i}", s)
         except self._keyring.errors.NoKeyringError as e:
             raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
                                                      "detected, check https://pypi.org/project/keyring/ for more "
