@@ -16,11 +16,12 @@ import urllib
 import uuid
 from contextlib import nullcontext as does_not_raise
 from typing import Any, Dict, Optional
-from unittest import mock
+from unittest import TestCase, mock
 from urllib.parse import urlparse
 
 import gssapi
 import httpretty
+import keyring
 import pytest
 import requests
 from httpretty import httprettified
@@ -42,7 +43,12 @@ from tests.unit.oauth_test_utils import (
     _post_statement_requests,
 )
 from trino import __version__, constants
-from trino.auth import GSSAPIAuthentication, KerberosAuthentication, _OAuth2TokenBearer
+from trino.auth import (
+    GSSAPIAuthentication,
+    KerberosAuthentication,
+    _OAuth2KeyRingTokenCache,
+    _OAuth2TokenBearer,
+)
 from trino.client import (
     ClientSession,
     TrinoQuery,
@@ -1343,3 +1349,76 @@ def test_request_with_invalid_timezone(mock_get_and_post):
             ),
         )
     assert str(zinfo_error.value).startswith("'No time zone found with key")
+
+
+class TestShardedPassword(TestCase):
+    def test_store_short_password(self):
+        # set the keyring to mock class
+        keyring.set_keyring(MockKeyring())
+
+        host = "trino.com"
+        short_password = "x" * 10
+
+        cache = _OAuth2KeyRingTokenCache()
+        cache.store_token_to_cache(host, short_password)
+
+        retrieved_password = cache.get_token_from_cache(host)
+        self.assertEqual(short_password, retrieved_password)
+
+    def test_store_long_password(self):
+        # set the keyring to mock class
+        keyring.set_keyring(MockKeyring())
+
+        host = "trino.com"
+        long_password = "x" * 3000
+
+        cache = _OAuth2KeyRingTokenCache()
+        cache.store_token_to_cache(host, long_password)
+
+        retrieved_password = cache.get_token_from_cache(host)
+        self.assertEqual(long_password, retrieved_password)
+
+
+class MockKeyring(keyring.backend.KeyringBackend):
+    def __init__(self):
+        self.file_location = self._generate_test_root_dir()
+
+    @staticmethod
+    def _generate_test_root_dir():
+        import tempfile
+
+        return tempfile.mkdtemp(prefix="trino-python-client-unit-test-")
+
+    def file_path(self, servicename, username):
+        from os.path import join
+
+        file_location = self.file_location
+        file_name = f"{servicename}_{username}.txt"
+        return join(file_location, file_name)
+
+    def set_password(self, servicename, username, password):
+        file_path = self.file_path(servicename, username)
+
+        with open(file_path, "w") as file:
+            file.write(password)
+
+    def get_password(self, servicename, username):
+        import os
+
+        file_path = self.file_path(servicename, username)
+        if not os.path.exists(file_path):
+            return None
+
+        with open(file_path, "r") as file:
+            password = file.read()
+
+        return password
+
+    def delete_password(self, servicename, username):
+        import os
+
+        file_path = self.file_path(servicename, username)
+        if not os.path.exists(file_path):
+            return None
+
+        os.remove(file_path)

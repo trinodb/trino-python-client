@@ -20,6 +20,7 @@ DEFAULT_SCHEMA: Optional[str] = None
 DEFAULT_AUTH: Optional[Any] = None
 DEFAULT_MAX_ATTEMPTS = 3
 DEFAULT_REQUEST_TIMEOUT: float = 30.0
+MAX_NT_PASSWORD_SIZE: int = 1280
 
 HTTP = "http"
 HTTPS = "https"
