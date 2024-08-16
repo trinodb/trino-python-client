@@ -131,7 +131,7 @@ class TrinoDialect(DefaultDialect):
             kwargs["http_scheme"] = "https"
             kwargs["auth"] = JWTAuthentication(unquote_plus(url.query["access_token"]))
 
-        if "cert" and "key" in url.query:
+        if "cert" in url.query and "key" in url.query:
             kwargs["http_scheme"] = "https"
             kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
 
