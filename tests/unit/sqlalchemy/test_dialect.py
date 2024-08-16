@@ -298,6 +298,23 @@ def test_trino_connection_certificate_auth():
     assert cparams['auth']._key == key
 
 
+def test_trino_connection_certificate_auth_cert_and_key_required():
+    dialect = TrinoDialect()
+    cert = '/path/to/cert.pem'
+    key = '/path/to/key.pem'
+    url = make_url(f'trino://host/?cert={cert}')
+    _, cparams = dialect.create_connect_args(url)
+
+    assert 'http_scheme' not in cparams
+    assert 'auth' not in cparams
+
+    url = make_url(f'trino://host/?key={key}')
+    _, cparams = dialect.create_connect_args(url)
+
+    assert 'http_scheme' not in cparams
+    assert 'auth' not in cparams
+
+
 def test_trino_connection_oauth2_auth():
     dialect = TrinoDialect()
     url = make_url('trino://host/?externalAuthentication=true')
