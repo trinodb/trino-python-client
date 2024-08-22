@@ -12,54 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-from codecs import open
-from typing import Any, Dict
+import ast
+import re
+from setuptools import setup
 
-from setuptools import find_packages, setup
 
-about: Dict[str, Any] = {}
-here = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
-    exec(f.read(), about)
+_version_re = re.compile(r"__version__\s+=\s+(.*)")
 
-with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
-    readme = f.read()
 
-kerberos_require = ["requests_kerberos"]
-gssapi_require = [""
-                  "requests_gssapi",
-                  # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
-                  "krb5 == 0.5.1"]
-sqlalchemy_require = ["sqlalchemy >= 1.3"]
-external_authentication_token_cache_require = ["keyring"]
+with open("presto/__init__.py", "rb") as f:
+    version = str(
+        ast.literal_eval(_version_re.search(f.read().decode("utf-8")).group(1))
+    )
 
-# We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
-all_require = kerberos_require + sqlalchemy_require
-
-tests_require = all_require + gssapi_require + [
-    # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
-    # https://github.com/gabrielfalcao/HTTPretty/issues/425
-    "httpretty < 1.1",
-    "pytest",
-    "pytest-runner",
-    "pre-commit",
-    "black",
-    "isort",
-]
+tests_require = ["pytest", "pytest-runner"]
 
 setup(
-    name=about["__title__"],
-    author=about["__author__"],
-    author_email=about["__author_email__"],
-    version=about["__version__"],
-    url=about["__url__"],
-    packages=find_packages(include=["trino", "trino.*"]),
+    name="presto-client",
+    author="Trino Team",
+    author_email="python-client@trino.io",
+    version=version,
+    url="https://github.com/trinodb/trino-python-client",
+    packages=["presto"],
     package_data={"": ["LICENSE", "README.md"]},
-    description=about["__description__"],
-    long_description=readme,
-    long_description_content_type="text/markdown",
-    license=about["__license__"],
+    description="Presto Client is now Trino",
+    long_description="""
+This was a package for PrestoSQL. The package itself is no longer maintained,
+as PrestoSQL got renamed to Trino. Read more at
+https://trino.io/blog/2020/12/27/announcing-trino.html
+
+If you are using an older PrestoSQL release, you can install a previous
+version of the package with:
+
+    pip install presto-client==0.302.0
+
+The package has been superseded with a client for Trino. You can install it
+with:
+
+    pip install trino
+
+Apologies for the disruption and very short notice, resulting in no transition
+period.
+""",
+    license="Apache 2.0",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -68,36 +63,16 @@ setup(
         "Operating System :: POSIX",
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
+        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    python_requires=">=3.8",
-    install_requires=[
-        "backports.zoneinfo;python_version<'3.9'",
-        "python-dateutil",
-        "pytz",
-        # requests CVE https://github.com/advisories/GHSA-j8r2-6x86-q33q
-        "requests>=2.31.0",
-        "tzlocal",
-    ],
     extras_require={
-        "all": all_require,
-        "kerberos": kerberos_require,
-        "gssapi": gssapi_require,
-        "sqlalchemy": sqlalchemy_require,
+        "all": [],
         "tests": tests_require,
-        "external-authentication-token-cache": external_authentication_token_cache_require,
-    },
-    entry_points={
-        "sqlalchemy.dialects": [
-            "trino = trino.sqlalchemy.dialect:TrinoDialect",
-        ]
     },
 )

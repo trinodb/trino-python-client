@@ -9,8 +9,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from sqlalchemy.dialects import registry
 
-from .util import _url as URL  # noqa
+__version__ = "0.303.0"
 
-registry.register("trino", "trino.sqlalchemy.dialect", "TrinoDialect")
+raise Exception("""
+This was a package for PrestoSQL. The package itself is no longer maintained,
+as PrestoSQL got renamed to Trino. Read more at
+https://trino.io/blog/2020/12/27/announcing-trino.html
+
+If you are using an older PrestoSQL release, you can install a previous
+version of the package with:
+
+    pip install presto-client==0.302.0
+    
+The package has been superseded with a client for Trino. You can install it
+with:
+
+    pip install trino
+    
+Apologies for the disruption and very short notice, resulting in no transition
+period.
+""")
