@@ -459,7 +459,7 @@ class _OAuth2TokenBearer(AuthBase):
         auth_info_headers = self._parse_authenticate_header(auth_info)
 
         auth_server = auth_info_headers.get('bearer x_redirect_server', auth_info_headers.get('x_redirect_server'))
-        token_server = auth_info_headers.get('x_token_server')
+        token_server = auth_info_headers.get('bearer x_token_server', auth_info_headers.get('x_token_server'))
         if token_server is None:
             raise exceptions.TrinoAuthError("Error: header info didn't have x_token_server")
 
