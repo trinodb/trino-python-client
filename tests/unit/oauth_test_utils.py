@@ -54,11 +54,25 @@ class PostStatementCallback:
         if authorization and authorization.replace("Bearer ", "") in self.tokens:
             return [200, response_headers, json.dumps(self.sample_post_response_data)]
         elif self.redirect_server is None and self.token_server is not None:
-            return [401, {'Www-Authenticate': f'Bearer x_token_server="{self.token_server}"',
-                          'Basic realm': '"Trino"'}, ""]
-        return [401, {'Www-Authenticate': f'Bearer x_redirect_server="{self.redirect_server}", '
-                                          f'x_token_server="{self.token_server}"',
-                      'Basic realm': '"Trino"'}, ""]
+            return [401,
+                    {
+                        'Www-Authenticate': (
+                            'Bearer realm="Trino", token_type="JWT", '
+                            f'Bearer x_token_server="{self.token_server}"'
+                        ),
+                        'Basic realm': '"Trino"'
+                    },
+                    ""]
+        return [401,
+                {
+                    'Www-Authenticate': (
+                        'Bearer realm="Trino", token_type="JWT", '
+                        f'Bearer x_redirect_server="{self.redirect_server}", '
+                        f'x_token_server="{self.token_server}"'
+                    ),
+                    'Basic realm': '"Trino"'
+                },
+                ""]
 
 
 class GetTokenCallback:
