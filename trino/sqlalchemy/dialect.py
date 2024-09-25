@@ -204,6 +204,22 @@ class TrinoDialect(DefaultDialect):
             columns.append(column)
         return columns
 
+    def _get_partitions(
+        self,
+        connection: Connection,
+        table_name: str,
+        schema: str = None
+    ) -> List[Dict[str, List[Any]]]:
+        schema = schema or self._get_default_schema_name(connection)
+        query = dedent(
+            f"""
+            SELECT * FROM {schema}."{table_name}$partitions"
+        """
+        ).strip()
+        res = connection.execute(sql.text(query))
+        partition_names = [desc[0] for desc in res.cursor.description]
+        return partition_names
+
     def get_pk_constraint(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
         """Trino has no support for primary keys. Returns a dummy"""
         return dict(name=None, constrained_columns=[])
@@ -299,7 +315,7 @@ class TrinoDialect(DefaultDialect):
 
         partitioned_columns = None
         try:
-            partitioned_columns = self._get_columns(connection, f"{table_name}$partitions", schema, **kw)
+            partitioned_columns = self._get_partitions(connection, f"{table_name}", schema)
         except Exception as e:
             # e.g. it's not a Hive table or an unpartitioned Hive table
             logger.debug("Couldn't fetch partition columns. schema: %s, table: %s, error: %s", schema, table_name, e)
@@ -307,7 +323,7 @@ class TrinoDialect(DefaultDialect):
             return []
         partition_index = dict(
             name="partition",
-            column_names=[col["name"] for col in partitioned_columns],
+            column_names=partitioned_columns,
             unique=False
         )
         return [partition_index]
