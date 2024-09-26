@@ -28,11 +28,13 @@ and the [PyPI page](https://pypi.org/project/trino/).
 
 * Add support for `SET SESSION AUTHORIZATION`.
   ([#349](https://github.com/trinodb/trino-python-client/issues/349))
-* Add support for GSSAPI based Kerberos authentication. Use `auth=GSSAPIAuthentication(...)` to use it.
+* Add support for GSSAPI based Kerberos authentication. Use
+  `auth=GSSAPIAuthentication(...)` to use it.
   ([#454](https://github.com/trinodb/trino-python-client/issues/454))
 * Add support to SQLAlchemy dialect for `ROW` and `ARRAY` DDL generation.
   ([#458](https://github.com/trinodb/trino-python-client/issues/458))
-* Fix possible OAuth2 authentication failures when identity providers return multiple challenges.
+* Fix possible OAuth2 authentication failures when identity providers return
+  multiple challenges.
   ([#444](https://github.com/trinodb/trino-python-client/issues/444))
 
 ## Release 0.328.0
@@ -122,7 +124,8 @@ and the [PyPI page](https://pypi.org/project/trino/).
   ([#359](https://github.com/trinodb/trino-python-client/issues/359))
 * Support using timezone aware `datetime.time` params in prepared statements.
   ([#360](https://github.com/trinodb/trino-python-client/issues/360))
-* Allow accessing `ROW` type fields using their names in addition to their indices.
+* Allow accessing `ROW` type fields using their names in addition to their
+  indices.
   ([#338](https://github.com/trinodb/trino-python-client/issues/338))
 * Interpret `roles` without catalog name as system roles for convenience.
   ([#341](https://github.com/trinodb/trino-python-client/issues/341))
@@ -134,8 +137,8 @@ and the [PyPI page](https://pypi.org/project/trino/).
 * Provide a read-only property `query` on the DB-API `Cursor` which contains
   the query text submitted through the cursor when available.
   ([#323](https://github.com/trinodb/trino-python-client/issues/323))
-* Automatically determine `http_scheme`, `host` and `port` from `host` if it's a
-  valid URL.
+* Automatically determine `http_scheme`, `host` and `port` from `host` if it's
+  a valid URL.
   ([#340](https://github.com/trinodb/trino-python-client/issues/340))
 * Fix query cancellation to follow the protocol. Before this change cancelling
   a query could lead to errors from the Trino server.
@@ -154,7 +157,8 @@ and the [PyPI page](https://pypi.org/project/trino/).
   ([#315](https://github.com/trinodb/trino-python-client/issues/315))
 * Add support for chaining methods on `Cursor.execute`.
   ([#279](https://github.com/trinodb/trino-python-client/issues/279))
-* Fix bug where passing `roles` to `Connection` did not enable the provided roles.
+* Fix bug where passing `roles` to `Connection` did not enable the provided
+  roles.
   ([#311](https://github.com/trinodb/trino-python-client/issues/311))
 
 ### Breaking Changes
@@ -182,9 +186,11 @@ and the [PyPI page](https://pypi.org/project/trino/).
 
 * Fix handling of expired access tokens when using OAuth 2 authentication.
   ([#284](https://github.com/trinodb/trino-python-client/issues/284))
-* Support `None` values in array, map and row types when `experimental_python_types` is enabled.
+* Support `None` values in array, map and row types when
+  `experimental_python_types` is enabled.
   ([#269](https://github.com/trinodb/trino-python-client/issues/269))
-* Expose query id of most recently executed query on a cursor as `Cursor.query_id`.
+* Expose query id of most recently executed query on a cursor as
+  `Cursor.query_id`.
   ([#295](https://github.com/trinodb/trino-python-client/issues/295))
 
 ## Release 0.319.0
