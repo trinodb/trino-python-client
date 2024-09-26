@@ -6,6 +6,24 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.330.0
+
+* Add support for `try_cast` to SQLAlchemy dialect.
+  ([#473](https://github.com/trinodb/trino-python-client/issues/473))
+* Add retries on HTTP 429 error from Trino or a gateway/proxy using the
+  `Retry-After` HTTP header in the response.
+  ([#457](https://github.com/trinodb/trino-python-client/issues/457))
+* Fix token caching for long tokens on Windows.
+  ([#477](https://github.com/trinodb/trino-python-client/issues/477))
+* Fix parsing of multi-valued `WWW-Authenticate` HTTP headers.
+  ([#484](https://github.com/trinodb/trino-python-client/issues/484))
+* Fix SQLAlchemy `get_indexes` implementation to return partition column names
+  for Hive connector instead of returning column names of the
+  `<table>$partitions` table.
+  ([#476](https://github.com/trinodb/trino-python-client/issues/476))
+* Fix parsing of `cert` and `key` from SQLAlchemy connection URI.
+  ([#478](https://github.com/trinodb/trino-python-client/issues/478))
+
 ## Release 0.329.0
 
 * Add support for `SET SESSION AUTHORIZATION`.
