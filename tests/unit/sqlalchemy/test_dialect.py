@@ -252,7 +252,8 @@ class TestTrinoDialect:
         assert isolation_level == "AUTOCOMMIT"
 
     def test_isolation_level(self):
-        dbapi_conn = Connection(host="localhost")
+        # The test only verifies that isolation level is correctly set, no need to attempt actual connection
+        dbapi_conn = Connection(host="localhost", defer_connect=True)
 
         self.dialect.set_isolation_level(dbapi_conn, "SERIALIZABLE")
         assert dbapi_conn._isolation_level == IsolationLevel.SERIALIZABLE
