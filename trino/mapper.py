@@ -8,12 +8,12 @@ from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
-from dateutil.relativedelta import relativedelta
-
 if sys.version_info >= (3, 9):
     from zoneinfo import ZoneInfo
 else:
     from backports.zoneinfo import ZoneInfo
+
+from dateutil.relativedelta import relativedelta
 
 import trino.exceptions
 from trino.types import (
@@ -198,7 +198,14 @@ class IntervalDayToSecondMapper(ValueMapper[timedelta]):
                                                        int(milliseconds))
         if is_negative:
             days, hours, minutes, seconds, milliseconds = -days, -hours, -minutes, -seconds, -milliseconds
-        return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
+        try:
+            return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
+        except OverflowError as e:
+            error_str = (
+                f"Could not convert '{value}' into the associated python type, as the value "
+                "exceeds the maximum or minimum limit."
+            )
+            raise trino.exceptions.TrinoDataError(error_str) from e
 
 
 class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
