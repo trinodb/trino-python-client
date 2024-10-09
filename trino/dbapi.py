@@ -27,11 +27,7 @@ from threading import Lock
 from time import time
 from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
 from urllib.parse import urlparse
-
-try:
-    from zoneinfo import ZoneInfo
-except ModuleNotFoundError:
-    from backports.zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 
 import trino.client
 import trino.exceptions
