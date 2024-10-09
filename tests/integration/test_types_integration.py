@@ -3,11 +3,7 @@ import re
 import uuid
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
-
-try:
-    from zoneinfo import ZoneInfo
-except ModuleNotFoundError:
-    from backports.zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 
 import pytest
 

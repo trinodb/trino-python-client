@@ -18,6 +18,7 @@ from contextlib import nullcontext as does_not_raise
 from typing import Any, Dict, Optional
 from unittest import TestCase, mock
 from urllib.parse import urlparse
+from zoneinfo import ZoneInfoNotFoundError
 
 import gssapi
 import httpretty
@@ -58,11 +59,6 @@ from trino.client import (
     _retry_with,
     _RetryWithExponentialBackoff,
 )
-
-try:
-    from zoneinfo import ZoneInfoNotFoundError  # type: ignore
-except ModuleNotFoundError:
-    from backports.zoneinfo._common import ZoneInfoNotFoundError  # type: ignore
 
 
 @mock.patch("trino.client.TrinoRequest.http")

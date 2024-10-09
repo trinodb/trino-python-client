@@ -15,11 +15,7 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Tuple
-
-try:
-    from zoneinfo import ZoneInfo
-except ModuleNotFoundError:
-    from backports.zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 
 import pytest
 import requests
