@@ -47,13 +47,7 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union
-
-from trino.mapper import RowMapper, RowMapperFactory
-
-try:
-    from zoneinfo import ZoneInfo
-except ModuleNotFoundError:
-    from backports.zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 
 import requests
 from tzlocal import get_localzone_name  # type: ignore
@@ -61,6 +55,7 @@ from tzlocal import get_localzone_name  # type: ignore
 import trino.logging
 from trino import constants, exceptions
 from trino._version import __version__
+from trino.mapper import RowMapper, RowMapperFactory
 
 __all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 

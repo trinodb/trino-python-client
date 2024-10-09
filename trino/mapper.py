@@ -2,16 +2,11 @@ from __future__ import annotations
 
 import abc
 import base64
-import sys
 import uuid
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
-
-if sys.version_info >= (3, 9):
-    from zoneinfo import ZoneInfo
-else:
-    from backports.zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo
 
 import trino.exceptions
 from trino.types import (
