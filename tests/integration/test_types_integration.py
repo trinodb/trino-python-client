@@ -735,30 +735,79 @@ def create_timezone(timezone_str: str) -> tzinfo:
 
 
 def test_interval_year_to_month(trino_connection):
-    SqlTest(trino_connection) \
-        .add_field(sql="CAST(null AS INTERVAL YEAR TO MONTH)", python=None) \
-        .add_field(sql="INTERVAL '10' YEAR", python=relativedelta(years=10)) \
-        .add_field(sql="INTERVAL '-5' YEAR", python=relativedelta(years=-5)) \
-        .add_field(sql="INTERVAL '3' MONTH", python=relativedelta(months=3)) \
-        .add_field(sql="INTERVAL '-18' MONTH", python=relativedelta(years=-1, months=-6)) \
-        .add_field(sql="INTERVAL '30' MONTH", python=relativedelta(years=2, months=6)) \
-        .add_field(sql="INTERVAL '124-30' YEAR TO MONTH", python=relativedelta(years=126, months=6)) \
-        .execute()
+    (
+        SqlTest(trino_connection)
+        .add_field(
+            sql="CAST(null AS INTERVAL YEAR TO MONTH)",
+            python=None)
+        .add_field(
+            sql="INTERVAL '10' YEAR",
+            python=relativedelta(years=10))
+        .add_field(
+            sql="INTERVAL '-5' YEAR",
+            python=relativedelta(years=-5))
+        .add_field(
+            sql="INTERVAL '3' MONTH",
+            python=relativedelta(months=3))
+        .add_field(
+            sql="INTERVAL '-18' MONTH",
+            python=relativedelta(years=-1, months=-6))
+        .add_field(
+            sql="INTERVAL '30' MONTH",
+            python=relativedelta(years=2, months=6))
+        # max supported INTERVAL in Trino
+        .add_field(
+            sql="INTERVAL '178956970-7' YEAR TO MONTH",
+            python=relativedelta(years=178956970, months=7))
+        # min supported INTERVAL in Trino
+        .add_field(
+            sql="INTERVAL '-178956970-8' YEAR TO MONTH",
+            python=relativedelta(years=-178956970, months=-8))
+    ).execute()
 
 
 def test_interval_day_to_second(trino_connection):
-    SqlTest(trino_connection) \
-        .add_field(sql="CAST(null AS INTERVAL DAY TO SECOND)", python=None) \
-        .add_field(sql="INTERVAL '2' DAY", python=timedelta(days=2)) \
-        .add_field(sql="INTERVAL '-2' DAY", python=timedelta(days=-2)) \
-        .add_field(sql="INTERVAL '-2' SECOND", python=timedelta(seconds=-2)) \
-        .add_field(sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
-                   python=timedelta(days=1, seconds=40271, microseconds=116000)) \
-        .add_field(sql="INTERVAL '-5 23:59:57.000' DAY TO SECOND", python=timedelta(days=-6, seconds=3)) \
-        .add_field(sql="INTERVAL '12 10:45' DAY TO MINUTE", python=timedelta(days=12, seconds=38700)) \
-        .add_field(sql="INTERVAL '45:32.123' MINUTE TO SECOND", python=timedelta(seconds=2732, microseconds=123000)) \
-        .add_field(sql="INTERVAL '32.123' SECOND", python=timedelta(seconds=32, microseconds=123000)) \
-        .execute()
+    (
+        SqlTest(trino_connection)
+        .add_field(
+            sql="CAST(null AS INTERVAL DAY TO SECOND)",
+            python=None)
+        .add_field(
+            sql="INTERVAL '2' DAY",
+            python=timedelta(days=2))
+        .add_field(
+            sql="INTERVAL '-2' DAY",
+            python=timedelta(days=-2))
+        .add_field(
+            sql="INTERVAL '-2' SECOND",
+            python=timedelta(seconds=-2))
+        .add_field(
+            sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
+            python=timedelta(days=1, seconds=40271, microseconds=116000))
+        .add_field(
+            sql="INTERVAL '-5 23:59:57.000' DAY TO SECOND",
+            python=timedelta(days=-6, seconds=3))
+        .add_field(
+            sql="INTERVAL '12 10:45' DAY TO MINUTE",
+            python=timedelta(days=12, seconds=38700))
+        .add_field(
+            sql="INTERVAL '45:32.123' MINUTE TO SECOND",
+            python=timedelta(seconds=2732, microseconds=123000))
+        .add_field(
+            sql="INTERVAL '32.123' SECOND",
+            python=timedelta(seconds=32, microseconds=123000))
+        # max supported timedelta in Python
+        .add_field(
+            sql="INTERVAL '999999999 23:59:59.999' DAY TO SECOND",
+            python=timedelta(days=999999999, hours=23, minutes=59, seconds=59, milliseconds=999))
+        # min supported timedelta in Python
+        .add_field(
+            sql="INTERVAL '-999999999' DAY",
+            python=timedelta(days=-999999999))
+    ).execute()
+
+    SqlExpectFailureTest(trino_connection).execute("INTERVAL '1000000000' DAY")
+    SqlExpectFailureTest(trino_connection).execute("INTERVAL '-999999999 00:00:00.001' DAY TO SECOND")
 
 
 def test_array(trino_connection):
