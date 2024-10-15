@@ -111,5 +111,14 @@ class NamedRowTuple(Tuple[Any, ...]):
         if self._names.count(name):
             raise ValueError("Ambiguous row field reference: " + name)
 
+    def __getnewargs__(self) -> Any:
+        return (tuple(self), (), ())
+
+    def __getstate__(self) -> Any:
+        return vars(self)
+
+    def __setstate__(self, state: Any) -> None:
+        vars(self).update(state)
+
     def __repr__(self) -> str:
         return self._repr
