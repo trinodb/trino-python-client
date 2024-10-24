@@ -8,6 +8,8 @@ from decimal import Decimal
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 from zoneinfo import ZoneInfo
 
+from dateutil.relativedelta import relativedelta
+
 import trino.exceptions
 from trino.types import (
     POWERS_OF_TEN,
@@ -167,6 +169,40 @@ def _fraction_to_decimal(fractional_str: str) -> Decimal:
     return Decimal(fractional_str or 0) / POWERS_OF_TEN[len(fractional_str)]
 
 
+class IntervalYearToMonthMapper(ValueMapper[relativedelta]):
+    def map(self, value: Any) -> Optional[relativedelta]:
+        if value is None:
+            return None
+        is_negative = value[0] == "-"
+        years, months = (value[1:] if is_negative else value).split('-')
+        years, months = int(years), int(months)
+        if is_negative:
+            years, months = -years, -months
+        return relativedelta(years=years, months=months)
+
+
+class IntervalDayToSecondMapper(ValueMapper[timedelta]):
+    def map(self, value: Any) -> Optional[timedelta]:
+        if value is None:
+            return None
+        is_negative = value[0] == "-"
+        days, time = (value[1:] if is_negative else value).split(' ')
+        hours, minutes, seconds_milliseconds = time.split(':')
+        seconds, milliseconds = seconds_milliseconds.split('.')
+        days, hours, minutes, seconds, milliseconds = (int(days), int(hours), int(minutes), int(seconds),
+                                                       int(milliseconds))
+        if is_negative:
+            days, hours, minutes, seconds, milliseconds = -days, -hours, -minutes, -seconds, -milliseconds
+        try:
+            return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
+        except OverflowError as e:
+            error_str = (
+                f"Could not convert '{value}' into the associated python type, as the value "
+                "exceeds the maximum or minimum limit."
+            )
+            raise trino.exceptions.TrinoDataError(error_str) from e
+
+
 class ArrayValueMapper(ValueMapper[List[Optional[Any]]]):
     def __init__(self, mapper: ValueMapper[Any]):
         self.mapper = mapper
@@ -271,6 +307,10 @@ class RowMapperFactory:
             return TimestampValueMapper(self._get_precision(column))
         if col_type == 'timestamp with time zone':
             return TimestampWithTimeZoneValueMapper(self._get_precision(column))
+        if col_type == 'interval year to month':
+            return IntervalYearToMonthMapper()
+        if col_type == 'interval day to second':
+            return IntervalDayToSecondMapper()
 
         # structural types
         if col_type == 'array':
