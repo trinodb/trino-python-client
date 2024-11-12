@@ -546,17 +546,17 @@ class _OAuth2TokenBearer(AuthBase):
 
     @staticmethod
     def _parse_authenticate_header(header: str) -> Dict[str, str]:
-        split_challenge = header.split(" ", 1)
-        trimmed_challenge = split_challenge[1] if len(split_challenge) > 1 else ""
+        logger.debug(f"Authentication header: {header}")
+        components = header.split(",")
         auth_info_headers = {}
 
-        for item in trimmed_challenge.split(","):
-            comps = item.split("=")
-            if len(comps) == 2:
-                key = comps[0].strip(' "')
-                value = comps[1].strip(' "')
-                if key:
-                    auth_info_headers[key.lower()] = value
+        for component in components:
+            component = component.strip()
+            if "=" in component:
+                key, value = component.split("=", 1)
+                if value[0] == '"' and value[-1] == '"':
+                    value = value[1:-1]
+                auth_info_headers[key.lower()] = value
         return auth_info_headers
 
 
