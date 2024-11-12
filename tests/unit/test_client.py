@@ -543,13 +543,14 @@ def test_oauth2_authentication_missing_headers(header, error):
     'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", Basic realm="Trino"',
     'Basic realm="Trino", Bearer realm="Trino", token_type="JWT", Bearer x_redirect_server="{redirect_server}", '
     'x_token_server="{token_server}"'
+    'Bearer x_redirect_server="{redirect_server}",x_token_server="{token_server}",additional_challenge',
 ])
 @httprettified
 def test_oauth2_header_parsing(header, sample_post_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 
-    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+    redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}?role=test"
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
     # noinspection PyUnusedLocal
