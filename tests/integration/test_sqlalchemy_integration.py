@@ -29,7 +29,7 @@ from trino.sqlalchemy.datatype import ROW
 
 @pytest.fixture
 def trino_connection(run_trino, request):
-    _, host, port = run_trino
+    host, port = run_trino
     connect_args = {"source": "test", "max_attempts": 1}
     if trino_version() <= 417:
         connect_args["legacy_prepared_statements"] = True
