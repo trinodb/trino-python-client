@@ -30,6 +30,7 @@ from typing import Dict
 from typing import List
 from typing import NamedTuple
 from typing import Optional
+from typing import Union
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -128,6 +129,9 @@ def connect(*args, **kwargs):
     return Connection(*args, **kwargs)
 
 
+_USE_DEFAULT_ENCODING = object()
+
+
 class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
@@ -159,9 +163,17 @@ class Connection:
         legacy_prepared_statements=None,
         roles=None,
         timezone=None,
+        encoding: Union[str, List[str]] = _USE_DEFAULT_ENCODING,
     ):
         # Automatically assign http_schema, port based on hostname
         parsed_host = urlparse(host, allow_fragments=False)
+
+        if encoding is _USE_DEFAULT_ENCODING:
+            encoding = [
+                "json+zstd",
+                "json+lz4",
+                "json",
+            ]
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.port = port if parsed_host.port is None else parsed_host.port
@@ -182,6 +194,7 @@ class Connection:
             client_tags=client_tags,
             roles=roles,
             timezone=timezone,
+            encoding=encoding,
         )
         # mypy cannot follow module import
         if http_session is None:
