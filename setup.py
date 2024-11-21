@@ -46,7 +46,9 @@ tests_require = all_require + gssapi_require + [
     "pre-commit",
     "black",
     "isort",
-    "keyring"
+    "keyring",
+    "testcontainers",
+    "boto3"
 ]
 
 setup(

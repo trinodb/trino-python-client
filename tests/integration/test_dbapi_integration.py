@@ -32,7 +32,7 @@ from trino.transaction import IsolationLevel
 
 @pytest.fixture
 def trino_connection(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     yield trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
@@ -41,7 +41,7 @@ def trino_connection(run_trino):
 
 @pytest.fixture
 def trino_connection_with_transaction(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     yield trino.dbapi.Connection(
         host=host,
@@ -55,7 +55,7 @@ def trino_connection_with_transaction(run_trino):
 
 @pytest.fixture
 def trino_connection_in_autocommit(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     yield trino.dbapi.Connection(
         host=host,
@@ -261,7 +261,7 @@ def test_legacy_primitive_types_with_connection_and_cursor(
         cursor_legacy_primitive_types,
         run_trino
 ):
-    _, host, port = run_trino
+    host, port = run_trino
 
     connection = trino.dbapi.Connection(
         host=host,
@@ -1357,7 +1357,7 @@ def test_close_cursor(trino_connection):
 
 
 def test_session_properties(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     connection = trino.dbapi.Connection(
         host=host,
@@ -1505,7 +1505,7 @@ def test_client_tags_special_characters(run_trino):
 
 
 def retrieve_client_tags_from_query(run_trino, client_tags):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host,
@@ -1554,7 +1554,7 @@ def test_use_catalog_schema(trino_connection):
 
 @pytest.mark.skipif(trino_version() == 351, reason="current_catalog not supported in older Trino versions")
 def test_use_schema(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", catalog="tpch", max_attempts=1
@@ -1581,7 +1581,7 @@ def test_use_schema(run_trino):
 
 
 def test_set_role(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch"
@@ -1601,7 +1601,7 @@ def test_set_role(run_trino):
 
 
 def test_set_role_in_connection(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch", roles={"system": "ALL"}
@@ -1613,7 +1613,7 @@ def test_set_role_in_connection(run_trino):
 
 
 def test_set_system_role_in_connection(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch", roles="ALL"
@@ -1668,7 +1668,7 @@ def test_prepared_statements(legacy_prepared_statements, run_trino):
 
 
 def test_set_timezone_in_connection(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch", timezone="Europe/Brussels"
@@ -1680,7 +1680,7 @@ def test_set_timezone_in_connection(run_trino):
 
 
 def test_connection_without_timezone(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch"
@@ -1696,7 +1696,7 @@ def test_connection_without_timezone(run_trino):
 
 
 def test_describe(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch",
@@ -1712,7 +1712,7 @@ def test_describe(run_trino):
 
 
 def test_describe_table_query(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
         host=host, port=port, user="test", catalog="tpch",
@@ -1802,7 +1802,7 @@ def test_prepared_statement_capability_autodetection(legacy_prepared_statements,
     trino.dbapi.must_use_legacy_prepared_statements = TimeBoundLRUCache(1024, 3600)
     user_name = f"user_{t.monotonic_ns()}"
 
-    _, host, port = run_trino
+    host, port = run_trino
     connection = trino.dbapi.Connection(
         host=host,
         port=port,
@@ -1822,8 +1822,24 @@ def test_prepared_statement_capability_autodetection(legacy_prepared_statements,
     assert statements.count("EXECUTE IMMEDIATE 'SELECT 1'") == (1 if legacy_prepared_statements is None else 0)
 
 
+@pytest.mark.skipif(
+    trino_version() <= '464',
+    reason="spooled protocol was introduced in version 464"
+)
+def test_select_query_spooled_segments(trino_connection):
+    cur = trino_connection.cursor()
+    cur.execute("""SELECT l.*
+    FROM tpch.tiny.lineitem l, TABLE(sequence(
+        start => 1,
+        stop => 5,
+        step => 1)) n""")
+    rows = cur.fetchall()
+    # TODO: improve test
+    assert len(rows) > 0
+
+
 def get_cursor(legacy_prepared_statements, run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     connection = trino.dbapi.Connection(
         host=host,
