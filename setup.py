@@ -83,11 +83,13 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
+        "lz4",
         "python-dateutil",
         "pytz",
         # requests CVE https://github.com/advisories/GHSA-j8r2-6x86-q33q
         "requests>=2.31.0",
         "tzlocal",
+        "zstandard",
     ],
     extras_require={
         "all": all_require,
