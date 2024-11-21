@@ -34,27 +34,40 @@ The main interface is :class:`TrinoQuery`: ::
 """
 from __future__ import annotations
 
+import abc
+import atexit
+import base64
 import copy
 import functools
+import json
 import os
 import random
 import re
 import threading
 import urllib.parse
 import warnings
+from abc import abstractmethod
+from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
+from enum import Enum
 from time import sleep
 from typing import Any
+from typing import cast
 from typing import Dict
 from typing import List
+from typing import Literal
 from typing import Optional
 from typing import Tuple
+from typing import TypedDict
 from typing import Union
 from zoneinfo import ZoneInfo
 
+import lz4.block
 import requests
+import zstandard
 from requests import Response
 from requests import Session
 from requests.structures import CaseInsensitiveDict
@@ -71,9 +84,26 @@ from trino.exceptions import TrinoUserError
 from trino.mapper import RowMapper
 from trino.mapper import RowMapperFactory
 
-__all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
+__all__ = [
+    "ClientSession",
+    "TrinoQuery",
+    "TrinoRequest",
+    "PROXIES",
+    "SpooledData",
+    "SpooledSegment",
+    "InlineSegment",
+    "Segment"
+]
 
 logger = trino.logging.get_logger(__name__)
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+def close_executor():
+    executor.shutdown(wait=True)
+
+
+atexit.register(close_executor)
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
@@ -121,6 +151,7 @@ class ClientSession:
     :param roles: roles for the current session. Some connectors do not
                  support role management. See connector documentation for more details.
     :param timezone: The timezone for query processing. Defaults to the system's local timezone.
+    :param encoding: The encoding for the spooling protocol. Defaults to None.
     """
 
     def __init__(
@@ -137,6 +168,7 @@ class ClientSession:
         client_tags: Optional[List[str]] = None,
         roles: Optional[Union[Dict[str, str], str]] = None,
         timezone: Optional[str] = None,
+        encoding: Optional[Union[str, List[str]]] = None,
     ):
         self._object_lock = threading.Lock()
         self._prepared_statements: Dict[str, str] = {}
@@ -155,6 +187,7 @@ class ClientSession:
         self._timezone = timezone or get_localzone_name()
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
+        self._encoding = encoding
 
     @property
     def user(self) -> str:
@@ -250,6 +283,11 @@ class ClientSession:
         with self._object_lock:
             return self._timezone
 
+    @property
+    def encoding(self) -> Union[str, List[str]]:
+        with self._object_lock:
+            return self._encoding
+
     @staticmethod
     def _format_roles(roles: Union[Dict[str, str], str]) -> Dict[str, str]:
         if isinstance(roles, str):
@@ -315,7 +353,7 @@ class TrinoStatus:
     next_uri: Optional[str]
     update_type: Optional[str]
     update_count: Optional[int]
-    rows: List[Any]
+    rows: Union[List[Any], Dict[str, Any]]
     columns: List[Any]
 
     def __repr__(self):
@@ -478,6 +516,14 @@ class TrinoRequest:
         headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_AUTHORIZATION_USER] = self._client_session.authorization_user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
+        if self._client_session.encoding is None:
+            pass
+        elif isinstance(self._client_session.encoding, list):
+            headers[constants.HEADER_ENCODING] = ",".join(self._client_session.encoding)
+        elif isinstance(self._client_session.encoding, str):
+            headers[constants.HEADER_ENCODING] = self._client_session.encoding
+        else:
+            raise ValueError("Invalid type for encoding: expected str or list")
         headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME'
         headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
         if len(self._client_session.roles.values()):
@@ -854,7 +900,7 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
-    def fetch(self) -> List[List[Any]]:
+    def fetch(self) -> List[Union[List[Any]], Any]:
         """Continue fetching data for the current query_id"""
         try:
             response = self._request.get(self._request.next_uri)
@@ -868,7 +914,32 @@ class TrinoQuery:
         if not self._row_mapper:
             return []
 
-        return self._row_mapper.map(status.rows)
+        rows = status.rows
+        if isinstance(status.rows, dict):
+            # spooling protocol
+            rows = cast(_SpooledProtocolResponseTO, rows)
+            segments = self._to_segments(rows)
+            return list(SegmentIterator(segments, self._row_mapper))
+        elif isinstance(status.rows, list):
+            return self._row_mapper.map(rows)
+        else:
+            raise ValueError(f"Unexpected type: {type(status.rows)}")
+
+    def _to_segments(self, rows: _SpooledProtocolResponseTO) -> SpooledData:
+        encoding = rows["encoding"]
+        segments = []
+        for segment in rows["segments"]:
+            segment_type = segment["type"]
+            if segment_type == SegmentType.INLINE:
+                inline_segment = cast(_InlineSegmentTO, segment)
+                segments.append(InlineSegment(inline_segment))
+            elif segment_type == SegmentType.SPOOLED:
+                spooled_segment = cast(_SpooledSegmentTO, segment)
+                segments.append(SpooledSegment(spooled_segment, self._request))
+            else:
+                raise ValueError(f"Unsupported segment type: {segment_type}")
+
+        return SpooledData(encoding, segments)
 
     def cancel(self) -> None:
         """Cancel the current query"""
@@ -944,3 +1015,291 @@ def _parse_retry_after_header(retry_after):
         retry_date = parsedate_to_datetime(retry_after)
         now = datetime.utcnow()
         return (retry_date - now).total_seconds()
+
+
+# Trino Spooled protocol transfer objects
+class _SpooledProtocolResponseTO(TypedDict):
+    encoding: Literal["json", "json+std", "json+lz4"]
+    segments: List[_SegmentTO]
+
+
+class _SegmentMetadataTO(TypedDict):
+    uncompressedSize: str
+    segmentSize: str
+
+
+class _SegmentTO(_SegmentMetadataTO):
+    type: Literal["spooled", "inline"]
+    metadata: _SegmentMetadataTO
+
+
+class _SpooledSegmentTO(_SegmentTO):
+    uri: str
+    ackUri: str
+    headers: Dict[str, List[str]]
+
+
+class _InlineSegmentTO(_SegmentTO):
+    data: str
+
+
+class SegmentType(str, Enum):
+    """Enum with string values that can be compared to strings."""
+    INLINE = "inline"
+    SPOOLED = "spooled"
+
+
+class Segment(abc.ABC):
+    """
+    Abstract base class representing a segment of data produced by the spooling protocol.
+
+    Attributes:
+        metadata (property): Metadata associated with the segment.
+        rows (property): Returns the decoded and mapped data.
+    """
+    def __init__(self, segment: _SegmentTO) -> None:
+        self._segment = segment
+
+    @property
+    @abstractmethod
+    def data(self):
+        pass
+
+    @property
+    def metadata(self) -> _SegmentMetadataTO:
+        return self._segment["metadata"]
+
+
+class InlineSegment(Segment):
+    """
+    A subclass of Segment that handles inline data segments. The data is base64 encoded and
+    requires mapping to rows using the provided row_mapper.
+
+    Attributes:
+        rows (property): The data in the segment, decoded and mapped from the base64 encoded data.
+    """
+    def __init__(self, segment: _InlineSegmentTO) -> None:
+        super().__init__(segment)
+        self._segment = cast(_InlineSegmentTO, segment)
+
+    @property
+    def data(self) -> bytes:
+        return base64.b64decode(self._segment["data"])
+
+    def __repr__(self):
+        return f"InlineSegment(metadata={self.metadata})"
+
+
+class SpooledSegment(Segment):
+    """
+    A subclass of Segment that handles spooled data segments, where data may be compressed and needs to be
+    retrieved via HTTP requests. The segment includes methods for acknowledging processing and loading the
+    segment from remote storage.
+
+    Attributes:
+        rows (property): The data, loaded and mapped from the spooled segment.
+        uri (property): The URI for the spooled segment.
+        ack_uri (property): The URI for acknowledging the processing of the spooled segment.
+        headers (property): The headers associated with the spooled segment.
+
+    Methods:
+        acknowledge(): Sends an acknowledgment request for the segment.
+    """
+    def __init__(
+        self,
+        segment: _SpooledSegmentTO,
+        request: TrinoRequest,
+    ) -> None:
+        super().__init__(segment)
+        self._segment = cast(_SpooledSegmentTO, segment)
+        self._request = request
+
+    @property
+    def data(self) -> bytes:
+        http_response = self._send_spooling_request(self.uri)
+        if not http_response.ok:
+            self._request.raise_response_error(http_response)
+        return http_response.content
+
+    @property
+    def uri(self) -> str:
+        return self._segment["uri"]
+
+    @property
+    def ack_uri(self) -> str:
+        return self._segment["ackUri"]
+
+    @property
+    def headers(self) -> Dict[str, List[str]]:
+        return self._segment.get("headers", {})
+
+    def acknowledge(self) -> None:
+        def acknowledge_request():
+            try:
+                http_response = self._send_spooling_request(self.ack_uri, timeout=2)
+                if not http_response.ok:
+                    self._request.raise_response_error(http_response)
+            except Exception as e:
+                logger.error(f"Failed to acknowledge spooling request for segment {self}: {e}")
+        # Start the acknowledgment in the executor thread
+        executor.submit(acknowledge_request)
+
+    def _send_spooling_request(self, uri: str, **kwargs) -> requests.Response:
+        headers_with_single_value = {}
+        for key, values in self.headers.items():
+            if len(values) > 1:
+                raise ValueError(f"Header '{key}' contains multiple values: {values}")
+            headers_with_single_value[key] = values[0]
+        return self._request._get(uri, headers=headers_with_single_value, **kwargs)
+
+    def __repr__(self):
+        return (
+            f"SpooledSegment(metadata={self.metadata})"
+        )
+
+
+class SpooledData:
+    """
+    Represents a collection of spooled segments of data, with an encoding format.
+
+    Attributes:
+        encoding (str): The encoding format of the spooled data.
+        segments (List[Segment]): The list of segments in the spooled data.
+    """
+    def __init__(self, encoding: str, segments: List[Segment]) -> None:
+        self._encoding = encoding
+        self._segments = segments
+        self._segments_iterator = iter(segments)
+
+    @property
+    def encoding(self):
+        return self._encoding
+
+    @property
+    def segments(self):
+        return self._segments
+
+    def __iter__(self) -> Iterator[Tuple["SpooledData", "Segment"]]:
+        return self
+
+    def __next__(self) -> Tuple["SpooledData", "Segment"]:
+        return self, next(self._segments_iterator)
+
+    def __repr__(self):
+        return (f"SpooledData(encoding={self._encoding}, segments={list(self._segments)})")
+
+
+class SegmentIterator:
+    def __init__(self, spooled_data: SpooledData, mapper: RowMapper) -> None:
+        self._segments = iter(spooled_data._segments)
+        self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(mapper).create(spooled_data.encoding))
+        self._rows: Iterator[List[List[Any]]] = iter([])
+        self._finished = False
+        self._current_segment: Optional[Segment] = None
+
+    def __iter__(self) -> Iterator[List[Any]]:
+        return self
+
+    def __next__(self) -> List[Any]:
+        # If rows are exhausted, fetch the next segment
+        while True:
+            try:
+                return next(self._rows)
+            except StopIteration:
+                if self._current_segment and isinstance(self._current_segment, SpooledSegment):
+                    self._current_segment.acknowledge()
+                if self._finished:
+                    raise StopIteration
+                self._load_next_segment()
+
+    def _load_next_segment(self):
+        try:
+            self._current_segment = segment = next(self._segments)
+            self._rows = iter(self._decoder.decode(segment))
+        except StopIteration:
+            self._finished = True
+
+
+class SegmentDecoder():
+    def __init__(self, decoder: QueryDataDecoder):
+        self._decoder = decoder
+
+    def decode(self, segment: Segment) -> List[List[Any]]:
+        if isinstance(segment, InlineSegment):
+            inline_segment = cast(InlineSegment, segment)
+            return self._decoder.decode(inline_segment.data, inline_segment.metadata)
+        elif isinstance(segment, SpooledSegment):
+            spooled_data = cast(SpooledSegment, segment)
+            return self._decoder.decode(spooled_data.data, spooled_data.metadata)
+        else:
+            raise ValueError(f"Unsupported segment type: {type(segment)}")
+
+
+class CompressedQueryDataDecoderFactory():
+    def __init__(self, mapper: RowMapper) -> None:
+        self._mapper = mapper
+
+    def create(self, encoding: str) -> QueryDataDecoder:
+        if encoding == "json+zstd":
+            return ZStdQueryDataDecoder(JsonQueryDataDecoder(self._mapper))
+        elif encoding == "json+lz4":
+            return Lz4QueryDataDecoder(JsonQueryDataDecoder(self._mapper))
+        elif encoding == "json":
+            return JsonQueryDataDecoder(self._mapper)
+        else:
+            raise ValueError(f"Unsupported encoding: {encoding}")
+
+
+class QueryDataDecoder(abc.ABC):
+    @abstractmethod
+    def decode(self, data: bytes, metadata: _SegmentMetadataTO) -> List[List[Any]]:
+        pass
+
+
+class JsonQueryDataDecoder(QueryDataDecoder):
+    def __init__(self, mapper: RowMapper) -> None:
+        self._mapper = mapper
+
+    def decode(self, data: bytes, metadata: Dict[str, Any]) -> List[List[Any]]:
+        return self._mapper.map(json.loads(data.decode("utf8")))
+
+
+class CompressedQueryDataDecoder(QueryDataDecoder):
+    def __init__(self, delegate: QueryDataDecoder) -> None:
+        self._delegate = delegate
+
+    @abstractmethod
+    def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
+        pass
+
+    def decode(self, data: bytes, metadata: _SegmentMetadataTO) -> List[List[Any]]:
+        if "uncompressedSize" not in metadata:
+            # Data not compressed - below threshold
+            return self._delegate.decode(data, metadata)
+
+        # Data is compressed
+        expected_compressed_size = metadata["segmentSize"]
+        if not len(data) == expected_compressed_size:
+            raise RuntimeError(f"Expected to read {expected_compressed_size} bytes but got {len(data)}")
+        decompressed_data = self.decompress(data, metadata)
+        expected_uncompressed_size = metadata["uncompressedSize"]
+        if not len(decompressed_data) == expected_uncompressed_size:
+            raise RuntimeError(
+                "Decompressed size does not match expected segment size, "
+                f"expected {expected_uncompressed_size}, got {len(decompressed_data)}"
+            )
+        return self._delegate.decode(decompressed_data, metadata)
+
+
+class ZStdQueryDataDecoder(CompressedQueryDataDecoder):
+    zstd_decompressor = zstandard.ZstdDecompressor()
+
+    def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
+        return ZStdQueryDataDecoder.zstd_decompressor.decompress(data)
+
+
+class Lz4QueryDataDecoder(CompressedQueryDataDecoder):
+    def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
+        expected_uncompressed_size = metadata["uncompressedSize"]
+        decoded_bytes = lz4.block.decompress(data, uncompressed_size=int(expected_uncompressed_size))
+        return decoded_bytes
