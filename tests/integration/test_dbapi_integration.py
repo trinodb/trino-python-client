@@ -38,12 +38,13 @@ from trino.exceptions import TrinoUserError
 from trino.transaction import IsolationLevel
 
 
-@pytest.fixture
-def trino_connection(run_trino):
+@pytest.fixture(params=[None, "json+zstd", "json+lz4", "json"])
+def trino_connection(request, run_trino):
     host, port = run_trino
+    encoding = request.param
 
     yield trino.dbapi.Connection(
-        host=host, port=port, user="test", source="test", max_attempts=1
+        host=host, port=port, user="test", source="test", max_attempts=1, encoding=encoding
     )
 
 
@@ -1831,8 +1832,8 @@ def test_prepared_statement_capability_autodetection(legacy_prepared_statements,
 
 
 @pytest.mark.skipif(
-    trino_version() <= '464',
-    reason="spooled protocol was introduced in version 464"
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
 )
 def test_select_query_spooled_segments(trino_connection):
     cur = trino_connection.cursor()
@@ -1842,8 +1843,22 @@ def test_select_query_spooled_segments(trino_connection):
         stop => 5,
         step => 1)) n""")
     rows = cur.fetchall()
-    # TODO: improve test
-    assert len(rows) > 0
+    assert len(rows) == 300875
+    for row in rows:
+        assert isinstance(row[0], int), f"Expected integer for orderkey, got {type(row[0])}"
+        assert isinstance(row[1], int), f"Expected integer for partkey, got {type(row[1])}"
+        assert isinstance(row[2], int), f"Expected integer for suppkey, got {type(row[2])}"
+        assert isinstance(row[3], int), f"Expected int for linenumber, got {type(row[3])}"
+        assert isinstance(row[4], float), f"Expected float for quantity, got {type(row[4])}"
+        assert isinstance(row[5], float), f"Expected float for extendedprice, got {type(row[5])}"
+        assert isinstance(row[6], float), f"Expected float for discount, got {type(row[6])}"
+        assert isinstance(row[7], float), f"Expected string for tax, got {type(row[7])}"
+        assert isinstance(row[8], str), f"Expected string for returnflag, got {type(row[8])}"
+        assert isinstance(row[9], str), f"Expected string for linestatus, got {type(row[9])}"
+        assert isinstance(row[10], date), f"Expected date for shipdate, got {type(row[10])}"
+        assert isinstance(row[11], date), f"Expected date for commitdate, got {type(row[11])}"
+        assert isinstance(row[12], date), f"Expected date for receiptdate, got {type(row[12])}"
+        assert isinstance(row[13], str), f"Expected string for shipinstruct, got {type(row[13])}"
 
 
 def get_cursor(legacy_prepared_statements, run_trino):

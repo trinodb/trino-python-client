@@ -469,6 +469,32 @@ conn = connect(
 )
 ```
 
+## Spooled protocol
+
+The client spooling protocol requires [a Trino server with spooling protocol support](https://trino.io/docs/current/client/client-protocol.html#spooling-protocol).
+
+Enable the spooling protocol by specifying a supported encoding in the `encoding` parameter:
+
+Supported encodings are `json`, `json+lz4` and `json+zstd`.
+
+```python
+from trino.dbapi import connect
+
+conn = connect(
+    encoding="json+zstd"
+)
+```
+
+or a list of supported encodings in order of preference:
+
+```python
+from trino.dbapi import connect
+
+conn = connect(
+    encoding=["json+zstd", "json"]
+)
+```
+
 ## Transactions
 
 The client runs by default in *autocommit* mode. To enable transactions, set
