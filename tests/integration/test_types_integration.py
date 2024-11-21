@@ -19,7 +19,7 @@ from tests.integration.conftest import trino_version
 
 @pytest.fixture
 def trino_connection(run_trino):
-    _, host, port = run_trino
+    host, port = run_trino
 
     yield trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1
