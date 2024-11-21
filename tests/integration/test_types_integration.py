@@ -17,12 +17,18 @@ import trino
 from tests.integration.conftest import trino_version
 
 
-@pytest.fixture
-def trino_connection(run_trino):
+@pytest.fixture(params=[None, "json+zstd", "json+lz4", "json"])
+def trino_connection(request, run_trino):
     host, port = run_trino
+    encoding = request.param
 
     yield trino.dbapi.Connection(
-        host=host, port=port, user="test", source="test", max_attempts=1
+        host=host,
+        port=port,
+        user="test",
+        source="test",
+        max_attempts=1,
+        encoding=encoding
     )
 
 
