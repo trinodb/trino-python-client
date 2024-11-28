@@ -242,11 +242,11 @@ class Connection:
     def _create_request(self):
         return trino.client.TrinoRequest(
             self.host,
-            self.http_prefix,
             self.port,
             self._client_session,
             self._http_session,
             self.http_scheme,
+            self.http_prefix,
             self.auth,
             self.max_attempts,
             self.request_timeout,
