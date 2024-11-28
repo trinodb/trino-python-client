@@ -133,6 +133,7 @@ class Connection:
     def __init__(
         self,
         host: str,
+        http_prefix = "",
         port=constants.DEFAULT_PORT,
         user=None,
         source=constants.DEFAULT_SOURCE,
@@ -158,6 +159,7 @@ class Connection:
         parsed_host = urlparse(host, allow_fragments=False)
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
+        self.http_prefix = http_prefix
         self.port = port if parsed_host.port is None else parsed_host.port
         self.user = user
         self.source = source
@@ -240,6 +242,7 @@ class Connection:
     def _create_request(self):
         return trino.client.TrinoRequest(
             self.host,
+            self.http_prefix,
             self.port,
             self._client_session,
             self._http_session,

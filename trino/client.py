@@ -403,6 +403,7 @@ class TrinoRequest:
     def __init__(
         self,
         host: str,
+        http_prefix: Optional[str],
         port: int,
         client_session: ClientSession,
         http_session: Any = None,
@@ -415,6 +416,7 @@ class TrinoRequest:
     ) -> None:
         self._client_session = client_session
         self._host = host
+        self._http_prefix = http_prefix
         self._port = port
         self._next_uri: Optional[str] = None
 
@@ -539,8 +541,9 @@ class TrinoRequest:
         self._delete = with_retry(self._http_session.delete)
 
     def get_url(self, path) -> str:
-        return "{protocol}://{host}:{port}{path}".format(
-            protocol=self._http_scheme, host=self._host, port=self._port, path=path
+        return "{protocol}://{host}:{port}{http_prefix}{path}".format(
+            protocol=self._http_scheme, host=self._host, 
+            http_prefix=self._http_prefix, port=self._port, path=path
         )
 
     @property
