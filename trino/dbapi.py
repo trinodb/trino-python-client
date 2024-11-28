@@ -133,8 +133,8 @@ class Connection:
     def __init__(
         self,
         host: str,
-        http_prefix = "",
         port=constants.DEFAULT_PORT,
+        http_prefix: str = "",
         user=None,
         source=constants.DEFAULT_SOURCE,
         catalog=constants.DEFAULT_CATALOG,

@@ -403,9 +403,9 @@ class TrinoRequest:
     def __init__(
         self,
         host: str,
-        http_prefix: Optional[str],
         port: int,
         client_session: ClientSession,
+        http_prefix: str = "",
         http_session: Any = None,
         http_scheme: str = None,
         auth: Optional[Any] = constants.DEFAULT_AUTH,
