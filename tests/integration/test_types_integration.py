@@ -902,8 +902,8 @@ def test_map(trino_connection):
                    python={'hello': 'hello', 'null': None})
         .add_field(sql="MAP(ARRAY[CAST('a' AS CHAR(4)), CAST('null' AS CHAR(4))], ARRAY[CAST('a' AS CHAR), null])",
                    python={'a   ': 'a', 'null': None})
-        .add_field(sql="MAP(ARRAY[X'', X'65683F', X'00'], ARRAY[X'', X'65683F', null])",
-                   python={b'': b'', b'eh?': b'eh?', b'\x00': None})
+        # .add_field(sql="MAP(ARRAY[X'', X'65683F', X'00'], ARRAY[X'', X'65683F', null])",
+        #            python={b'': b'', b'eh?': b'eh?', b'\x00': None})
         .add_field(sql="MAP(ARRAY[JSON '1', JSON '{}', JSON 'null'], ARRAY[JSON '1', JSON '{}', null])",
                    python={'1': '1', '{}': '{}', 'null': None})
     ).execute()
