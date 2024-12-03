@@ -268,7 +268,7 @@ class Connection:
             self.request_timeout,
         )
 
-    def cursor(self, legacy_primitive_types: bool = None):
+    def cursor(self, cursor_style: str = "row", legacy_primitive_types: bool = None):
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
@@ -277,11 +277,21 @@ class Connection:
             request = self.transaction.request
         else:
             request = self._create_request()
-        return Cursor(
+
+        cursor_class = {
+            # Add any custom Cursor classes here
+            "segment": SegmentCursor,
+            "row": Cursor
+        }.get(cursor_style.lower(), Cursor)
+
+        return cursor_class(
             self,
             request,
-            # if legacy params are not explicitly set in Cursor, take them from Connection
-            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
+            legacy_primitive_types=(
+                legacy_primitive_types
+                if legacy_primitive_types is not None
+                else self.legacy_primitive_types
+            )
         )
 
     def _use_legacy_prepared_statements(self):
@@ -712,6 +722,28 @@ class Cursor:
         self.cancel()
         # TODO: Cancel not only the last query executed on this cursor
         #  but also any other outstanding queries executed through this cursor.
+
+
+class SegmentCursor(Cursor):
+    def __init__(
+            self,
+            connection,
+            request,
+            legacy_primitive_types: bool = False):
+        super().__init__(connection, request, legacy_primitive_types=legacy_primitive_types)
+        if self.connection._client_session.encoding is None:
+            raise ValueError("SegmentCursor can only be used if encoding is set on the connection")
+
+    def execute(self, operation, params=None):
+        if params:
+            # TODO: refactor code to allow for params to be supported
+            raise ValueError("params not supported")
+
+        self._query = trino.client.TrinoQuery(self._request, query=operation,
+                                              legacy_primitive_types=self._legacy_primitive_types,
+                                              fetch_mode="segments")
+        self._iterator = iter(self._query.execute())
+        return self
 
 
 Date = datetime.date
