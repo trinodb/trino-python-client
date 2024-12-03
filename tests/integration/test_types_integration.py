@@ -168,7 +168,7 @@ def test_date(trino_connection):
     ).execute()
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="time not rounded correctly in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="time not rounded correctly in older Trino versions")
 def test_time(trino_connection):
     (
         SqlTest(trino_connection)
@@ -290,7 +290,7 @@ def test_time(trino_connection):
     ).execute()
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="time not rounded correctly in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="time not rounded correctly in older Trino versions")
 @pytest.mark.parametrize(
     'tz_str',
     [
