@@ -12,6 +12,7 @@
 import os
 import socket
 import subprocess
+import sys
 import time
 from contextlib import closing
 from uuid import uuid4
@@ -157,5 +158,7 @@ def run_trino():
         stop_trino(container_id, proc)
 
 
-def trino_version():
-    return TRINO_VERSION
+def trino_version() -> int:
+    if TRINO_VERSION == "latest":
+        return sys.maxsize
+    return int(TRINO_VERSION)

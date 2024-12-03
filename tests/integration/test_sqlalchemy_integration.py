@@ -31,7 +31,7 @@ from trino.sqlalchemy.datatype import ROW
 def trino_connection(run_trino, request):
     _, host, port = run_trino
     connect_args = {"source": "test", "max_attempts": 1}
-    if trino_version() <= '417':
+    if trino_version() <= 417:
         connect_args["legacy_prepared_statements"] = True
     engine = sqla.create_engine(f"trino://test@{host}:{port}/{request.param}",
                                 connect_args=connect_args)
@@ -739,7 +739,7 @@ def test_get_view_names_raises(trino_connection):
 
 
 @pytest.mark.parametrize('trino_connection', ['system'], indirect=True)
-@pytest.mark.skipif(trino_version() == '351', reason="version() not supported in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="version() not supported in older Trino versions")
 def test_version_is_lazy(trino_connection):
     _, conn = trino_connection
     result = conn.execute(sqla.text("SELECT 1"))
