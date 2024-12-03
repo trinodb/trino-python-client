@@ -799,6 +799,7 @@ class TrinoQuery:
             request: TrinoRequest,
             query: str,
             legacy_primitive_types: bool = False,
+            fetch_mode: Literal["mapped", "segments"] = "mapped"
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -815,6 +816,7 @@ class TrinoQuery:
         self._result: Optional[TrinoResult] = None
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
+        self._fetch_mode = fetch_mode
 
     @property
     def query_id(self) -> Optional[str]:
@@ -919,6 +921,8 @@ class TrinoQuery:
             # spooling protocol
             rows = cast(_SpooledProtocolResponseTO, rows)
             segments = self._to_segments(rows)
+            if self._fetch_mode == "segments":
+                return segments
             return list(SegmentIterator(segments, self._row_mapper))
         elif isinstance(status.rows, list):
             return self._row_mapper.map(rows)
