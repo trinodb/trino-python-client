@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import math
+import sys
 import time as t
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
@@ -72,10 +73,10 @@ def test_select_query(trino_connection):
     rows = cur.fetchall()
     assert len(rows) > 0
     row = rows[0]
-    if trino_version() == "latest":
+    if trino_version() == sys.maxsize:
         assert row[2] is not None
     else:
-        assert row[2] == trino_version()
+        assert row[2] == str(trino_version())
     columns = dict([desc[:2] for desc in cur.description])
     assert columns["node_id"] == "varchar"
     assert columns["http_uri"] == "varchar"
@@ -104,7 +105,7 @@ def test_select_query_result_iteration(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -138,7 +139,7 @@ def test_select_query_result_iteration_statement_params(legacy_prepared_statemen
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -157,7 +158,7 @@ def test_none_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -177,7 +178,7 @@ def test_string_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -216,7 +217,7 @@ def test_execute_many(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -241,7 +242,7 @@ def test_execute_many_without_params(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -325,7 +326,7 @@ def test_legacy_primitive_types_with_connection_and_cursor(
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -345,7 +346,7 @@ def test_decimal_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -384,7 +385,7 @@ def test_null_decimal(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -405,7 +406,7 @@ def test_biggest_decimal(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -426,7 +427,7 @@ def test_smallest_decimal(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -447,7 +448,7 @@ def test_highest_precision_decimal(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -469,7 +470,7 @@ def test_datetime_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -491,7 +492,7 @@ def test_datetime_with_utc_time_zone_query_param(legacy_prepared_statements, run
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -515,7 +516,7 @@ def test_datetime_with_numeric_offset_time_zone_query_param(legacy_prepared_stat
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -567,7 +568,7 @@ def test_datetime_with_time_zone_numeric_offset(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -587,7 +588,7 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(legacy_prepared_stateme
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -611,7 +612,7 @@ def test_doubled_datetimes(fold, legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -659,7 +660,7 @@ def test_unsupported_python_dates(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -710,7 +711,7 @@ def test_char(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -732,7 +733,7 @@ def test_time_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -754,7 +755,7 @@ def test_time_with_named_time_zone_query_param(legacy_prepared_statements, run_t
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -830,7 +831,7 @@ def test_null_date_with_time_zone(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -859,7 +860,7 @@ def test_binary_query_param(binary_input, legacy_prepared_statements, run_trino)
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -888,7 +889,7 @@ def test_array_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -914,7 +915,7 @@ def test_array_none_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -940,7 +941,7 @@ def test_array_none_and_another_type_query_param(legacy_prepared_statements, run
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -966,7 +967,7 @@ def test_array_timestamp_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -995,7 +996,7 @@ def test_array_timestamp_with_timezone_query_param(legacy_prepared_statements, r
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1019,7 +1020,7 @@ def test_dict_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1039,7 +1040,7 @@ def test_dict_timestamp_query_param_types(legacy_prepared_statements, run_trino)
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1063,7 +1064,7 @@ def test_boolean_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1082,7 +1083,7 @@ def test_row(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1152,7 +1153,7 @@ def test_nested_named_row(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1171,7 +1172,7 @@ def test_float_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1191,7 +1192,7 @@ def test_float_nan_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1215,7 +1216,7 @@ def test_float_inf_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1240,7 +1241,7 @@ def test_int_query_param(legacy_prepared_statements, run_trino):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1411,8 +1412,8 @@ def test_transaction_multiple(trino_connection_with_transaction):
     assert len(rows2) == 1000
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="Autocommit behaves "
-                                                     "differently in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="Autocommit behaves "
+                                                   "differently in older Trino versions")
 def test_transaction_autocommit(trino_connection_in_autocommit):
     with trino_connection_in_autocommit as connection:
         connection.start_transaction()
@@ -1433,7 +1434,7 @@ def test_transaction_autocommit(trino_connection_in_autocommit):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
@@ -1528,7 +1529,7 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
     return query_client_tags
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="current_catalog not supported in older Trino versions")
 def test_use_catalog_schema(trino_connection):
     cur = trino_connection.cursor()
     cur.execute('SELECT current_catalog, current_schema')
@@ -1551,7 +1552,7 @@ def test_use_catalog_schema(trino_connection):
     assert result[0][1] == 'sf1'
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="current_catalog not supported in older Trino versions")
 def test_use_schema(run_trino):
     _, host, port = run_trino
 
@@ -1592,7 +1593,7 @@ def test_set_role(run_trino):
 
     cur.execute("SET ROLE ALL")
     cur.fetchall()
-    if trino_version() == "351":
+    if trino_version() == 351:
         assert_role_headers(cur, "tpch=ALL")
     else:
         # Newer Trino versions return the system role
@@ -1632,7 +1633,7 @@ def assert_role_headers(cursor, expected_header):
     [
         True,
         pytest.param(None, marks=pytest.mark.skipif(
-            trino_version() > '417',
+            trino_version() > 417,
             reason="This would use EXECUTE IMMEDIATE"))
     ]
 )
@@ -1791,7 +1792,7 @@ def test_rowcount_insert(trino_connection):
     [
         True,
         pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
+            trino_version() <= 417,
             reason="EXECUTE IMMEDIATE was introduced in version 418")),
         None
     ]
