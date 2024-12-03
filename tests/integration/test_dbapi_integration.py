@@ -1861,6 +1861,29 @@ def test_select_query_spooled_segments(trino_connection):
         assert isinstance(row[13], str), f"Expected string for shipinstruct, got {type(row[13])}"
 
 
+@pytest.mark.skipif(
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
+)
+def test_segments_cursor(trino_connection):
+    if trino_connection._client_session.encoding is None:
+        with pytest.raises(ValueError, match=".*encoding.*"):
+            trino_connection.cursor("segment")
+        return
+    cur = trino_connection.cursor("segment")
+    cur.execute("""SELECT l.*
+    FROM tpch.tiny.lineitem l, TABLE(sequence(
+        start => 1,
+        stop => 5,
+        step => 1)) n""")
+    rows = cur.fetchall()
+    assert len(rows) > 0
+    for spooled_data, spooled_segment in rows:
+        assert spooled_data.encoding == trino_connection._client_session.encoding
+        assert isinstance(spooled_segment.uri, str), f"Expected string for uri, got {spooled_segment.uri}"
+        assert isinstance(spooled_segment.ack_uri, str), f"Expected string for ack_uri, got {spooled_segment.ack_uri}"
+
+
 def get_cursor(legacy_prepared_statements, run_trino):
     host, port = run_trino
 
