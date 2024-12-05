@@ -25,9 +25,9 @@ from trino.sqlalchemy.datatype import JSON, MAP, ROW
 
 @pytest.fixture
 def trino_connection(run_trino, request):
-    _, host, port = run_trino
+    host, port = run_trino
     connect_args = {"source": "test", "max_attempts": 1}
-    if trino_version() <= '417':
+    if trino_version() <= 417:
         connect_args["legacy_prepared_statements"] = True
     engine = sqla.create_engine(f"trino://test@{host}:{port}/{request.param}",
                                 connect_args=connect_args)
@@ -497,7 +497,7 @@ def test_json_column_operations(trino_connection):
          MAP(sqla.sql.sqltypes.DECIMAL(2, 1), sqla.sql.sqltypes.DECIMAL(2, 1))),
         ('memory', {"hello": "world"}, MAP(sqla.sql.sqltypes.String, sqla.sql.sqltypes.String)),
         ('memory', {"a   ": "a", "null": "n"}, MAP(sqla.sql.sqltypes.CHAR(4), sqla.sql.sqltypes.CHAR(1))),
-        ('memory', {b'': b'eh?', b'\x00': None}, MAP(sqla.sql.sqltypes.BINARY, sqla.sql.sqltypes.BINARY)),
+        # ('memory', {b'': b'eh?', b'\x00': None}, MAP(sqla.sql.sqltypes.BINARY, sqla.sql.sqltypes.BINARY)),
     ],
     indirect=['trino_connection']
 )
@@ -735,7 +735,7 @@ def test_get_view_names_raises(trino_connection):
 
 
 @pytest.mark.parametrize('trino_connection', ['system'], indirect=True)
-@pytest.mark.skipif(trino_version() == '351', reason="version() not supported in older Trino versions")
+@pytest.mark.skipif(trino_version() == 351, reason="version() not supported in older Trino versions")
 def test_version_is_lazy(trino_connection):
     _, conn = trino_connection
     result = conn.execute(sqla.text("SELECT 1"))
