@@ -6,6 +6,24 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.331.0
+
+* Add support for Python 3.13 and drop support for Python 3.8 which is
+  end-of-life.
+  ([#489](https://github.com/trinodb/trino-python-client/issues/489))
+* Add support for Trino `INTERVAL YEAR TO MONTH` type by mapping to Python
+  `relativedelta`.
+  ([#475](https://github.com/trinodb/trino-python-client/issues/475))
+* Add support for Trino `INTERVAL DAY TO SECOND` type by mapping to Python
+  `timedelta`.
+  ([#475](https://github.com/trinodb/trino-python-client/issues/475))
+* Custom types are now pickle-able which allows frameworks like
+  [Streamlit](https://github.com/streamlit/streamlit) to work.
+  ([#490](https://github.com/trinodb/trino-python-client/issues/490))
+* Fix OAuth2 authentication to not fail if the redirect server or token server
+  URIs contain parameters.
+  ([#495](https://github.com/trinodb/trino-python-client/issues/495))
+
 ## Release 0.330.0
 
 * Add support for `try_cast` to SQLAlchemy dialect.
