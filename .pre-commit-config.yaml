@@ -1,29 +1,34 @@
 repos:
   - repo: "https://github.com/PyCQA/flake8"
-    rev: "7.0.0"
+    rev: "7.1.1"
     hooks:
       - id: "flake8"
         name: "Python: analysis"
 
   - repo: "https://github.com/pre-commit/mirrors-mypy"
-    rev: "v1.8.0"
+    rev: "v1.13.0"
     hooks:
       - id: "mypy"
         name: "Python: types"
 
-  - repo: https://github.com/pycqa/isort
+  - repo: "https://github.com/PyCQA/isort"
     rev: "5.13.2"
     hooks:
-      - id: isort
-        args: [ "--profile", "black"]
+      - id: "isort"
+        name: "Python: imports"
+        args: ["--profile", "black"]
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: "v4.5.0"
+  - repo: "https://github.com/pre-commit/pre-commit-hooks"
+    rev: "v5.0.0"
     hooks:
-      - id: check-yaml
-        args: [--unsafe]
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+      - id: "check-yaml"
+        name: "YAML: syntax"
+        args: ["--unsafe"]
+      - id: "end-of-file-fixer"
+        name: "All: newlines at EOF"
+      - id: "trailing-whitespace"
+        name: "All: no trailing whitespaces"
         exclude_types:
           - "markdown"
-      - id: check-case-conflict
+      - id: "check-case-conflict"
+        name: "All: case-insensitive filesystem conflicts"
