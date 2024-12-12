@@ -9,7 +9,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import abc
 import importlib
 import json
@@ -17,15 +16,26 @@ import os
 import re
 import threading
 import webbrowser
-from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
+from collections.abc import Mapping
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 from urllib.parse import urlparse
 
-from requests import PreparedRequest, Request, Response, Session
-from requests.auth import AuthBase, extract_cookies_to_jar
+from requests import PreparedRequest
+from requests import Request
+from requests import Response
+from requests import Session
+from requests.auth import AuthBase
+from requests.auth import extract_cookies_to_jar
 
 import trino.logging
 from trino.client import exceptions
-from trino.constants import HEADER_USER, MAX_NT_PASSWORD_SIZE
+from trino.constants import HEADER_USER
+from trino.constants import MAX_NT_PASSWORD_SIZE
 
 logger = trino.logging.get_logger(__name__)
 

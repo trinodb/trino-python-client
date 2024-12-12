@@ -9,7 +9,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 import os
 import socket
 import subprocess
@@ -20,7 +19,9 @@ from uuid import uuid4
 import pytest
 
 import trino.logging
-from trino.client import ClientSession, TrinoQuery, TrinoRequest
+from trino.client import ClientSession
+from trino.client import TrinoQuery
+from trino.client import TrinoRequest
 from trino.constants import DEFAULT_PORT
 
 logger = trino.logging.get_logger(__name__)

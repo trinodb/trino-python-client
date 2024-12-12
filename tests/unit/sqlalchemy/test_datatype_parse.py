@@ -11,11 +11,19 @@
 # limitations under the License.
 import pytest
 from sqlalchemy.exc import UnsupportedCompilationError
-from sqlalchemy.sql.sqltypes import ARRAY, CHAR, DATE, DECIMAL, INTEGER, VARCHAR
+from sqlalchemy.sql.sqltypes import ARRAY
+from sqlalchemy.sql.sqltypes import CHAR
+from sqlalchemy.sql.sqltypes import DATE
+from sqlalchemy.sql.sqltypes import DECIMAL
+from sqlalchemy.sql.sqltypes import INTEGER
+from sqlalchemy.sql.sqltypes import VARCHAR
 from sqlalchemy.sql.type_api import TypeEngine
 
 from trino.sqlalchemy import datatype
-from trino.sqlalchemy.datatype import MAP, ROW, TIME, TIMESTAMP
+from trino.sqlalchemy.datatype import MAP
+from trino.sqlalchemy.datatype import ROW
+from trino.sqlalchemy.datatype import TIME
+from trino.sqlalchemy.datatype import TIMESTAMP
 
 
 @pytest.mark.parametrize(

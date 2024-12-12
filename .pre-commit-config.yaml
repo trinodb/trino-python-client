@@ -11,12 +11,12 @@ repos:
       - id: "mypy"
         name: "Python: types"
 
-  - repo: "https://github.com/PyCQA/isort"
-    rev: "5.13.2"
+  - repo: "https://github.com/asottile/reorder-python-imports"
+    rev: "v3.14.0"
     hooks:
-      - id: "isort"
+      - id: "reorder-python-imports"
         name: "Python: imports"
-        args: ["--profile", "black"]
+        args: ["--py39-plus"]
 
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: "v5.0.0"

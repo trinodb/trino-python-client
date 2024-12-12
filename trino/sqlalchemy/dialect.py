@@ -10,29 +10,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from collections.abc import Mapping
+from collections.abc import Sequence
 from textwrap import dedent
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 from urllib.parse import unquote_plus
 
-from sqlalchemy import exc, sql
+from sqlalchemy import exc
+from sqlalchemy import sql
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
-from sqlalchemy.engine.default import DefaultDialect, DefaultExecutionContext
+from sqlalchemy.engine.default import DefaultDialect
+from sqlalchemy.engine.default import DefaultExecutionContext
 from sqlalchemy.engine.url import URL
 from sqlalchemy.sql import sqltypes
 
+from .datatype import JSONIndexType
+from .datatype import JSONPathType
 from trino import dbapi as trino_dbapi
 from trino import logging
-from trino.auth import (
-    BasicAuthentication,
-    CertificateAuthentication,
-    JWTAuthentication,
-    OAuth2Authentication,
-)
+from trino.auth import BasicAuthentication
+from trino.auth import CertificateAuthentication
+from trino.auth import JWTAuthentication
+from trino.auth import OAuth2Authentication
 from trino.dbapi import Cursor
-from trino.sqlalchemy import compiler, datatype, error
-
-from .datatype import JSONIndexType, JSONPathType
+from trino.sqlalchemy import compiler
+from trino.sqlalchemy import datatype
+from trino.sqlalchemy import error
 
 logger = logging.get_logger(__name__)
 

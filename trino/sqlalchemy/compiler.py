@@ -10,7 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.sql import compiler, sqltypes
+from sqlalchemy.sql import compiler
+from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
 from sqlalchemy.sql.functions import GenericFunction
 

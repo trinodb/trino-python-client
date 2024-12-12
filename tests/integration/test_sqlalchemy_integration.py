@@ -15,12 +15,16 @@ from decimal import Decimal
 
 import pytest
 import sqlalchemy as sqla
-from sqlalchemy.sql import and_, not_, or_
+from sqlalchemy.sql import and_
+from sqlalchemy.sql import not_
+from sqlalchemy.sql import or_
 from sqlalchemy.types import ARRAY
 
 from tests.integration.conftest import trino_version
 from tests.unit.conftest import sqlalchemy_version
-from trino.sqlalchemy.datatype import JSON, MAP, ROW
+from trino.sqlalchemy.datatype import JSON
+from trino.sqlalchemy.datatype import MAP
+from trino.sqlalchemy.datatype import ROW
 
 
 @pytest.fixture
