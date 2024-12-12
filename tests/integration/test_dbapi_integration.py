@@ -12,7 +12,11 @@
 import math
 import time as t
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date
+from datetime import datetime
+from datetime import time
+from datetime import timedelta
+from datetime import timezone
 from decimal import Decimal
 from typing import Tuple
 from zoneinfo import ZoneInfo
@@ -24,8 +28,12 @@ from tzlocal import get_localzone_name  # type: ignore
 import trino
 from tests.integration.conftest import trino_version
 from trino import constants
-from trino.dbapi import Cursor, DescribeOutput, TimeBoundLRUCache
-from trino.exceptions import NotSupportedError, TrinoQueryError, TrinoUserError
+from trino.dbapi import Cursor
+from trino.dbapi import DescribeOutput
+from trino.dbapi import TimeBoundLRUCache
+from trino.exceptions import NotSupportedError
+from trino.exceptions import TrinoQueryError
+from trino.exceptions import TrinoUserError
 from trino.transaction import IsolationLevel
 
 

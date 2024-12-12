@@ -9,14 +9,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from trino import constants
-from trino.client import (
-    get_header_values,
-    get_prepared_statement_values,
-    get_roles_values,
-    get_session_property_values,
-)
+from trino.client import get_header_values
+from trino.client import get_prepared_statement_values
+from trino.client import get_roles_values
+from trino.client import get_session_property_values
 
 
 def test_get_header_values():

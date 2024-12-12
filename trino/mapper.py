@@ -3,22 +3,31 @@ from __future__ import annotations
 import abc
 import base64
 import uuid
-from datetime import date, datetime, time, timedelta, timezone, tzinfo
+from datetime import date
+from datetime import datetime
+from datetime import time
+from datetime import timedelta
+from datetime import timezone
+from datetime import tzinfo
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
+from typing import Any
+from typing import Dict
+from typing import Generic
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import TypeVar
 from zoneinfo import ZoneInfo
 
 from dateutil.relativedelta import relativedelta
 
 import trino.exceptions
-from trino.types import (
-    POWERS_OF_TEN,
-    NamedRowTuple,
-    Time,
-    Timestamp,
-    TimestampWithTimeZone,
-    TimeWithTimeZone,
-)
+from trino.types import NamedRowTuple
+from trino.types import POWERS_OF_TEN
+from trino.types import Time
+from trino.types import Timestamp
+from trino.types import TimestampWithTimeZone
+from trino.types import TimeWithTimeZone
 
 T = TypeVar("T")
 

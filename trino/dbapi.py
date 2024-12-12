@@ -25,7 +25,11 @@ from decimal import Decimal
 from itertools import islice
 from threading import Lock
 from time import time
-from typing import Any, Dict, List, NamedTuple, Optional  # NOQA for mypy types
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import NamedTuple
+from typing import Optional
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
@@ -33,20 +37,22 @@ import trino.client
 import trino.exceptions
 import trino.logging
 from trino import constants
-from trino.constants import LENGTH_TYPES, PRECISION_TYPES, SCALE_TYPES
-from trino.exceptions import (
-    DatabaseError,
-    DataError,
-    Error,
-    IntegrityError,
-    InterfaceError,
-    InternalError,
-    NotSupportedError,
-    OperationalError,
-    ProgrammingError,
-    Warning,
-)
-from trino.transaction import NO_TRANSACTION, IsolationLevel, Transaction
+from trino.constants import LENGTH_TYPES
+from trino.constants import PRECISION_TYPES
+from trino.constants import SCALE_TYPES
+from trino.exceptions import DatabaseError
+from trino.exceptions import DataError
+from trino.exceptions import Error
+from trino.exceptions import IntegrityError
+from trino.exceptions import InterfaceError
+from trino.exceptions import InternalError
+from trino.exceptions import NotSupportedError
+from trino.exceptions import OperationalError
+from trino.exceptions import ProgrammingError
+from trino.exceptions import Warning
+from trino.transaction import IsolationLevel
+from trino.transaction import NO_TRANSACTION
+from trino.transaction import Transaction
 
 __all__ = [
     # https://www.python.org/dev/peps/pep-0249/#globals

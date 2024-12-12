@@ -9,8 +9,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from enum import Enum, unique
-from typing import Iterable
+from collections.abc import Iterable
+from enum import Enum
+from enum import unique
 
 import trino.client
 import trino.exceptions

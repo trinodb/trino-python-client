@@ -46,16 +46,23 @@ from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from time import sleep
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
 from zoneinfo import ZoneInfo
 
 import requests
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino.logging
-from trino import constants, exceptions
+from trino import constants
+from trino import exceptions
 from trino._version import __version__
-from trino.mapper import RowMapper, RowMapperFactory
+from trino.mapper import RowMapper
+from trino.mapper import RowMapperFactory
 
 __all__ = ["ClientSession", "TrinoQuery", "TrinoRequest", "PROXIES"]
 

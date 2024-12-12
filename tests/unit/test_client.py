@@ -15,8 +15,11 @@ import time
 import urllib
 import uuid
 from contextlib import nullcontext as does_not_raise
-from typing import Any, Dict, Optional
-from unittest import TestCase, mock
+from typing import Any
+from typing import Dict
+from typing import Optional
+from unittest import mock
+from unittest import TestCase
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfoNotFoundError
 
@@ -31,34 +34,29 @@ from requests_kerberos.exceptions import KerberosExchangeError
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino.exceptions
-from tests.unit.oauth_test_utils import (
-    REDIRECT_RESOURCE,
-    SERVER_ADDRESS,
-    TOKEN_RESOURCE,
-    GetTokenCallback,
-    MultithreadedTokenServer,
-    PostStatementCallback,
-    RedirectHandler,
-    RedirectHandlerWithException,
-    _get_token_requests,
-    _post_statement_requests,
-)
-from trino import __version__, constants
-from trino.auth import (
-    GSSAPIAuthentication,
-    KerberosAuthentication,
-    _OAuth2KeyRingTokenCache,
-    _OAuth2TokenBearer,
-)
-from trino.client import (
-    ClientSession,
-    TrinoQuery,
-    TrinoRequest,
-    TrinoResult,
-    _DelayExponential,
-    _retry_with,
-    _RetryWithExponentialBackoff,
-)
+from tests.unit.oauth_test_utils import _get_token_requests
+from tests.unit.oauth_test_utils import _post_statement_requests
+from tests.unit.oauth_test_utils import GetTokenCallback
+from tests.unit.oauth_test_utils import MultithreadedTokenServer
+from tests.unit.oauth_test_utils import PostStatementCallback
+from tests.unit.oauth_test_utils import REDIRECT_RESOURCE
+from tests.unit.oauth_test_utils import RedirectHandler
+from tests.unit.oauth_test_utils import RedirectHandlerWithException
+from tests.unit.oauth_test_utils import SERVER_ADDRESS
+from tests.unit.oauth_test_utils import TOKEN_RESOURCE
+from trino import __version__
+from trino import constants
+from trino.auth import _OAuth2KeyRingTokenCache
+from trino.auth import _OAuth2TokenBearer
+from trino.auth import GSSAPIAuthentication
+from trino.auth import KerberosAuthentication
+from trino.client import _DelayExponential
+from trino.client import _retry_with
+from trino.client import _RetryWithExponentialBackoff
+from trino.client import ClientSession
+from trino.client import TrinoQuery
+from trino.client import TrinoRequest
+from trino.client import TrinoResult
 
 
 @mock.patch("trino.client.TrinoRequest.http")

@@ -1,17 +1,19 @@
-from typing import Any, Dict, List
+from typing import Any
+from typing import Dict
+from typing import List
 from unittest import mock
 
 import pytest
-from sqlalchemy.engine.url import URL, make_url
+from sqlalchemy.engine.url import make_url
+from sqlalchemy.engine.url import URL
 
-from trino.auth import BasicAuthentication, OAuth2Authentication
+from trino.auth import BasicAuthentication
+from trino.auth import OAuth2Authentication
 from trino.dbapi import Connection
 from trino.sqlalchemy import URL as trino_url
-from trino.sqlalchemy.dialect import (
-    CertificateAuthentication,
-    JWTAuthentication,
-    TrinoDialect,
-)
+from trino.sqlalchemy.dialect import CertificateAuthentication
+from trino.sqlalchemy.dialect import JWTAuthentication
+from trino.sqlalchemy.dialect import TrinoDialect
 from trino.transaction import IsolationLevel
 
 

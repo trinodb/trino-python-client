@@ -10,9 +10,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import pytest
-from sqlalchemy import Column, Integer, MetaData, String, Table, func, insert, select
+from sqlalchemy import Column
+from sqlalchemy import func
+from sqlalchemy import insert
+from sqlalchemy import Integer
+from sqlalchemy import MetaData
+from sqlalchemy import select
+from sqlalchemy import String
+from sqlalchemy import Table
 from sqlalchemy.schema import CreateTable
-from sqlalchemy.sql import column, table
+from sqlalchemy.sql import column
+from sqlalchemy.sql import table
 
 from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.dialect import TrinoDialect
