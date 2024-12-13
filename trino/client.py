@@ -119,18 +119,21 @@ class ClientSession:
     def __init__(
         self,
         user: str,
-        authorization_user: str = None,
-        catalog: str = None,
-        schema: str = None,
-        source: str = None,
-        properties: Dict[str, str] = None,
-        headers: Dict[str, str] = None,
-        transaction_id: str = None,
-        extra_credential: List[Tuple[str, str]] = None,
-        client_tags: List[str] = None,
-        roles: Union[Dict[str, str], str] = None,
-        timezone: str = None,
+        authorization_user: Optional[str] = None,
+        catalog: Optional[str] = None,
+        schema: Optional[str] = None,
+        source: Optional[str] = None,
+        properties: Optional[Dict[str, str]] = None,
+        headers: Optional[Dict[str, str]] = None,
+        transaction_id: Optional[str] = None,
+        extra_credential: Optional[List[Tuple[str, str]]] = None,
+        client_tags: Optional[List[str]] = None,
+        roles: Optional[Union[Dict[str, str], str]] = None,
+        timezone: Optional[str] = None,
     ):
+        self._object_lock = threading.Lock()
+        self._prepared_statements: Dict[str, str] = {}
+
         self._user = user
         self._authorization_user = authorization_user
         self._catalog = catalog
@@ -142,107 +145,106 @@ class ClientSession:
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else list()
         self._roles = self._format_roles(roles) if roles is not None else {}
-        self._prepared_statements: Dict[str, str] = {}
-        self._object_lock = threading.Lock()
         self._timezone = timezone or get_localzone_name()
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
 
     @property
-    def user(self):
+    def user(self) -> str:
         return self._user
 
     @property
-    def authorization_user(self):
+    def authorization_user(self) -> Optional[str]:
         with self._object_lock:
             return self._authorization_user
 
     @authorization_user.setter
-    def authorization_user(self, authorization_user):
+    def authorization_user(self, authorization_user: Optional[str]) -> None:
         with self._object_lock:
             self._authorization_user = authorization_user
 
     @property
-    def catalog(self):
+    def catalog(self) -> Optional[str]:
         with self._object_lock:
             return self._catalog
 
     @catalog.setter
-    def catalog(self, catalog):
+    def catalog(self, catalog: Optional[str]) -> None:
         with self._object_lock:
             self._catalog = catalog
 
     @property
-    def schema(self):
+    def schema(self) -> Optional[str]:
         with self._object_lock:
             return self._schema
 
     @schema.setter
-    def schema(self, schema):
+    def schema(self, schema: Optional[str]) -> None:
         with self._object_lock:
             self._schema = schema
 
     @property
-    def source(self):
+    def source(self) -> Optional[str]:
         return self._source
 
     @property
-    def properties(self):
+    def properties(self) -> Dict[str, str]:
         with self._object_lock:
             return self._properties
 
     @properties.setter
-    def properties(self, properties):
+    def properties(self, properties: Dict[str, str]) -> None:
         with self._object_lock:
             self._properties = properties
 
     @property
-    def headers(self):
+    def headers(self) -> Dict[str, str]:
         return self._headers
 
     @property
-    def transaction_id(self):
+    def transaction_id(self) -> Optional[str]:
         with self._object_lock:
             return self._transaction_id
 
     @transaction_id.setter
-    def transaction_id(self, transaction_id):
+    def transaction_id(self, transaction_id: Optional[str]) -> None:
         with self._object_lock:
             self._transaction_id = transaction_id
 
     @property
-    def extra_credential(self):
+    def extra_credential(self) -> Optional[List[Tuple[str, str]]]:
         return self._extra_credential
 
     @property
-    def client_tags(self):
+    def client_tags(self) -> List[str]:
         return self._client_tags
 
     @property
-    def roles(self):
+    def roles(self) -> Dict[str, str]:
         with self._object_lock:
             return self._roles
 
     @roles.setter
-    def roles(self, roles):
+    def roles(self, roles: Dict[str, str]) -> None:
         with self._object_lock:
             self._roles = roles
 
     @property
-    def prepared_statements(self):
+    def prepared_statements(self) -> Dict[str, str]:
         return self._prepared_statements
 
     @prepared_statements.setter
-    def prepared_statements(self, prepared_statements):
+    def prepared_statements(self, prepared_statements: Dict[str, str]) -> None:
         with self._object_lock:
             self._prepared_statements = prepared_statements
 
     @property
-    def timezone(self):
+    def timezone(self) -> str:
         with self._object_lock:
             return self._timezone
 
-    def _format_roles(self, roles):
+    @staticmethod
+    def _format_roles(roles: Union[Dict[str, str], str]) -> Dict[str, str]:
         if isinstance(roles, str):
             roles = {"system": roles}
         formatted_roles = {}
