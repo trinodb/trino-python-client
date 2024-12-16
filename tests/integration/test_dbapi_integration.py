@@ -41,9 +41,7 @@ from trino.transaction import IsolationLevel
 def trino_connection(run_trino):
     _, host, port = run_trino
 
-    yield trino.dbapi.Connection(
-        host=host, port=port, user="test", source="test", max_attempts=1
-    )
+    yield trino.dbapi.Connection(host=host, port=port, user="test", source="test", max_attempts=1)
 
 
 @pytest.fixture
@@ -111,11 +109,14 @@ def test_select_query_result_iteration(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_select_query_result_iteration_statement_params(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -132,24 +133,27 @@ def test_select_query_result_iteration_statement_params(legacy_prepared_statemen
         ) x (id, name, letter)
         WHERE id >= ?
         """,
-        params=(3,)  # expecting all the rows with id >= 3
+        params=(3,),  # expecting all the rows with id >= 3
     )
     rows = cur.fetchall()
     assert len(rows) == 3
-    assert [3, 'three', 'c'] in rows
-    assert [4, 'four', 'd'] in rows
-    assert [5, 'five', 'e'] in rows
+    assert [3, "three", "c"] in rows
+    assert [4, "four", "d"] in rows
+    assert [5, "five", "e"] in rows
 
 
 @pytest.mark.parametrize(
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_none_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -164,11 +168,14 @@ def test_none_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_string_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -184,11 +191,14 @@ def test_string_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_execute_many(legacy_prepared_statements, run_trino):
 
@@ -223,11 +233,14 @@ def test_execute_many(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_execute_many_without_params(legacy_prepared_statements, run_trino):
 
@@ -248,11 +261,14 @@ def test_execute_many_without_params(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_execute_many_select(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -264,9 +280,7 @@ def test_execute_many_select(legacy_prepared_statements, run_trino):
 @pytest.mark.parametrize("connection_legacy_primitive_types", [None, True, False])
 @pytest.mark.parametrize("cursor_legacy_primitive_types", [None, True, False])
 def test_legacy_primitive_types_with_connection_and_cursor(
-        connection_legacy_primitive_types,
-        cursor_legacy_primitive_types,
-        run_trino
+    connection_legacy_primitive_types, cursor_legacy_primitive_types, run_trino
 ):
     _, host, port = run_trino
 
@@ -308,10 +322,10 @@ def test_legacy_primitive_types_with_connection_and_cursor(
 
     if not expected_legacy_primitive_types:
         assert len(rows[0]) == 6
-        assert rows[0][0] == Decimal('0.142857')
+        assert rows[0][0] == Decimal("0.142857")
         assert rows[0][1] == date(2018, 1, 1)
         assert rows[0][2] == datetime(2019, 1, 1, tzinfo=timezone(timedelta(hours=1)))
-        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo('UTC'))
+        assert rows[0][3] == datetime(2019, 1, 1, tzinfo=ZoneInfo("UTC"))
         assert rows[0][4] == datetime(2019, 1, 1)
         assert rows[0][5] == time(0, 0, 0, 0)
     else:
@@ -319,32 +333,35 @@ def test_legacy_primitive_types_with_connection_and_cursor(
             assert isinstance(value, str)
 
         assert len(rows[0]) == 7
-        assert rows[0][0] == '0.142857'
-        assert rows[0][1] == '2018-01-01'
-        assert rows[0][2] == '2019-01-01 00:00:00.000 +01:00'
-        assert rows[0][3] == '2019-01-01 00:00:00.000 UTC'
-        assert rows[0][4] == '2019-01-01 00:00:00.000'
-        assert rows[0][5] == '00:00:00.000'
-        assert rows[0][6] == '-2001-08-22'
+        assert rows[0][0] == "0.142857"
+        assert rows[0][1] == "2018-01-01"
+        assert rows[0][2] == "2019-01-01 00:00:00.000 +01:00"
+        assert rows[0][3] == "2019-01-01 00:00:00.000 UTC"
+        assert rows[0][4] == "2019-01-01 00:00:00.000"
+        assert rows[0][5] == "00:00:00.000"
+        assert rows[0][6] == "-2001-08-22"
 
 
 @pytest.mark.parametrize(
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_decimal_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    cur.execute("SELECT ?", params=(Decimal('1112.142857'),))
+    cur.execute("SELECT ?", params=(Decimal("1112.142857"),))
     rows = cur.fetchall()
 
-    assert rows[0][0] == Decimal('1112.142857')
+    assert rows[0][0] == Decimal("1112.142857")
     assert_cursor_description(cur, trino_type="decimal(10, 6)", precision=10, scale=6)
 
 
@@ -352,28 +369,31 @@ def test_decimal_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_decimal_scientific_notation_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    cur.execute("SELECT ?", params=(Decimal('0E-10'),))
+    cur.execute("SELECT ?", params=(Decimal("0E-10"),))
     rows = cur.fetchall()
 
-    assert rows[0][0] == Decimal('0E-10')
+    assert rows[0][0] == Decimal("0E-10")
     assert_cursor_description(cur, trino_type="decimal(10, 10)", precision=10, scale=10)
 
     # Ensure we don't convert to floats
-    assert Decimal('0.1') == Decimal('1E-1') != 0.1
+    assert Decimal("0.1") == Decimal("1E-1") != 0.1
 
-    cur.execute("SELECT ?", params=(Decimal('1E-1'),))
+    cur.execute("SELECT ?", params=(Decimal("1E-1"),))
     rows = cur.fetchall()
 
-    assert rows[0][0] == Decimal('1E-1')
+    assert rows[0][0] == Decimal("1E-1")
     assert_cursor_description(cur, trino_type="decimal(1, 1)", precision=1, scale=1)
 
 
@@ -391,16 +411,19 @@ def test_null_decimal(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_biggest_decimal(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = Decimal('99999999999999999999999999999999999999')
+    params = Decimal("99999999999999999999999999999999999999")
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
@@ -412,16 +435,19 @@ def test_biggest_decimal(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_smallest_decimal(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = Decimal('-99999999999999999999999999999999999999')
+    params = Decimal("-99999999999999999999999999999999999999")
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
@@ -433,16 +459,19 @@ def test_smallest_decimal(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_highest_precision_decimal(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = Decimal('0.99999999999999999999999999999999999999')
+    params = Decimal("0.99999999999999999999999999999999999999")
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
@@ -454,11 +483,14 @@ def test_highest_precision_decimal(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_datetime_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -476,16 +508,19 @@ def test_datetime_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_datetime_with_utc_time_zone_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo('UTC'))
+    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo("UTC"))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -498,11 +533,14 @@ def test_datetime_with_utc_time_zone_query_param(legacy_prepared_statements, run
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_datetime_with_numeric_offset_time_zone_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -522,16 +560,19 @@ def test_datetime_with_numeric_offset_time_zone_query_param(legacy_prepared_stat
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_datetime_with_named_time_zone_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo('America/Los_Angeles'))
+    params = datetime(2020, 1, 1, 16, 43, 22, 320000, tzinfo=ZoneInfo("America/Los_Angeles"))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -574,17 +615,20 @@ def test_datetime_with_time_zone_numeric_offset(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_datetimes_with_time_zone_in_dst_gap_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
     # This is a datetime that lies within a DST transition and not actually exists.
-    params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=ZoneInfo('Europe/Brussels'))
+    params = datetime(2021, 3, 28, 2, 30, 0, tzinfo=ZoneInfo("Europe/Brussels"))
     with pytest.raises(trino.exceptions.TrinoUserError):
         cur.execute("SELECT ?", params=(params,))
         cur.fetchall()
@@ -594,35 +638,41 @@ def test_datetimes_with_time_zone_in_dst_gap_query_param(legacy_prepared_stateme
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
-@pytest.mark.parametrize('fold', [0, 1])
+@pytest.mark.parametrize("fold", [0, 1])
 def test_doubled_datetimes(fold, legacy_prepared_statements, run_trino):
     # Trino doesn't distinguish between doubled datetimes that lie within a DST transition.
     # See also https://github.com/trinodb/trino/issues/5781
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'), fold=fold)
+    params = datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo("US/Eastern"), fold=fold)
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
 
-    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo('US/Eastern'))
+    assert rows[0][0] == datetime(2002, 10, 27, 1, 30, 0, tzinfo=ZoneInfo("US/Eastern"))
 
 
 @pytest.mark.parametrize(
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_date_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -651,11 +701,11 @@ def test_unsupported_python_dates(trino_connection):
 
     # dates below python min (1-1-1) or above max date (9999-12-31) are not supported
     for unsupported_date in [
-        '-0001-01-01',
-        '0000-01-01',
-        '10000-01-01',
-        '-4999999-01-01',  # Trino min date
-        '5000000-12-31',  # Trino max date
+        "-0001-01-01",
+        "0000-01-01",
+        "10000-01-01",
+        "-4999999-01-01",  # Trino min date
+        "5000000-12-31",  # Trino max date
     ]:
         with pytest.raises(trino.exceptions.TrinoDataError):
             cur.execute(f"SELECT DATE '{unsupported_date}'")
@@ -666,36 +716,39 @@ def test_unsupported_python_dates(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_supported_special_dates_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
     for params in (
-            # min python date
-            date(1, 1, 1),
-            # before julian->gregorian switch
-            date(1500, 1, 1),
-            # During julian->gregorian switch
-            date(1752, 9, 4),
-            # before epoch
-            date(1952, 4, 3),
-            date(1970, 1, 1),
-            date(1970, 2, 3),
-            # summer on northern hemisphere (possible DST)
-            date(2017, 7, 1),
-            # winter on northern hemisphere (possible DST on southern hemisphere)
-            date(2017, 1, 1),
-            # winter on southern hemisphere (possible DST on northern hemisphere)
-            date(2017, 12, 31),
-            date(1983, 4, 1),
-            date(1983, 10, 1),
-            # max python date
-            date(9999, 12, 31),
+        # min python date
+        date(1, 1, 1),
+        # before julian->gregorian switch
+        date(1500, 1, 1),
+        # During julian->gregorian switch
+        date(1752, 9, 4),
+        # before epoch
+        date(1952, 4, 3),
+        date(1970, 1, 1),
+        date(1970, 2, 3),
+        # summer on northern hemisphere (possible DST)
+        date(2017, 7, 1),
+        # winter on northern hemisphere (possible DST on southern hemisphere)
+        date(2017, 1, 1),
+        # winter on southern hemisphere (possible DST on northern hemisphere)
+        date(2017, 12, 31),
+        date(1983, 4, 1),
+        date(1983, 10, 1),
+        # max python date
+        date(9999, 12, 31),
     ):
         cur.execute("SELECT ?", params=(params,))
         rows = cur.fetchall()
@@ -709,7 +762,7 @@ def test_char(trino_connection):
     cur.execute("SELECT CHAR 'trino'")
     rows = cur.fetchall()
 
-    assert rows[0][0] == 'trino'
+    assert rows[0][0] == "trino"
     assert_cursor_description(cur, trino_type="char(5)", size=5)
 
 
@@ -717,11 +770,14 @@ def test_char(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_time_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -739,16 +795,19 @@ def test_time_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_time_with_named_time_zone_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
-    params = time(16, 43, 22, 320000, tzinfo=ZoneInfo('Asia/Shanghai'))
+    params = time(16, 43, 22, 320000, tzinfo=ZoneInfo("Asia/Shanghai"))
 
     cur.execute("SELECT ?", params=(params,))
     rows = cur.fetchall()
@@ -761,11 +820,14 @@ def test_time_with_named_time_zone_query_param(legacy_prepared_statements, run_t
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_time_with_numeric_offset_time_zone_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -837,18 +899,21 @@ def test_null_date_with_time_zone(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 @pytest.mark.parametrize(
     "binary_input",
     [
         bytearray("a", "utf-8"),
         bytearray("a", "ascii"),
-        bytearray(b'\x00\x00\x00\x00'),
+        bytearray(b"\x00\x00\x00\x00"),
         bytearray(4),
         bytearray([1, 2, 3]),
     ],
@@ -866,11 +931,14 @@ def test_binary_query_param(binary_input, legacy_prepared_statements, run_trino)
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_array_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -895,11 +963,14 @@ def test_array_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_array_none_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -921,11 +992,14 @@ def test_array_none_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_array_none_and_another_type_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -947,11 +1021,14 @@ def test_array_none_and_another_type_query_param(legacy_prepared_statements, run
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_array_timestamp_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -973,18 +1050,21 @@ def test_array_timestamp_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_array_timestamp_with_timezone_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
     params = [
-        datetime(2020, 1, 1, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
-        datetime(2020, 1, 2, 0, 0, 0, tzinfo=ZoneInfo('UTC')),
+        datetime(2020, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
+        datetime(2020, 1, 2, 0, 0, 0, tzinfo=ZoneInfo("UTC")),
     ]
 
     cur.execute("SELECT ?", params=(params,))
@@ -1002,11 +1082,14 @@ def test_array_timestamp_with_timezone_query_param(legacy_prepared_statements, r
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_dict_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1026,11 +1109,14 @@ def test_dict_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_dict_timestamp_query_param_types(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1046,11 +1132,14 @@ def test_dict_timestamp_query_param_types(legacy_prepared_statements, run_trino)
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_boolean_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1070,11 +1159,14 @@ def test_boolean_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_row(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1089,11 +1181,14 @@ def test_row(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_nested_row(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1115,8 +1210,8 @@ def test_named_row(trino_connection):
     assert rows[0][0].x == 1
     assert rows[0][0].y == 2.0
 
-    assert rows[0][0].__annotations__["names"] == ['x', 'y']
-    assert rows[0][0].__annotations__["types"] == ['bigint', 'double']
+    assert rows[0][0].__annotations__["names"] == ["x", "y"]
+    assert rows[0][0].__annotations__["types"] == ["bigint", "double"]
 
 
 def test_named_row_duplicate_names(trino_connection):
@@ -1128,8 +1223,8 @@ def test_named_row_duplicate_names(trino_connection):
     with pytest.raises(ValueError, match="Ambiguous row field reference: x"):
         rows[0][0].x
 
-    assert rows[0][0].__annotations__["names"] == ['x', 'x']
-    assert rows[0][0].__annotations__["types"] == ['bigint', 'double']
+    assert rows[0][0].__annotations__["names"] == ["x", "x"]
+    assert rows[0][0].__annotations__["types"] == ["bigint", "double"]
     assert str(rows[0][0]) == "(1, 2.0)"
 
 
@@ -1138,20 +1233,20 @@ def test_nested_named_row(trino_connection):
     cur.execute("SELECT CAST(ROW(DECIMAL '2.3', ROW(1, 'test')) AS ROW(x DECIMAL(3,2), y ROW(x BIGINT, y VARCHAR)))")
     rows = cur.fetchall()
 
-    assert rows[0][0] == (Decimal('2.3'), (1, 'test'))
-    assert rows[0][0][0] == Decimal('2.3')
-    assert rows[0][0][1] == (1, 'test')
+    assert rows[0][0] == (Decimal("2.3"), (1, "test"))
+    assert rows[0][0][0] == Decimal("2.3")
+    assert rows[0][0][1] == (1, "test")
     assert rows[0][0][1][0] == 1
-    assert rows[0][0][1][1] == 'test'
-    assert rows[0][0].x == Decimal('2.3')
+    assert rows[0][0][1][1] == "test"
+    assert rows[0][0].x == Decimal("2.3")
     assert rows[0][0].y.x == 1
-    assert rows[0][0].y.y == 'test'
+    assert rows[0][0].y.y == "test"
 
-    assert rows[0][0].__annotations__["names"] == ['x', 'y']
-    assert rows[0][0].__annotations__["types"] == ['decimal', 'row']
+    assert rows[0][0].__annotations__["names"] == ["x", "y"]
+    assert rows[0][0].__annotations__["types"] == ["decimal", "row"]
 
-    assert rows[0][0].y.__annotations__["names"] == ['x', 'y']
-    assert rows[0][0].y.__annotations__["types"] == ['bigint', 'varchar']
+    assert rows[0][0].y.__annotations__["names"] == ["x", "y"]
+    assert rows[0][0].y.__annotations__["types"] == ["bigint", "varchar"]
     assert str(rows[0][0]) == "(x: Decimal('2.30'), y: (x: 1, y: 'test'))"
 
 
@@ -1159,11 +1254,14 @@ def test_nested_named_row(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_float_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1178,11 +1276,14 @@ def test_float_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_float_nan_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1198,11 +1299,14 @@ def test_float_nan_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_float_inf_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1222,11 +1326,14 @@ def test_float_inf_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_int_query_param(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
@@ -1247,21 +1354,27 @@ def test_int_query_param(legacy_prepared_statements, run_trino):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
-@pytest.mark.parametrize('params', [
-    'NOT A LIST OR TUPPLE',
-    {'invalid', 'params'},
-    object,
-])
+@pytest.mark.parametrize(
+    "params",
+    [
+        "NOT A LIST OR TUPPLE",
+        {"invalid", "params"},
+        object,
+    ],
+)
 def test_select_query_invalid_params(params, legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
     with pytest.raises(AssertionError):
-        cur.execute('SELECT ?', params=params)
+        cur.execute("SELECT ?", params=params)
 
 
 def test_select_cursor_iteration(trino_connection):
@@ -1281,7 +1394,7 @@ def test_select_cursor_iteration(trino_connection):
 
 def test_execute_chaining(trino_connection):
     cur = trino_connection.cursor()
-    assert cur.execute('SELECT 1').fetchone()[0] == 1
+    assert cur.execute("SELECT 1").fetchone()[0] == 1
 
 
 def test_select_query_no_result(trino_connection):
@@ -1419,8 +1532,7 @@ def test_transaction_multiple(trino_connection_with_transaction):
     assert len(rows2) == 1000
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="Autocommit behaves "
-                                                     "differently in older Trino versions")
+@pytest.mark.skipif(trino_version() == "351", reason="Autocommit behaves " "differently in older Trino versions")
 def test_transaction_autocommit(trino_connection_in_autocommit):
     with trino_connection_in_autocommit as connection:
         connection.start_transaction()
@@ -1430,25 +1542,27 @@ def test_transaction_autocommit(trino_connection_in_autocommit):
                 """
                 CREATE TABLE memory.default.nation
                 AS SELECT * from tpch.tiny.nation
-                """)
+                """
+            )
             cur.fetchall()
-        assert "Catalog only supports writes using autocommit: memory" \
-               in str(transaction_error.value)
+        assert "Catalog only supports writes using autocommit: memory" in str(transaction_error.value)
 
 
 @pytest.mark.parametrize(
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_invalid_query_throws_correct_error(legacy_prepared_statements, run_trino):
-    """Tests that an invalid query raises the correct exception
-    """
+    """Tests that an invalid query raises the correct exception"""
     cur = get_cursor(legacy_prepared_statements, run_trino)
     with pytest.raises(TrinoQueryError):
         cur.execute(
@@ -1461,14 +1575,14 @@ def test_invalid_query_throws_correct_error(legacy_prepared_statements, run_trin
 
 def test_eager_loading_cursor_description(trino_connection):
     description_expected = [
-        ('node_id', 'varchar', None, None, None, None, None),
-        ('http_uri', 'varchar', None, None, None, None, None),
-        ('node_version', 'varchar', None, None, None, None, None),
-        ('coordinator', 'boolean', None, None, None, None, None),
-        ('state', 'varchar', None, None, None, None, None),
+        ("node_id", "varchar", None, None, None, None, None),
+        ("http_uri", "varchar", None, None, None, None, None),
+        ("node_version", "varchar", None, None, None, None, None),
+        ("coordinator", "boolean", None, None, None, None, None),
+        ("state", "varchar", None, None, None, None, None),
     ]
     cur = trino_connection.cursor()
-    cur.execute('SELECT * FROM system.runtime.nodes')
+    cur.execute("SELECT * FROM system.runtime.nodes")
     description_before = cur.description
 
     assert description_before is not None
@@ -1485,7 +1599,7 @@ def test_eager_loading_cursor_description(trino_connection):
 def test_info_uri(trino_connection):
     cur = trino_connection.cursor()
     assert cur.info_uri is None
-    cur.execute('SELECT * FROM system.runtime.nodes')
+    cur.execute("SELECT * FROM system.runtime.nodes")
     assert cur.info_uri is not None
     assert cur._query.query_id in cur.info_uri
     cur.fetchall()
@@ -1522,44 +1636,43 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
     )
 
     cur = trino_connection.cursor()
-    cur.execute('SELECT 1')
+    cur.execute("SELECT 1")
     cur.fetchall()
 
     api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
-    query_info = requests.post(api_url + "/ui/login", data={
-        "username": "admin",
-        "password": "",
-        "redirectPath": api_url + '/ui/api/query/' + cur._query.query_id
-    }).json()
+    query_info = requests.post(
+        api_url + "/ui/login",
+        data={"username": "admin", "password": "", "redirectPath": api_url + "/ui/api/query/" + cur._query.query_id},
+    ).json()
 
-    query_client_tags = query_info['session']['clientTags']
+    query_client_tags = query_info["session"]["clientTags"]
     return query_client_tags
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+@pytest.mark.skipif(trino_version() == "351", reason="current_catalog not supported in older Trino versions")
 def test_use_catalog_schema(trino_connection):
     cur = trino_connection.cursor()
-    cur.execute('SELECT current_catalog, current_schema')
+    cur.execute("SELECT current_catalog, current_schema")
     result = cur.fetchall()
     assert result[0][0] is None
     assert result[0][1] is None
 
-    cur.execute('USE tpch.tiny')
+    cur.execute("USE tpch.tiny")
     cur.fetchall()
-    cur.execute('SELECT current_catalog, current_schema')
+    cur.execute("SELECT current_catalog, current_schema")
     result = cur.fetchall()
-    assert result[0][0] == 'tpch'
-    assert result[0][1] == 'tiny'
+    assert result[0][0] == "tpch"
+    assert result[0][1] == "tiny"
 
-    cur.execute('USE tpcds.sf1')
+    cur.execute("USE tpcds.sf1")
     cur.fetchall()
-    cur.execute('SELECT current_catalog, current_schema')
+    cur.execute("SELECT current_catalog, current_schema")
     result = cur.fetchall()
-    assert result[0][0] == 'tpcds'
-    assert result[0][1] == 'sf1'
+    assert result[0][0] == "tpcds"
+    assert result[0][1] == "sf1"
 
 
-@pytest.mark.skipif(trino_version() == '351', reason="current_catalog not supported in older Trino versions")
+@pytest.mark.skipif(trino_version() == "351", reason="current_catalog not supported in older Trino versions")
 def test_use_schema(run_trino):
     _, host, port = run_trino
 
@@ -1567,34 +1680,32 @@ def test_use_schema(run_trino):
         host=host, port=port, user="test", source="test", catalog="tpch", max_attempts=1
     )
     cur = trino_connection.cursor()
-    cur.execute('SELECT current_catalog, current_schema')
+    cur.execute("SELECT current_catalog, current_schema")
     result = cur.fetchall()
-    assert result[0][0] == 'tpch'
+    assert result[0][0] == "tpch"
     assert result[0][1] is None
 
-    cur.execute('USE tiny')
+    cur.execute("USE tiny")
     cur.fetchall()
-    cur.execute('SELECT current_catalog, current_schema')
+    cur.execute("SELECT current_catalog, current_schema")
     result = cur.fetchall()
-    assert result[0][0] == 'tpch'
-    assert result[0][1] == 'tiny'
+    assert result[0][0] == "tpch"
+    assert result[0][1] == "tiny"
 
-    cur.execute('USE sf1')
+    cur.execute("USE sf1")
     cur.fetchall()
-    cur.execute('SELECT current_catalog, current_schema')
+    cur.execute("SELECT current_catalog, current_schema")
     result = cur.fetchall()
-    assert result[0][0] == 'tpch'
-    assert result[0][1] == 'sf1'
+    assert result[0][0] == "tpch"
+    assert result[0][1] == "sf1"
 
 
 def test_set_role(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch"
-    )
+    trino_connection = trino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch")
     cur = trino_connection.cursor()
-    cur.execute('SHOW TABLES FROM information_schema')
+    cur.execute("SHOW TABLES FROM information_schema")
     cur.fetchall()
     assert cur._request._client_session.roles == {}
 
@@ -1614,7 +1725,7 @@ def test_set_role_in_connection(run_trino):
         host=host, port=port, user="test", catalog="tpch", roles={"system": "ALL"}
     )
     cur = trino_connection.cursor()
-    cur.execute('SHOW TABLES FROM information_schema')
+    cur.execute("SHOW TABLES FROM information_schema")
     cur.fetchall()
     assert_role_headers(cur, "system=ALL")
 
@@ -1622,11 +1733,9 @@ def test_set_role_in_connection(run_trino):
 def test_set_system_role_in_connection(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch", roles="ALL"
-    )
+    trino_connection = trino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch", roles="ALL")
     cur = trino_connection.cursor()
-    cur.execute('SHOW TABLES FROM information_schema')
+    cur.execute("SHOW TABLES FROM information_schema")
     cur.fetchall()
     assert_role_headers(cur, "system=ALL")
 
@@ -1639,37 +1748,37 @@ def assert_role_headers(cursor, expected_header):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(None, marks=pytest.mark.skipif(
-            trino_version() > '417',
-            reason="This would use EXECUTE IMMEDIATE"))
-    ]
+        pytest.param(
+            None, marks=pytest.mark.skipif(trino_version() > "417", reason="This would use EXECUTE IMMEDIATE")
+        ),
+    ],
 )
 def test_prepared_statements(legacy_prepared_statements, run_trino):
     cur = get_cursor(legacy_prepared_statements, run_trino)
 
     # Implicit prepared statements must work and deallocate statements on finish
     assert cur._request._client_session.prepared_statements == {}
-    cur.execute('SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?', (1,))
+    cur.execute("SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?", (1,))
     result = cur.fetchall()
     assert result[0][0] == 1
     assert cur._request._client_session.prepared_statements == {}
 
     # Explicit prepared statements must also work
-    cur.execute('PREPARE test_prepared_statements FROM SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?')
+    cur.execute("PREPARE test_prepared_statements FROM SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?")
     cur.fetchall()
-    assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
-    cur.execute('EXECUTE test_prepared_statements USING 1')
+    assert "test_prepared_statements" in cur._request._client_session.prepared_statements
+    cur.execute("EXECUTE test_prepared_statements USING 1")
     cur.fetchall()
     assert result[0][0] == 1
 
     # An implicit prepared statement must not deallocate explicit statements
-    cur.execute('SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?', (1,))
+    cur.execute("SELECT count(1) FROM tpch.tiny.nation WHERE nationkey = ?", (1,))
     result = cur.fetchall()
     assert result[0][0] == 1
-    assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
+    assert "test_prepared_statements" in cur._request._client_session.prepared_statements
 
-    assert 'test_prepared_statements' in cur._request._client_session.prepared_statements
-    cur.execute('DEALLOCATE PREPARE test_prepared_statements')
+    assert "test_prepared_statements" in cur._request._client_session.prepared_statements
+    cur.execute("DEALLOCATE PREPARE test_prepared_statements")
     cur.fetchall()
     assert cur._request._client_session.prepared_statements == {}
 
@@ -1681,7 +1790,7 @@ def test_set_timezone_in_connection(run_trino):
         host=host, port=port, user="test", catalog="tpch", timezone="Europe/Brussels"
     )
     cur = trino_connection.cursor()
-    cur.execute('SELECT current_timezone()')
+    cur.execute("SELECT current_timezone()")
     res = cur.fetchall()
     assert res[0][0] == "Europe/Brussels"
 
@@ -1689,32 +1798,33 @@ def test_set_timezone_in_connection(run_trino):
 def test_connection_without_timezone(run_trino):
     _, host, port = run_trino
 
-    trino_connection = trino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch"
-    )
+    trino_connection = trino.dbapi.Connection(host=host, port=port, user="test", catalog="tpch")
     cur = trino_connection.cursor()
-    cur.execute('SELECT current_timezone()')
+    cur.execute("SELECT current_timezone()")
     res = cur.fetchall()
     session_tz = res[0][0]
     localzone = get_localzone_name()
-    assert session_tz == localzone or \
-        (session_tz == "UTC" and localzone == "Etc/UTC") \
-        # Workaround for difference between Trino timezone and tzlocal for UTC
+    assert session_tz == localzone or (
+        session_tz == "UTC" and localzone == "Etc/UTC"
+    )  # Workaround for difference between Trino timezone and tzlocal for UTC
 
 
 def test_describe(run_trino):
     _, host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch",
+        host=host,
+        port=port,
+        user="test",
+        catalog="tpch",
     )
     cur = trino_connection.cursor()
 
     result = cur.describe("SELECT 1, DECIMAL '1.0' as a")
 
     assert result == [
-        DescribeOutput(name='_col0', catalog='', schema='', table='', type='integer', type_size=4, aliased=False),
-        DescribeOutput(name='a', catalog='', schema='', table='', type='decimal(2,1)', type_size=8, aliased=True)
+        DescribeOutput(name="_col0", catalog="", schema="", table="", type="integer", type_size=4, aliased=False),
+        DescribeOutput(name="a", catalog="", schema="", table="", type="decimal(2,1)", type_size=8, aliased=True),
     ]
 
 
@@ -1722,7 +1832,10 @@ def test_describe_table_query(run_trino):
     _, host, port = run_trino
 
     trino_connection = trino.dbapi.Connection(
-        host=host, port=port, user="test", catalog="tpch",
+        host=host,
+        port=port,
+        user="test",
+        catalog="tpch",
     )
     cur = trino_connection.cursor()
 
@@ -1730,41 +1843,41 @@ def test_describe_table_query(run_trino):
 
     assert result == [
         DescribeOutput(
-            name='nationkey',
-            catalog='tpch',
-            schema='tiny',
-            table='nation',
-            type='bigint',
+            name="nationkey",
+            catalog="tpch",
+            schema="tiny",
+            table="nation",
+            type="bigint",
             type_size=8,
             aliased=False,
         ),
         DescribeOutput(
-            name='name',
-            catalog='tpch',
-            schema='tiny',
-            table='nation',
-            type='varchar(25)',
+            name="name",
+            catalog="tpch",
+            schema="tiny",
+            table="nation",
+            type="varchar(25)",
             type_size=0,
             aliased=False,
         ),
         DescribeOutput(
-            name='regionkey',
-            catalog='tpch',
-            schema='tiny',
-            table='nation',
-            type='bigint',
+            name="regionkey",
+            catalog="tpch",
+            schema="tiny",
+            table="nation",
+            type="bigint",
             type_size=8,
             aliased=False,
         ),
         DescribeOutput(
-            name='comment',
-            catalog='tpch',
-            schema='tiny',
-            table='nation',
-            type='varchar(152)',
+            name="comment",
+            catalog="tpch",
+            schema="tiny",
+            table="nation",
+            type="varchar(152)",
             type_size=0,
             aliased=False,
-        )
+        ),
     ]
 
 
@@ -1781,10 +1894,10 @@ def test_rowcount_create_table(trino_connection):
 
 
 def test_rowcount_create_table_as_select(trino_connection):
-    with _TestTable(
-        trino_connection,
-        "memory.default.test_rowcount_ctas", "AS SELECT 1 a UNION ALL SELECT 2"
-    ) as (_, cur):
+    with _TestTable(trino_connection, "memory.default.test_rowcount_ctas", "AS SELECT 1 a UNION ALL SELECT 2") as (
+        _,
+        cur,
+    ):
         assert cur.rowcount == 2
 
 
@@ -1798,11 +1911,14 @@ def test_rowcount_insert(trino_connection):
     "legacy_prepared_statements",
     [
         True,
-        pytest.param(False, marks=pytest.mark.skipif(
-            trino_version() <= '417',
-            reason="EXECUTE IMMEDIATE was introduced in version 418")),
-        None
-    ]
+        pytest.param(
+            False,
+            marks=pytest.mark.skipif(
+                trino_version() <= "417", reason="EXECUTE IMMEDIATE was introduced in version 418"
+            ),
+        ),
+        None,
+    ],
 )
 def test_prepared_statement_capability_autodetection(legacy_prepared_statements, run_trino):
     # start with an empty cache
@@ -1853,14 +1969,11 @@ def assert_cursor_description(cur, trino_type, size=None, precision=None, scale=
 class _TestTable:
     def __init__(self, conn, table_name_prefix, table_definition) -> None:
         self._conn = conn
-        self._table_name = table_name_prefix + '_' + str(uuid.uuid4().hex)
+        self._table_name = table_name_prefix + "_" + str(uuid.uuid4().hex)
         self._table_definition = table_definition
 
     def __enter__(self) -> Tuple["_TestTable", Cursor]:
-        return (
-            self,
-            self._conn.cursor().execute(f"CREATE TABLE {self._table_name} {self._table_definition}")
-        )
+        return (self, self._conn.cursor().execute(f"CREATE TABLE {self._table_name} {self._table_definition}"))
 
     def __exit__(self, exc_type, exc_value, exc_tb) -> None:
         self._conn.cursor().execute(f"DROP TABLE {self._table_name}")

@@ -75,7 +75,7 @@ if SOCKS_PROXY:
 else:
     PROXIES = {}
 
-_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
+_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r"^\S[^\s=]*$")
 
 ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
 
@@ -250,10 +250,12 @@ class ClientSession:
             is_legacy_role_pattern = ROLE_PATTERN.match(role) is not None
             if role in ("NONE", "ALL") or is_legacy_role_pattern:
                 if is_legacy_role_pattern:
-                    warnings.warn(f"A role '{role}' is provided using a legacy format. "
-                                  "Please remove the ROLE{} wrapping. Support for the legacy format might be "
-                                  "removed in a future release.",
-                                  DeprecationWarning)
+                    warnings.warn(
+                        f"A role '{role}' is provided using a legacy format. "
+                        "Please remove the ROLE{} wrapping. Support for the legacy format might be "
+                        "removed in a future release.",
+                        DeprecationWarning,
+                    )
                 formatted_roles[catalog] = role
             else:
                 formatted_roles[catalog] = f"ROLE{{{role}}}"
@@ -275,26 +277,17 @@ def get_header_values(headers, header):
 
 def get_session_property_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs if kv)
-    ]
+    return [(k.strip(), urllib.parse.unquote_plus(v.strip())) for k, v in (kv.split("=", 1) for kv in kvs if kv)]
 
 
 def get_prepared_statement_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs if kv)
-    ]
+    return [(k.strip(), urllib.parse.unquote_plus(v.strip())) for k, v in (kv.split("=", 1) for kv in kvs if kv)]
 
 
 def get_roles_values(headers, header):
     kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs if kv)
-    ]
+    return [(k.strip(), urllib.parse.unquote_plus(v.strip())) for k, v in (kv.split("=", 1) for kv in kvs if kv)]
 
 
 @dataclass
@@ -324,16 +317,14 @@ class TrinoStatus:
 
 
 class _DelayExponential:
-    def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
-    ):
+    def __init__(self, base=0.1, exponent=2, jitter=True, max_delay=1800):  # 100ms  # 30 min
         self._base = base
         self._exponent = exponent
         self._jitter = jitter
         self._max_delay = max_delay
 
     def __call__(self, attempt):
-        delay = float(self._base) * (self._exponent ** attempt)
+        delay = float(self._base) * (self._exponent**attempt)
         if self._jitter:
             delay *= random.random()
         delay = min(float(self._max_delay), delay)
@@ -341,9 +332,7 @@ class _DelayExponential:
 
 
 class _RetryWithExponentialBackoff:
-    def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
-    ):
+    def __init__(self, base=0.1, exponent=2, jitter=True, max_delay=1800):  # 100ms  # 30 min
         self._get_delay = _DelayExponential(base, exponent, jitter, max_delay)
 
     def retry(self, func, args, kwargs, err, attempt):
@@ -469,7 +458,7 @@ class TrinoRequest:
         headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_AUTHORIZATION_USER] = self._client_session.authorization_user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
-        headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME'
+        headers[constants.HEADER_CLIENT_CAPABILITIES] = "PARAMETRIC_DATETIME"
         headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
@@ -502,8 +491,7 @@ class TrinoRequest:
         transaction_id = self._client_session.transaction_id
         headers[constants.HEADER_TRANSACTION] = transaction_id
 
-        if self._client_session.extra_credential is not None and \
-                len(self._client_session.extra_credential) > 0:
+        if self._client_session.extra_credential is not None and len(self._client_session.extra_credential) > 0:
 
             for tup in self._client_session.extra_credential:
                 self._verify_extra_credential(tup)
@@ -511,10 +499,9 @@ class TrinoRequest:
             # HTTP 1.1 section 4.2 combine multiple extra credentials into a
             # comma-separated value
             # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
-            headers[constants.HEADER_EXTRA_CREDENTIAL] = \
-                ", ".join(
-                    [f"{tup[0]}={urllib.parse.quote_plus(str(tup[1]))}"
-                     for tup in self._client_session.extra_credential])
+            headers[constants.HEADER_EXTRA_CREDENTIAL] = ", ".join(
+                [f"{tup[0]}={urllib.parse.quote_plus(str(tup[1]))}" for tup in self._client_session.extra_credential]
+            )
 
         return headers
 
@@ -623,15 +610,11 @@ class TrinoRequest:
             raise self._process_error(response["error"], response.get("id"))
 
         if constants.HEADER_CLEAR_SESSION in http_response.headers:
-            for prop in get_header_values(
-                http_response.headers, constants.HEADER_CLEAR_SESSION
-            ):
+            for prop in get_header_values(http_response.headers, constants.HEADER_CLEAR_SESSION):
                 self._client_session.properties.pop(prop, None)
 
         if constants.HEADER_SET_SESSION in http_response.headers:
-            for key, value in get_session_property_values(
-                http_response.headers, constants.HEADER_SET_SESSION
-            ):
+            for key, value in get_session_property_values(http_response.headers, constants.HEADER_SET_SESSION):
                 self._client_session.properties[key] = value
 
         if constants.HEADER_SET_CATALOG in http_response.headers:
@@ -641,21 +624,15 @@ class TrinoRequest:
             self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
 
         if constants.HEADER_SET_ROLE in http_response.headers:
-            for key, value in get_roles_values(
-                    http_response.headers, constants.HEADER_SET_ROLE
-            ):
+            for key, value in get_roles_values(http_response.headers, constants.HEADER_SET_ROLE):
                 self._client_session.roles[key] = value
 
         if constants.HEADER_ADDED_PREPARE in http_response.headers:
-            for name, statement in get_prepared_statement_values(
-                http_response.headers, constants.HEADER_ADDED_PREPARE
-            ):
+            for name, statement in get_prepared_statement_values(http_response.headers, constants.HEADER_ADDED_PREPARE):
                 self._client_session.prepared_statements[name] = statement
 
         if constants.HEADER_DEALLOCATED_PREPARE in http_response.headers:
-            for name in get_header_values(
-                http_response.headers, constants.HEADER_DEALLOCATED_PREPARE
-            ):
+            for name in get_header_values(http_response.headers, constants.HEADER_DEALLOCATED_PREPARE):
                 self._client_session.prepared_statements.pop(name, None)
 
         if constants.HEADER_SET_AUTHORIZATION_USER in http_response.headers:
@@ -690,7 +667,7 @@ class TrinoRequest:
             raise ValueError(f"whitespace or '=' are disallowed in extra credential '{key}'")
 
         try:
-            key.encode().decode('ascii')
+            key.encode().decode("ascii")
         except UnicodeDecodeError:
             raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
@@ -737,10 +714,10 @@ class TrinoQuery:
     """Represent the execution of a SQL statement by Trino."""
 
     def __init__(
-            self,
-            request: TrinoRequest,
-            query: str,
-            legacy_primitive_types: bool = False,
+        self,
+        request: TrinoRequest,
+        query: str,
+        legacy_primitive_types: bool = False,
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -837,8 +814,9 @@ class TrinoQuery:
         self._update_count = status.update_count
         self._next_uri = status.next_uri
         if not self._row_mapper and status.columns:
-            self._row_mapper = RowMapperFactory().create(columns=status.columns,
-                                                         legacy_primitive_types=self._legacy_primitive_types)
+            self._row_mapper = RowMapperFactory().create(
+                columns=status.columns, legacy_primitive_types=self._legacy_primitive_types
+            )
         if status.columns:
             self._columns = status.columns
 
@@ -877,6 +855,7 @@ class TrinoQuery:
 
     def is_finished(self) -> bool:
         import warnings
+
         warnings.warn("is_finished is deprecated, use finished instead", DeprecationWarning)
         return self.finished
 

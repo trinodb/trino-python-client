@@ -27,4 +27,4 @@ def get_logger(name: str, log_level: Optional[int] = None) -> logging.Logger:
 
 
 # set default log level to LEVEL
-trino_root_logger = get_logger('trino', LEVEL)
+trino_root_logger = get_logger("trino", LEVEL)

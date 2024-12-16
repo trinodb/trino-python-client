@@ -119,13 +119,11 @@ class _FormatTypeMixin:
 class _JSONFormatter:
     @staticmethod
     def format_index(value):
-        return "$[\"%s\"]" % value
+        return '$["%s"]' % value
 
     @staticmethod
     def format_path(value):
-        return "$%s" % (
-            "".join(["[\"%s\"]" % elem for elem in value])
-        )
+        return "$%s" % ("".join(['["%s"]' % elem for elem in value]))
 
 
 class JSONIndexType(_FormatTypeMixin, sqltypes.JSON.JSONIndexType):
@@ -238,7 +236,7 @@ def aware_split(
         elif character == close_bracket:
             parens -= 1
         elif character == quote:
-            if quotes and string[j - len(escaped_quote) + 1: j + 1] != escaped_quote:
+            if quotes and string[j - len(escaped_quote) + 1 : j + 1] != escaped_quote:
                 quotes = False
             elif not quotes:
                 quotes = True

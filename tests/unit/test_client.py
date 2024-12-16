@@ -119,7 +119,7 @@ def test_request_headers(mock_get_and_post):
                     "catalog1": "NONE",
                     # ensure backwards compatibility
                     "catalog2": "ROLE{catalog2_role}",
-                }
+                },
             ),
             http_scheme="http",
         )
@@ -160,14 +160,7 @@ def test_request_session_properties_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            properties={
-                "a": "1",
-                "b": "2",
-                "c": "more=v1,v2"
-            }
-        )
+        client_session=ClientSession(user="test_user", properties={"a": "1", "b": "2", "c": "more=v1,v2"}),
     )
 
     def assert_headers(headers):
@@ -202,10 +195,10 @@ def test_additional_request_post_headers(mock_get_and_post):
         http_scheme="http",
     )
 
-    sql = 'select 1'
+    sql = "select 1"
     additional_headers = {
-        'X-Trino-Fake-1': 'one',
-        'X-Trino-Fake-2': 'two',
+        "X-Trino-Fake-1": "one",
+        "X-Trino-Fake-2": "two",
     }
 
     combined_headers = req.http_headers
@@ -215,7 +208,7 @@ def test_additional_request_post_headers(mock_get_and_post):
 
     # Validate that the post call was performed including the addtional headers
     _, post_kwargs = post.call_args
-    assert post_kwargs['headers'] == combined_headers
+    assert post_kwargs["headers"] == combined_headers
 
 
 def test_request_invalid_http_headers():
@@ -237,10 +230,7 @@ def test_request_client_tags_headers(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            client_tags=["tag1", "tag2"]
-        ),
+        client_session=ClientSession(user="test_user", client_tags=["tag1", "tag2"]),
     )
 
     def assert_headers(headers):
@@ -263,7 +253,7 @@ def test_request_client_tags_headers_no_client_tags(mock_get_and_post):
         port=8080,
         client_session=ClientSession(
             user="test_user",
-        )
+        ),
     )
 
     def assert_headers(headers):
@@ -387,16 +377,12 @@ def test_oauth2_authentication_flow(attempts, sample_post_response_data):
 
     # bind post statement
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token, attempts)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -407,10 +393,11 @@ def test_oauth2_authentication_flow(attempts, sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+    )
     response = request.post("select 1")
 
-    assert response.request.headers['Authorization'] == f"Bearer {token}"
+    assert response.request.headers["Authorization"] == f"Bearer {token}"
     assert redirect_handler.redirect_server == redirect_server
     assert get_token_callback.attempts == 0
     assert len(_post_statement_requests()) == 2
@@ -428,20 +415,16 @@ def test_oauth2_refresh_token_flow(sample_post_response_data):
 
     # bind post statement
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandlerWithException(
-        trino.exceptions.TrinoAuthError(
-            "Do not use redirect handler when there is no redirect_uri in the response"))
+        trino.exceptions.TrinoAuthError("Do not use redirect handler when there is no redirect_uri in the response")
+    )
 
     request = TrinoRequest(
         host="coordinator",
@@ -450,11 +433,12 @@ def test_oauth2_refresh_token_flow(sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+    )
 
     response = request.post("select 1")
 
-    assert response.request.headers['Authorization'] == f"Bearer {token}"
+    assert response.request.headers["Authorization"] == f"Bearer {token}"
     assert get_token_callback.attempts == 0
     assert len(_post_statement_requests()) == 2
 
@@ -472,16 +456,12 @@ def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
 
     # bind post statement
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token, attempts)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=f"{TOKEN_RESOURCE}/{challenge_id}",
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=f"{TOKEN_RESOURCE}/{challenge_id}", body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -492,7 +472,8 @@ def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+    )
     with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
         request.post("select 1")
 
@@ -503,20 +484,27 @@ def test_oauth2_exceed_max_attempts(attempts, sample_post_response_data):
     assert len(_get_token_requests(challenge_id)) == _OAuth2TokenBearer.MAX_OAUTH_ATTEMPTS
 
 
-@pytest.mark.parametrize("header,error", [
-    ("", "Error: header WWW-Authenticate not available in the response."),
-    ('Bearer"', 'Error: header info didn\'t have x_token_server'),
-    ('x_redirect_server="redirect_server", x_token_server="token_server"', 'Error: header info didn\'t match x_redirect_server="redirect_server", x_token_server="token_server"'),  # noqa: E501
-    ('Bearer x_redirect_server="redirect_server"', 'Error: header info didn\'t have x_token_server'),
-])
+@pytest.mark.parametrize(
+    "header,error",
+    [
+        ("", "Error: header WWW-Authenticate not available in the response."),
+        ('Bearer"', "Error: header info didn't have x_token_server"),
+        (
+            'x_redirect_server="redirect_server", x_token_server="token_server"',
+            'Error: header info didn\'t match x_redirect_server="redirect_server", x_token_server="token_server"',
+        ),  # noqa: E501
+        ('Bearer x_redirect_server="redirect_server"', "Error: header info didn't have x_token_server"),
+    ],
+)
 @httprettified
 def test_oauth2_authentication_missing_headers(header, error):
     # bind post statement
     httpretty.register_uri(
         method=httpretty.POST,
         uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        adding_headers={'WWW-Authenticate': header},
-        status=401)
+        adding_headers={"WWW-Authenticate": header},
+        status=401,
+    )
 
     request = TrinoRequest(
         host="coordinator",
@@ -525,7 +513,8 @@ def test_oauth2_authentication_missing_headers(header, error):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=RedirectHandler()))
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=RedirectHandler()),
+    )
 
     with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
         request.post("select 1")
@@ -533,16 +522,19 @@ def test_oauth2_authentication_missing_headers(header, error):
     assert str(exp.value) == error
 
 
-@pytest.mark.parametrize("header", [
-    'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge',
-    'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge="value"',
-    'Bearer x_token_server="{token_server}", x_redirect_server="{redirect_server}"',
-    'Basic realm="Trino", Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}"',
-    'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", Basic realm="Trino"',
-    'Basic realm="Trino", Bearer realm="Trino", token_type="JWT", Bearer x_redirect_server="{redirect_server}", '
-    'x_token_server="{token_server}"'
-    'Bearer x_redirect_server="{redirect_server}",x_token_server="{token_server}",additional_challenge',
-])
+@pytest.mark.parametrize(
+    "header",
+    [
+        'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge',
+        'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", additional_challenge="value"',
+        'Bearer x_token_server="{token_server}", x_redirect_server="{redirect_server}"',
+        'Basic realm="Trino", Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}"',
+        'Bearer x_redirect_server="{redirect_server}", x_token_server="{token_server}", Basic realm="Trino"',
+        'Basic realm="Trino", Bearer realm="Trino", token_type="JWT", Bearer x_redirect_server="{redirect_server}", '
+        'x_token_server="{token_server}"'
+        'Bearer x_redirect_server="{redirect_server}",x_token_server="{token_server}",additional_challenge',
+    ],
+)
 @httprettified
 def test_oauth2_header_parsing(header, sample_post_response_data):
     token = str(uuid.uuid4())
@@ -556,21 +548,23 @@ def test_oauth2_header_parsing(header, sample_post_response_data):
         authorization = request.headers.get("Authorization")
         if authorization and authorization.replace("Bearer ", "") in token:
             return [200, response_headers, json.dumps(sample_post_response_data)]
-        return [401, {'Www-Authenticate': header.format(redirect_server=redirect_server, token_server=token_server),
-                      'Basic realm': '"Trino"'}, ""]
+        return [
+            401,
+            {
+                "Www-Authenticate": header.format(redirect_server=redirect_server, token_server=token_server),
+                "Basic realm": '"Trino"',
+            },
+            "",
+        ]
 
     # bind post statement
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}", body=post_statement
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -581,10 +575,10 @@ def test_oauth2_header_parsing(header, sample_post_response_data):
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
     ).post("select 1")
 
-    assert response.request.headers['Authorization'] == f"Bearer {token}"
+    assert response.request.headers["Authorization"] == f"Bearer {token}"
     assert redirect_handler.redirect_server == redirect_server
     assert get_token_callback.attempts == 0
     assert len(_post_statement_requests()) == 2
@@ -604,15 +598,12 @@ def test_oauth2_authentication_fail_token_server(http_status, sample_post_respon
 
     # bind post statement
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     httpretty.register_uri(
-        method=httpretty.GET,
-        uri=f"{TOKEN_RESOURCE}/{challenge_id}",
-        status=http_status,
-        body="error")
+        method=httpretty.GET, uri=f"{TOKEN_RESOURCE}/{challenge_id}", status=http_status, body="error"
+    )
 
     redirect_handler = RedirectHandler()
 
@@ -623,7 +614,8 @@ def test_oauth2_authentication_fail_token_server(http_status, sample_post_respon
             user="test",
         ),
         http_scheme=constants.HTTPS,
-        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler))
+        auth=trino.auth.OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+    )
 
     with pytest.raises(trino.exceptions.TrinoAuthError) as exp:
         request.post("select 1")
@@ -656,7 +648,8 @@ def test_multithreaded_oauth2_authentication_flow(sample_post_response_data):
                     user="test",
                 ),
                 http_scheme=constants.HTTPS,
-                auth=auth)
+                auth=auth,
+            )
             for i in range(10):
                 # apparently HTTPretty in the current version is not thread-safe
                 # https://github.com/gabrielfalcao/HTTPretty/issues/209
@@ -768,10 +761,7 @@ def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
     assert "stack" in error.failure_info
     assert len(error.failure_info["stack"]) == 36
     assert "suppressed" in error.failure_info
-    assert (
-        error.message
-        == "line 1:15: Schema must be specified when session schema is not set"
-    )
+    assert error.message == "line 1:15: Schema must be specified when session schema is not set"
     assert error.error_location == (1, 15)
     assert error.query_id == "20210817_140827_00000_arvdv"
 
@@ -887,10 +877,7 @@ def test_extra_credential_value_object(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=constants.DEFAULT_TLS_PORT,
-        client_session=ClientSession(
-            user="test",
-            extra_credential=[("foo", credential)]
-        )
+        client_session=ClientSession(user="test", extra_credential=[("foo", credential)]),
     )
 
     req.post("SELECT 1")
@@ -939,22 +926,36 @@ def _gssapi_sname(principal: str):
     "options, expected_credentials, expected_hostname, expected_exception",
     [
         (
-            {}, None, None, does_not_raise(),
+            {},
+            None,
+            None,
+            does_not_raise(),
         ),
         (
-            {"hostname_override": "foo"}, None, "foo", does_not_raise(),
+            {"hostname_override": "foo"},
+            None,
+            "foo",
+            does_not_raise(),
         ),
         (
-            {"service_name": "bar"}, None, None,
+            {"service_name": "bar"},
+            None,
+            None,
             pytest.raises(ValueError, match=r"must be used together with hostname_override"),
         ),
         (
-            {"hostname_override": "foo", "service_name": "bar"}, None, _gssapi_sname("bar@foo"), does_not_raise(),
+            {"hostname_override": "foo", "service_name": "bar"},
+            None,
+            _gssapi_sname("bar@foo"),
+            does_not_raise(),
         ),
         (
-            {"principal": "foo"}, MockGssapiCredentials(_gssapi_uname("foo"), "initial"), None, does_not_raise(),
+            {"principal": "foo"},
+            MockGssapiCredentials(_gssapi_uname("foo"), "initial"),
+            None,
+            does_not_raise(),
         ),
-    ]
+    ],
 )
 def test_authentication_gssapi_init_arguments(
     options,
@@ -999,7 +1000,7 @@ class RetryRecorder:
     [
         (KerberosAuthentication, KerberosExchangeError),
         (GSSAPIAuthentication, SPNEGOExchangeError),
-    ]
+    ],
 )
 def test_authentication_fail_retry(auth_class, retry_exception_class, monkeypatch):
     post_retry = RetryRecorder(error=retry_exception_class())
@@ -1030,11 +1031,14 @@ def test_authentication_fail_retry(auth_class, retry_exception_class, monkeypatc
     assert post_retry.retry_count == attempts
 
 
-@pytest.mark.parametrize("status_code, attempts", [
-    (502, 3),
-    (503, 3),
-    (504, 3),
-])
+@pytest.mark.parametrize(
+    "status_code, attempts",
+    [
+        (502, 3),
+        (503, 3),
+        (504, 3),
+    ],
+)
 def test_5XX_error_retry(status_code, attempts, monkeypatch):
     http_resp = TrinoRequest.http.Response()
     http_resp.status_code = status_code
@@ -1051,7 +1055,7 @@ def test_5XX_error_retry(status_code, attempts, monkeypatch):
         client_session=ClientSession(
             user="test",
         ),
-        max_attempts=attempts
+        max_attempts=attempts,
     )
 
     req.post("URL")
@@ -1078,7 +1082,7 @@ def test_429_error_retry(monkeypatch):
         client_session=ClientSession(
             user="test",
         ),
-        max_attempts=3
+        max_attempts=3,
     )
 
     req.post("URL")
@@ -1088,9 +1092,7 @@ def test_429_error_retry(monkeypatch):
     assert post_retry.retry_count == 3
 
 
-@pytest.mark.parametrize("status_code", [
-    501
-])
+@pytest.mark.parametrize("status_code", [501])
 def test_error_no_retry(status_code, monkeypatch):
     http_resp = TrinoRequest.http.Response()
     http_resp.status_code = status_code
@@ -1147,8 +1149,8 @@ def test_trino_query_response_headers(sample_get_response_data):
         @property
         def headers(self):
             return {
-                'X-Trino-Fake-1': 'one',
-                'X-Trino-Fake-2': 'two',
+                "X-Trino-Fake-1": "one",
+                "X-Trino-Fake-2": "two",
             }
 
         def json(self):
@@ -1167,19 +1169,16 @@ def test_trino_query_response_headers(sample_get_response_data):
         http_scheme="http",
     )
 
-    sql = 'execute my_stament using 1, 2, 3'
+    sql = "execute my_stament using 1, 2, 3"
     additional_headers = {
-        constants.HEADER_PREPARED_STATEMENT: 'my_statement=added_prepare_statement_header',
-        constants.HEADER_CLIENT_CAPABILITIES: 'PARAMETRIC_DATETIME'
+        constants.HEADER_PREPARED_STATEMENT: "my_statement=added_prepare_statement_header",
+        constants.HEADER_CLIENT_CAPABILITIES: "PARAMETRIC_DATETIME",
     }
 
     # Patch the post function to avoid making the requests, as well as to
     # validate that the function was called with the right arguments.
-    with mock.patch.object(req, 'post', return_value=MockResponse()) as mock_post:
-        query = TrinoQuery(
-            request=req,
-            query=sql
-        )
+    with mock.patch.object(req, "post", return_value=MockResponse()) as mock_post:
+        query = TrinoQuery(request=req, query=sql)
         result = query.execute(additional_http_headers=additional_headers)
 
         # Validate the the post function was called with the right argguments
@@ -1256,10 +1255,7 @@ def test_request_headers_role_hive_all(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            roles={"hive": "ALL"}
-        ),
+        client_session=ClientSession(user="test_user", roles={"hive": "ALL"}),
     )
 
     req.post("URL")
@@ -1277,10 +1273,7 @@ def test_request_headers_role_admin(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            roles={"system": "admin"}
-        ),
+        client_session=ClientSession(user="test_user", roles={"system": "admin"}),
     )
     roles = "system=" + urllib.parse.quote("ROLE{admin}")
 
@@ -1324,10 +1317,7 @@ def test_request_headers_with_timezone(mock_get_and_post):
     req = TrinoRequest(
         host="coordinator",
         port=8080,
-        client_session=ClientSession(
-            user="test_user",
-            timezone="Europe/Brussels"
-        ),
+        client_session=ClientSession(user="test_user", timezone="Europe/Brussels"),
     )
 
     req.post("URL")
@@ -1365,10 +1355,7 @@ def test_request_with_invalid_timezone(mock_get_and_post):
         TrinoRequest(
             host="coordinator",
             port=8080,
-            client_session=ClientSession(
-                user="test_user",
-                timezone="INVALID_TIMEZONE"
-            ),
+            client_session=ClientSession(user="test_user", timezone="INVALID_TIMEZONE"),
         )
     assert str(zinfo_error.value).startswith("'No time zone found with key")
 

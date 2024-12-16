@@ -70,30 +70,27 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
 
     # bind post statement to submit query
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     # bind get statement for result retrieval
     httpretty.register_uri(
         method=httpretty.GET,
         uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
-        body=get_statement_callback)
+        body=get_statement_callback,
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
     with connect(
-            "coordinator",
-            user="test",
-            auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
-            http_scheme=constants.HTTPS
+        "coordinator",
+        user="test",
+        auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+        http_scheme=constants.HTTPS,
     ) as conn:
         conn.cursor().execute("SELECT 1")
         conn.cursor().execute("SELECT 2")
@@ -101,18 +98,15 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
     with connect(
-            "coordinator",
-            user="test",
-            auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
-            http_scheme=constants.HTTPS
+        "coordinator",
+        user="test",
+        auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
+        http_scheme=constants.HTTPS,
     ) as conn2:
         conn2.cursor().execute("SELECT 1")
         conn2.cursor().execute("SELECT 2")
@@ -122,8 +116,9 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
 
 
 @httprettified
-def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post_response_data,
-                                                                     sample_get_response_data):
+def test_token_retrieved_once_when_authentication_instance_is_shared(
+    sample_post_response_data, sample_get_response_data
+):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 
@@ -135,50 +130,34 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
 
     # bind post statement to submit query
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     # bind get statement for result retrieval
     httpretty.register_uri(
         method=httpretty.GET,
         uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
-        body=get_statement_callback)
+        body=get_statement_callback,
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
     authentication = OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
 
-    with connect(
-            "coordinator",
-            user="test",
-            auth=authentication,
-            http_scheme=constants.HTTPS
-    ) as conn:
+    with connect("coordinator", user="test", auth=authentication, http_scheme=constants.HTTPS) as conn:
         conn.cursor().execute("SELECT 1")
         conn.cursor().execute("SELECT 2")
         conn.cursor().execute("SELECT 3")
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
-    with connect(
-            "coordinator",
-            user="test",
-            auth=authentication,
-            http_scheme=constants.HTTPS
-    ) as conn2:
+    with connect("coordinator", user="test", auth=authentication, http_scheme=constants.HTTPS) as conn2:
         conn2.cursor().execute("SELECT 1")
         conn2.cursor().execute("SELECT 2")
         conn2.cursor().execute("SELECT 3")
@@ -200,33 +179,25 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
 
     # bind post statement to submit query
     httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+        method=httpretty.POST, uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}", body=post_statement_callback
+    )
 
     # bind get statement for result retrieval
     httpretty.register_uri(
         method=httpretty.GET,
         uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
-        body=get_statement_callback)
+        body=get_statement_callback,
+    )
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    httpretty.register_uri(method=httpretty.GET, uri=token_server, body=get_token_callback)
 
     redirect_handler = RedirectHandler()
 
     authentication = OAuth2Authentication(redirect_auth_url_handler=redirect_handler)
 
-    conn = connect(
-        "coordinator",
-        user="test",
-        auth=authentication,
-        http_scheme=constants.HTTPS
-    )
+    conn = connect("coordinator", user="test", auth=authentication, http_scheme=constants.HTTPS)
 
     class RunningThread(threading.Thread):
         lock = threading.Lock()
@@ -238,11 +209,7 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
             with RunningThread.lock:
                 conn.cursor().execute("SELECT 1")
 
-    threads = [
-        RunningThread(),
-        RunningThread(),
-        RunningThread()
-    ]
+    threads = [RunningThread(), RunningThread(), RunningThread()]
 
     # run and join all threads
     for thread in threads:
@@ -313,4 +280,4 @@ def test_hostname_parsing():
 def test_description_is_none_when_cursor_is_not_executed():
     connection = Connection("sample_trino_cluster:443")
     cursor = connection.cursor()
-    assert hasattr(cursor, 'description')
+    assert hasattr(cursor, "description")

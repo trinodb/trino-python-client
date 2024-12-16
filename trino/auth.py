@@ -98,22 +98,24 @@ class KerberosAuthentication(Authentication):
         try:
             from requests_kerberos.exceptions import KerberosExchangeError
 
-            return KerberosExchangeError,
+            return (KerberosExchangeError,)
         except ImportError:
             raise RuntimeError("unable to import requests_kerberos")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, KerberosAuthentication):
             return False
-        return (self._config == other._config
-                and self._service_name == other._service_name
-                and self._mutual_authentication == other._mutual_authentication
-                and self._force_preemptive == other._force_preemptive
-                and self._hostname_override == other._hostname_override
-                and self._sanitize_mutual_error_response == other._sanitize_mutual_error_response
-                and self._principal == other._principal
-                and self._delegate == other._delegate
-                and self._ca_bundle == other._ca_bundle)
+        return (
+            self._config == other._config
+            and self._service_name == other._service_name
+            and self._mutual_authentication == other._mutual_authentication
+            and self._force_preemptive == other._force_preemptive
+            and self._hostname_override == other._hostname_override
+            and self._sanitize_mutual_error_response == other._sanitize_mutual_error_response
+            and self._principal == other._principal
+            and self._delegate == other._delegate
+            and self._ca_bundle == other._ca_bundle
+        )
 
 
 class GSSAPIAuthentication(Authentication):
@@ -173,9 +175,9 @@ class GSSAPIAuthentication(Authentication):
         return None
 
     def _get_target_name(
-            self,
-            hostname_override: Optional[str] = None,
-            service_name: Optional[str] = None,
+        self,
+        hostname_override: Optional[str] = None,
+        service_name: Optional[str] = None,
     ) -> Any:
         if service_name is not None:
             try:
@@ -195,22 +197,24 @@ class GSSAPIAuthentication(Authentication):
         try:
             from requests_gssapi.exceptions import SPNEGOExchangeError
 
-            return SPNEGOExchangeError,
+            return (SPNEGOExchangeError,)
         except ImportError:
             raise RuntimeError("unable to import requests_kerberos")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GSSAPIAuthentication):
             return False
-        return (self._config == other._config
-                and self._service_name == other._service_name
-                and self._mutual_authentication == other._mutual_authentication
-                and self._force_preemptive == other._force_preemptive
-                and self._hostname_override == other._hostname_override
-                and self._sanitize_mutual_error_response == other._sanitize_mutual_error_response
-                and self._principal == other._principal
-                and self._delegate == other._delegate
-                and self._ca_bundle == other._ca_bundle)
+        return (
+            self._config == other._config
+            and self._service_name == other._service_name
+            and self._mutual_authentication == other._mutual_authentication
+            and self._force_preemptive == other._force_preemptive
+            and self._hostname_override == other._hostname_override
+            and self._sanitize_mutual_error_response == other._sanitize_mutual_error_response
+            and self._principal == other._principal
+            and self._delegate == other._delegate
+            and self._ca_bundle == other._ca_bundle
+        )
 
 
 class BasicAuthentication(Authentication):
@@ -353,8 +357,9 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
             logger.info("keyring module not found. OAuth2 token will not be stored in keyring.")
 
     def is_keyring_available(self) -> bool:
-        return self._keyring is not None \
-            and not isinstance(self._keyring.get_keyring(), self._keyring.backends.fail.Keyring)
+        return self._keyring is not None and not isinstance(
+            self._keyring.get_keyring(), self._keyring.backends.fail.Keyring
+        )
 
     def get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
         password = self._keyring.get_password(key, "token")
@@ -370,9 +375,11 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
                     password += str(self._keyring.get_password(key, f"token__{i}"))
 
         except self._keyring.errors.NoKeyringError as e:
-            raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
-                                                     "detected, check https://pypi.org/project/keyring/ for more "
-                                                     "information.") from e
+            raise trino.exceptions.NotSupportedError(
+                "Although keyring module is installed no backend has been "
+                "detected, check https://pypi.org/project/keyring/ for more "
+                "information."
+            ) from e
         except ValueError:
             pass
 
@@ -388,7 +395,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
                 logger.debug(f"password is {len(token)} characters, sharding it.")
 
                 password_shards = [
-                    token[i: i + MAX_NT_PASSWORD_SIZE] for i in range(0, len(token), MAX_NT_PASSWORD_SIZE)
+                    token[i : i + MAX_NT_PASSWORD_SIZE] for i in range(0, len(token), MAX_NT_PASSWORD_SIZE)
                 ]
                 shard_info = {
                     "sharded_password": True,
@@ -401,15 +408,18 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
                 for i, s in enumerate(password_shards):
                     self._keyring.set_password(key, f"token__{i}", s)
         except self._keyring.errors.NoKeyringError as e:
-            raise trino.exceptions.NotSupportedError("Although keyring module is installed no backend has been "
-                                                     "detected, check https://pypi.org/project/keyring/ for more "
-                                                     "information.") from e
+            raise trino.exceptions.NotSupportedError(
+                "Although keyring module is installed no backend has been "
+                "detected, check https://pypi.org/project/keyring/ for more "
+                "information."
+            ) from e
 
 
 class _OAuth2TokenBearer(AuthBase):
     """
     Custom implementation of Trino OAuth2 based authentication to get the token
     """
+
     MAX_OAUTH_ATTEMPTS = 5
     _BEARER_PREFIX = re.compile(r"bearer", flags=re.IGNORECASE)
 
@@ -428,9 +438,9 @@ class _OAuth2TokenBearer(AuthBase):
         token = self._get_token_from_cache(key)
 
         if token is not None:
-            r.headers['Authorization'] = "Bearer " + token
+            r.headers["Authorization"] = "Bearer " + token
 
-        r.register_hook('response', self._authenticate)
+        r.register_hook("response", self._authenticate)
 
         return r
 
@@ -455,7 +465,7 @@ class _OAuth2TokenBearer(AuthBase):
 
     def _attempt_oauth(self, response: Response, **kwargs: Any) -> None:
         # we have to handle the authentication, may be token the token expired, or it wasn't there at all
-        auth_info = response.headers.get('WWW-Authenticate')
+        auth_info = response.headers.get("WWW-Authenticate")
         if not auth_info:
             raise exceptions.TrinoAuthError("Error: header WWW-Authenticate not available in the response.")
 
@@ -468,8 +478,8 @@ class _OAuth2TokenBearer(AuthBase):
         # x_token_server="https://trino.com/oauth2/token/uuid4"'
         auth_info_headers = self._parse_authenticate_header(auth_info)
 
-        auth_server = auth_info_headers.get('bearer x_redirect_server', auth_info_headers.get('x_redirect_server'))
-        token_server = auth_info_headers.get('bearer x_token_server', auth_info_headers.get('x_token_server'))
+        auth_server = auth_info_headers.get("bearer x_redirect_server", auth_info_headers.get("x_redirect_server"))
+        token_server = auth_info_headers.get("bearer x_token_server", auth_info_headers.get("x_token_server"))
         if token_server is None:
             raise exceptions.TrinoAuthError("Error: header info didn't have x_token_server")
 
@@ -500,7 +510,7 @@ class _OAuth2TokenBearer(AuthBase):
         key = self._construct_cache_key(host, user)
         token = self._get_token_from_cache(key)
         if token is not None:
-            request.headers['Authorization'] = "Bearer " + token
+            request.headers["Authorization"] = "Bearer " + token
         retry_response = response.connection.send(request, **kwargs)
         retry_response.history.append(response)
         retry_response.request = request
@@ -510,24 +520,24 @@ class _OAuth2TokenBearer(AuthBase):
         attempts = 0
         while attempts < self.MAX_OAUTH_ATTEMPTS:
             attempts += 1
-            with response.connection.send(Request(
-                    method='GET', url=token_server).prepare(), **kwargs) as response:
+            with response.connection.send(Request(method="GET", url=token_server).prepare(), **kwargs) as response:
                 if response.status_code == 200:
                     token_response = json.loads(response.text)
-                    token = token_response.get('token')
+                    token = token_response.get("token")
                     if token:
                         return token
-                    error = token_response.get('error')
+                    error = token_response.get("error")
                     if error:
                         raise exceptions.TrinoAuthError(f"Error while getting the token: {error}")
                     else:
-                        token_server = token_response.get('nextUri')
+                        token_server = token_response.get("nextUri")
                         logger.debug(f"nextURi auth token server: {token_server}")
                 else:
                     raise exceptions.TrinoAuthError(
                         f"Error while getting the token response "
                         f"status code: {response.status_code}, "
-                        f"body: {response.text}")
+                        f"body: {response.text}"
+                    )
 
         raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
 
@@ -571,10 +581,12 @@ class _OAuth2TokenBearer(AuthBase):
 
 
 class OAuth2Authentication(Authentication):
-    def __init__(self, redirect_auth_url_handler: CompositeRedirectHandler = CompositeRedirectHandler([
-        WebBrowserRedirectHandler(),
-        ConsoleRedirectHandler()
-    ])):
+    def __init__(
+        self,
+        redirect_auth_url_handler: CompositeRedirectHandler = CompositeRedirectHandler(
+            [WebBrowserRedirectHandler(), ConsoleRedirectHandler()]
+        ),
+    ):
         self._redirect_auth_url = redirect_auth_url_handler
         self._bearer = _OAuth2TokenBearer(self._redirect_auth_url)
 
