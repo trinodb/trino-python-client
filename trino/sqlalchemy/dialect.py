@@ -52,10 +52,7 @@ colspecs = {
 
 
 class TrinoDialect(DefaultDialect):
-    def __init__(self,
-                 json_serializer=None,
-                 json_deserializer=None,
-                 **kwargs):
+    def __init__(self, json_serializer=None, json_deserializer=None, **kwargs):
         DefaultDialect.__init__(self, **kwargs)
         self._json_serializer = json_serializer
         self._json_deserializer = json_deserializer
@@ -142,7 +139,7 @@ class TrinoDialect(DefaultDialect):
 
         if "cert" in url.query and "key" in url.query:
             kwargs["http_scheme"] = "https"
-            kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
+            kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query["cert"]), unquote_plus(url.query["key"]))
 
         if "externalAuthentication" in url.query:
             kwargs["http_scheme"] = "https"
@@ -214,10 +211,7 @@ class TrinoDialect(DefaultDialect):
         return columns
 
     def _get_partitions(
-        self,
-        connection: Connection,
-        table_name: str,
-        schema: str = None
+        self, connection: Connection, table_name: str, schema: str = None
     ) -> List[Dict[str, List[Any]]]:
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
@@ -330,11 +324,7 @@ class TrinoDialect(DefaultDialect):
             logger.debug("Couldn't fetch partition columns. schema: %s, table: %s, error: %s", schema, table_name, e)
         if not partitioned_columns:
             return []
-        partition_index = dict(
-            name="partition",
-            column_names=partitioned_columns,
-            unique=False
-        )
+        partition_index = dict(name="partition", column_names=partitioned_columns, unique=False)
         return [partition_index]
 
     def get_sequence_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
@@ -371,14 +361,11 @@ class TrinoDialect(DefaultDialect):
         ).strip()
         try:
             res = connection.execute(
-                sql.text(query),
-                {"catalog_name": catalog_name, "schema_name": schema_name, "table_name": table_name}
+                sql.text(query), {"catalog_name": catalog_name, "schema_name": schema_name, "table_name": table_name}
             )
             return dict(text=res.scalar())
         except error.TrinoQueryError as e:
-            if e.error_name in (
-                error.PERMISSION_DENIED,
-            ):
+            if e.error_name in (error.PERMISSION_DENIED,):
                 return dict(text=None)
             raise
 

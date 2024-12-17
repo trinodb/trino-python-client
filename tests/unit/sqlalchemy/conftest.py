@@ -41,7 +41,7 @@ def assert_sqltype():
             _assert_sqltype(this.value_type, that.value_type)
         elif isinstance(this, ROW):
             assert len(this.attr_types) == len(that.attr_types)
-            for (this_attr, that_attr) in zip(this.attr_types, that.attr_types):
+            for this_attr, that_attr in zip(this.attr_types, that.attr_types):
                 assert this_attr[0] == that_attr[0]
                 _assert_sqltype(this_attr[1], that_attr[1])
 

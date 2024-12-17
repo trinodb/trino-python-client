@@ -36,9 +36,9 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
 
     def round_to(self, precision: int) -> TemporalType[PythonTemporalType]:
         """
-            Python datetime and time only support up to microsecond precision
-            In case the supplied value exceeds the specified precision,
-            the value needs to be rounded.
+        Python datetime and time only support up to microsecond precision
+        In case the supplied value exceeds the specified precision,
+        the value needs to be rounded.
         """
         precision = min(precision, MAX_PYTHON_TEMPORAL_PRECISION_POWER)
         remaining_fractional_seconds = self._remaining_fractional_seconds
@@ -53,7 +53,7 @@ class TemporalType(Generic[PythonTemporalType], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_time_delta(self, time_delta: timedelta) -> PythonTemporalType:
         """
-            This method shall be overriden to implement fraction arithmetics.
+        This method shall be overriden to implement fraction arithmetics.
         """
         pass
 
@@ -99,6 +99,7 @@ class TimestampWithTimeZone(Timestamp, TemporalType[datetime]):
 
 class NamedRowTuple(Tuple[Any, ...]):
     """Custom tuple class as namedtuple doesn't support missing or duplicate names"""
+
     def __new__(cls, values: List[Any], names: List[str], types: List[str]) -> NamedRowTuple:
         return cast(NamedRowTuple, super().__new__(cls, values))
 

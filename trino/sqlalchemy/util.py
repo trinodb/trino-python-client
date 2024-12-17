@@ -32,7 +32,7 @@ def _url(
     cert: Optional[str] = None,
     key: Optional[str] = None,
     verify: Optional[bool] = None,
-    roles: Optional[Dict[str, str]] = None
+    roles: Optional[Dict[str, str]] = None,
 ) -> str:
     """
     Composes a SQLAlchemy connection string from the given database connection

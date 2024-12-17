@@ -18,6 +18,13 @@ repos:
         name: "Python: imports"
         args: ["--py39-plus"]
 
+  - repo: "https://github.com/psf/black-pre-commit-mirror"
+    rev: "24.10.0"
+    hooks:
+      - id: "black"
+        name: "Python: format"
+        args: ["--target-version", "py39", "--line-length", "120"]
+
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: "v5.0.0"
     hooks:

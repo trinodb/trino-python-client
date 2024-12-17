@@ -69,7 +69,7 @@ parse_type_options_testcases = {
     "CHAR(10)": CHAR(10),
     "VARCHAR(10)": VARCHAR(10),
     "DECIMAL(20)": DECIMAL(20),
-    "DECIMAL(20, 3)": DECIMAL(20, 3)
+    "DECIMAL(20, 3)": DECIMAL(20, 3),
 }
 
 
@@ -188,7 +188,7 @@ parse_datetime_testcases = {
     "timestamp(3)": TIMESTAMP(3, timezone=False),
     "timestamp(6)": TIMESTAMP(6),
     "timestamp(12) with time zone": TIMESTAMP(12, timezone=True),
-    "timestamp with time zone": TIMESTAMP(timezone=True)
+    "timestamp with time zone": TIMESTAMP(timezone=True),
 }
 
 

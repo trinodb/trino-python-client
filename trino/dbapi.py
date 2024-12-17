@@ -87,6 +87,7 @@ class TimeBoundLRUCache:
     """A bounded LRU cache which expires entries after a configured number of seconds.
     Note that expired entries will be evicted only on an attempted access (or through
     the LRU policy)."""
+
     def __init__(self, capacity: int, ttl_seconds: int):
         self.capacity = capacity
         self.ttl_seconds = ttl_seconds
@@ -268,7 +269,7 @@ class Connection:
             self,
             request,
             # if legacy params are not explicitly set in Cursor, take them from Connection
-            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types
+            legacy_primitive_types if legacy_primitive_types is not None else self.legacy_primitive_types,
         )
 
     def _use_legacy_prepared_statements(self):
@@ -278,15 +279,16 @@ class Connection:
         value = must_use_legacy_prepared_statements.get((self.host, self.port))
         if value is None:
             try:
-                query = trino.client.TrinoQuery(
-                    self._create_request(),
-                    query="EXECUTE IMMEDIATE 'SELECT 1'")
+                query = trino.client.TrinoQuery(self._create_request(), query="EXECUTE IMMEDIATE 'SELECT 1'")
                 query.execute()
                 value = False
             except Exception as e:
                 logger.warning(
                     "EXECUTE IMMEDIATE not available for %s:%s; defaulting to legacy prepared statements (%s)",
-                    self.host, self.port, e)
+                    self.host,
+                    self.port,
+                    e,
+                )
                 value = True
             must_use_legacy_prepared_statements.put((self.host, self.port), value)
         return value
@@ -327,7 +329,7 @@ class ColumnDescription(NamedTuple):
             arguments[0]["value"] if raw_type in LENGTH_TYPES else None,  # internal_size
             arguments[0]["value"] if raw_type in PRECISION_TYPES else None,  # precision
             arguments[1]["value"] if raw_type in SCALE_TYPES else None,  # scale
-            None  # null_ok
+            None,  # null_ok
         )
 
 
@@ -339,15 +341,9 @@ class Cursor:
 
     """
 
-    def __init__(
-            self,
-            connection,
-            request,
-            legacy_primitive_types: bool = False):
+    def __init__(self, connection, request, legacy_primitive_types: bool = False):
         if not isinstance(connection, Connection):
-            raise ValueError(
-                "connection must be a Connection object: {}".format(type(connection))
-            )
+            raise ValueError("connection must be a Connection object: {}".format(type(connection)))
         self._connection = connection
         self._request = request
 
@@ -381,9 +377,7 @@ class Cursor:
             return None
 
         # [ (name, type_code, display_size, internal_size, precision, scale, null_ok) ]
-        return [
-            ColumnDescription.from_column(col) for col in self._query.columns
-        ]
+        return [ColumnDescription.from_column(col) for col in self._query.columns]
 
     @property
     def rowcount(self):
@@ -442,16 +436,13 @@ class Cursor:
         :param name: name that will be assigned to the prepared statement.
         """
         sql = f"PREPARE {name} FROM {statement}"
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
-                                        legacy_primitive_types=self._legacy_primitive_types)
+        query = trino.client.TrinoQuery(
+            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types
+        )
         query.execute()
 
-    def _execute_prepared_statement(
-        self,
-        statement_name,
-        params
-    ):
-        sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
+    def _execute_prepared_statement(self, statement_name, params):
+        sql = "EXECUTE " + statement_name + " USING " + ",".join(map(self._format_prepared_param, params))
         return trino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
 
     def _execute_immediate_statement(self, statement: str, params):
@@ -461,10 +452,15 @@ class Cursor:
         :param statement: sql to be executed.
         :param params: parameters to be bound.
         """
-        sql = "EXECUTE IMMEDIATE '" + statement.replace("'", "''") + \
-              "' USING " + ",".join(map(self._format_prepared_param, params))
+        sql = (
+            "EXECUTE IMMEDIATE '"
+            + statement.replace("'", "''")
+            + "' USING "
+            + ",".join(map(self._format_prepared_param, params))
+        )
         return trino.client.TrinoQuery(
-            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types)
+            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types
+        )
 
     def _format_prepared_param(self, param):
         """
@@ -491,7 +487,7 @@ class Cursor:
             return "DOUBLE '%s'" % param
 
         if isinstance(param, str):
-            return ("'%s'" % param.replace("'", "''"))
+            return "'%s'" % param.replace("'", "''")
 
         if isinstance(param, (bytes, bytearray)):
             return "X'%s'" % param.hex()
@@ -517,28 +513,25 @@ class Cursor:
             time_str = param.strftime("%H:%M:%S.%f")
             # named timezones
             if isinstance(param.tzinfo, ZoneInfo):
-                utc_offset = datetime.datetime.now(tz=param.tzinfo).strftime('%z')
+                utc_offset = datetime.datetime.now(tz=param.tzinfo).strftime("%z")
                 return "TIME '%s %s:%s'" % (time_str, utc_offset[:3], utc_offset[3:])
             # offset-based timezones
-            return "TIME '%s %s'" % (time_str, param.strftime('%Z')[3:])
+            return "TIME '%s %s'" % (time_str, param.strftime("%Z")[3:])
 
         if isinstance(param, datetime.date):
             date_str = param.strftime("%Y-%m-%d")
             return "DATE '%s'" % date_str
 
         if isinstance(param, list):
-            return "ARRAY[%s]" % ','.join(map(self._format_prepared_param, param))
+            return "ARRAY[%s]" % ",".join(map(self._format_prepared_param, param))
 
         if isinstance(param, tuple):
-            return "ROW(%s)" % ','.join(map(self._format_prepared_param, param))
+            return "ROW(%s)" % ",".join(map(self._format_prepared_param, param))
 
         if isinstance(param, dict):
             keys = list(param.keys())
             values = [param[key] for key in keys]
-            return "MAP({}, {})".format(
-                self._format_prepared_param(keys),
-                self._format_prepared_param(values)
-            )
+            return "MAP({}, {})".format(self._format_prepared_param(keys), self._format_prepared_param(values))
 
         if isinstance(param, uuid.UUID):
             return "UUID '%s'" % param
@@ -549,19 +542,19 @@ class Cursor:
         raise trino.exceptions.NotSupportedError("Query parameter of type '%s' is not supported." % type(param))
 
     def _deallocate_prepared_statement(self, statement_name: str) -> None:
-        sql = 'DEALLOCATE PREPARE ' + statement_name
-        query = trino.client.TrinoQuery(self.connection._create_request(), query=sql,
-                                        legacy_primitive_types=self._legacy_primitive_types)
+        sql = "DEALLOCATE PREPARE " + statement_name
+        query = trino.client.TrinoQuery(
+            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types
+        )
         query.execute()
 
     def _generate_unique_statement_name(self):
-        return 'st_' + uuid.uuid4().hex.replace('-', '')
+        return "st_" + uuid.uuid4().hex.replace("-", "")
 
     def execute(self, operation, params=None):
         if params:
             assert isinstance(params, (list, tuple)), (
-                'params must be a list or tuple containing the query '
-                'parameter values'
+                "params must be a list or tuple containing the query " "parameter values"
             )
 
             if self.connection._use_legacy_prepared_statements():
@@ -571,9 +564,7 @@ class Cursor:
                 try:
                     # Send execute statement and assign the return value to `results`
                     # as it will be returned by the function
-                    self._query = self._execute_prepared_statement(
-                        statement_name, params
-                    )
+                    self._query = self._execute_prepared_statement(statement_name, params)
                     self._iterator = iter(self._query.execute())
                 finally:
                     # Send deallocate statement
@@ -586,8 +577,9 @@ class Cursor:
                 self._iterator = iter(self._query.execute())
 
         else:
-            self._query = trino.client.TrinoQuery(self._request, query=operation,
-                                                  legacy_primitive_types=self._legacy_primitive_types)
+            self._query = trino.client.TrinoQuery(
+                self._request, query=operation, legacy_primitive_types=self._legacy_primitive_types
+            )
             self._iterator = iter(self._query.execute())
         return self
 
@@ -726,13 +718,9 @@ class DBAPITypeObject:
 
 STRING = DBAPITypeObject("VARCHAR", "CHAR", "VARBINARY", "JSON", "IPADDRESS")
 
-BINARY = DBAPITypeObject(
-    "ARRAY", "MAP", "ROW", "HyperLogLog", "P4HyperLogLog", "QDigest"
-)
+BINARY = DBAPITypeObject("ARRAY", "MAP", "ROW", "HyperLogLog", "P4HyperLogLog", "QDigest")
 
-NUMBER = DBAPITypeObject(
-    "BOOLEAN", "TINYINT", "SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE", "DECIMAL"
-)
+NUMBER = DBAPITypeObject("BOOLEAN", "TINYINT", "SMALLINT", "INTEGER", "BIGINT", "REAL", "DOUBLE", "DECIMAL")
 
 DATETIME = DBAPITypeObject(
     "DATE",

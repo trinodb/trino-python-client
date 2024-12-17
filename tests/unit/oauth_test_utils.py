@@ -53,25 +53,28 @@ class PostStatementCallback:
         if authorization and authorization.replace("Bearer ", "") in self.tokens:
             return [200, response_headers, json.dumps(self.sample_post_response_data)]
         elif self.redirect_server is None and self.token_server is not None:
-            return [401,
-                    {
-                        'Www-Authenticate': (
-                            'Bearer realm="Trino", token_type="JWT", '
-                            f'Bearer x_token_server="{self.token_server}"'
-                        ),
-                        'Basic realm': '"Trino"'
-                    },
-                    ""]
-        return [401,
+            return [
+                401,
                 {
-                    'Www-Authenticate': (
-                        'Bearer realm="Trino", token_type="JWT", '
-                        f'Bearer x_redirect_server="{self.redirect_server}", '
-                        f'x_token_server="{self.token_server}"'
+                    "Www-Authenticate": (
+                        'Bearer realm="Trino", token_type="JWT", ' f'Bearer x_token_server="{self.token_server}"'
                     ),
-                    'Basic realm': '"Trino"'
+                    "Basic realm": '"Trino"',
                 },
-                ""]
+                "",
+            ]
+        return [
+            401,
+            {
+                "Www-Authenticate": (
+                    'Bearer realm="Trino", token_type="JWT", '
+                    f'Bearer x_redirect_server="{self.redirect_server}", '
+                    f'x_token_server="{self.token_server}"'
+                ),
+                "Basic realm": '"Trino"',
+            },
+            "",
+        ]
 
 
 class GetTokenCallback:
@@ -90,19 +93,19 @@ class GetTokenCallback:
 
 
 def _get_token_requests(challenge_id):
-    return list(filter(
-        lambda r: r.method == "GET" and r.path == f"/{TOKEN_PATH}/{challenge_id}",
-        httpretty.latest_requests()))
+    return list(
+        filter(lambda r: r.method == "GET" and r.path == f"/{TOKEN_PATH}/{challenge_id}", httpretty.latest_requests())
+    )
 
 
 def _post_statement_requests():
-    return list(filter(
-        lambda r: r.method == "POST" and r.path == constants.URL_STATEMENT_PATH,
-        httpretty.latest_requests()))
+    return list(
+        filter(lambda r: r.method == "POST" and r.path == constants.URL_STATEMENT_PATH, httpretty.latest_requests())
+    )
 
 
 class MultithreadedTokenServer:
-    Challenge = namedtuple('Challenge', ['token', 'attempts'])
+    Challenge = namedtuple("Challenge", ["token", "attempts"])
 
     def __init__(self, sample_post_response_data, attempts=1):
         self.tokens = set()
@@ -114,13 +117,13 @@ class MultithreadedTokenServer:
         httpretty.register_uri(
             method=httpretty.POST,
             uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-            body=self.post_statement_callback)
+            body=self.post_statement_callback,
+        )
 
         # bind get token
         httpretty.register_uri(
-            method=httpretty.GET,
-            uri=re.compile(rf"{TOKEN_RESOURCE}/.*"),
-            body=self.get_token_callback)
+            method=httpretty.GET, uri=re.compile(rf"{TOKEN_RESOURCE}/.*"), body=self.get_token_callback
+        )
 
     # noinspection PyUnusedLocal
     def post_statement_callback(self, request, uri, response_headers):
@@ -135,9 +138,15 @@ class MultithreadedTokenServer:
         self.challenges[challenge_id] = MultithreadedTokenServer.Challenge(token, self.attempts)
         redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
         token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
-        return [401, {'Www-Authenticate': f'Bearer x_redirect_server="{redirect_server}", '
-                                          f'x_token_server="{token_server}"',
-                      'Basic realm': '"Trino"'}, ""]
+        return [
+            401,
+            {
+                "Www-Authenticate": f'Bearer x_redirect_server="{redirect_server}", '
+                f'x_token_server="{token_server}"',
+                "Basic realm": '"Trino"',
+            },
+            "",
+        ]
 
     # noinspection PyUnusedLocal
     def get_token_callback(self, request, uri, response_headers):

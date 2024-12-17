@@ -72,13 +72,7 @@ def start_trino(image_tag=None):
 
 
 def wait_for_trino_workers(host, port, timeout=180):
-    request = TrinoRequest(
-        host=host,
-        port=port,
-        client_session=ClientSession(
-            user="test_fixture"
-        )
-    )
+    request = TrinoRequest(host=host, port=port, client_session=ClientSession(user="test_fixture"))
     sql = "SELECT state FROM system.runtime.nodes"
     t0 = time.time()
     while True:
@@ -124,9 +118,7 @@ def start_trino_and_wait(image_tag=None):
     if host:
         port = os.environ.get("TRINO_RUNNING_PORT", DEFAULT_PORT)
     else:
-        container_id, proc, host, port = start_local_trino_server(
-            image_tag
-        )
+        container_id, proc, host, port = start_local_trino_server(image_tag)
 
     print("trino.server.hostname {}".format(host))
     print("trino.server.port {}".format(port))

@@ -27,27 +27,30 @@ with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
 kerberos_require = ["requests_kerberos"]
-gssapi_require = [""
-                  "requests_gssapi",
-                  # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
-                  "krb5 == 0.5.1"]
+gssapi_require = [
+    "" "requests_gssapi",
+    # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
+    "krb5 == 0.5.1",
+]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
 external_authentication_token_cache_require = ["keyring"]
 
 # We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
 all_require = kerberos_require + sqlalchemy_require
 
-tests_require = all_require + gssapi_require + [
-    # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
-    # https://github.com/gabrielfalcao/HTTPretty/issues/425
-    "httpretty < 1.1",
-    "pytest",
-    "pytest-runner",
-    "pre-commit",
-    "black",
-    "isort",
-    "keyring"
-]
+tests_require = (
+    all_require
+    + gssapi_require
+    + [
+        # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
+        # https://github.com/gabrielfalcao/HTTPretty/issues/425
+        "httpretty < 1.1",
+        "pytest",
+        "pytest-runner",
+        "pre-commit",
+        "keyring",
+    ]
+)
 
 setup(
     name=about["__title__"],

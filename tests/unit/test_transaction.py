@@ -27,9 +27,7 @@ def test_isolation_level_levels() -> None:
 
 
 def test_isolation_level_values() -> None:
-    values = {
-        0, 1, 2, 3, 4
-    }
+    values = {0, 1, 2, 3, 4}
 
     assert IsolationLevel.values() == values
 

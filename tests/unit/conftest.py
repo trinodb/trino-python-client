@@ -218,8 +218,7 @@ def sample_get_error_response_data():
             "errorType": "USER_ERROR",
             "failureInfo": {
                 "errorLocation": {"columnNumber": 15, "lineNumber": 1},
-                "message": "line 1:15: Schema must be specified "
-                "when session schema is not set",
+                "message": "line 1:15: Schema must be specified " "when session schema is not set",
                 "stack": [
                     "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:48)",
                     "io.trino.sql.analyzer.SemanticExceptions.semanticException(SemanticExceptions.java:43)",
@@ -298,4 +297,5 @@ def mock_get_and_post():
 
 def sqlalchemy_version() -> str:
     import sqlalchemy
+
     return sqlalchemy.__version__
