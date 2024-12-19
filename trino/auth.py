@@ -33,7 +33,7 @@ from requests.auth import AuthBase
 from requests.auth import extract_cookies_to_jar
 
 import trino.logging
-from trino.client import exceptions
+from trino import exceptions
 from trino.constants import HEADER_USER
 from trino.constants import MAX_NT_PASSWORD_SIZE
 
