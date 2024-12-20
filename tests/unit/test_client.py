@@ -97,6 +97,7 @@ def test_request_headers(mock_get_and_post):
     accept_encoding_value = "identity,deflate,gzip"
     client_info_header = constants.HEADER_CLIENT_INFO
     client_info_value = "some_client_info"
+    encoding = "json+zstd"
 
     with pytest.deprecated_call():
         req = TrinoRequest(
@@ -109,6 +110,7 @@ def test_request_headers(mock_get_and_post):
                 catalog=catalog,
                 schema=schema,
                 timezone=timezone,
+                encoding=encoding,
                 headers={
                     accept_encoding_header: accept_encoding_value,
                     client_info_header: client_info_value,
@@ -143,7 +145,8 @@ def test_request_headers(mock_get_and_post):
             "catalog2=" + urllib.parse.quote("ROLE{catalog2_role}")
         )
         assert headers["User-Agent"] == f"{constants.CLIENT_NAME}/{__version__}"
-        assert len(headers.keys()) == 13
+        assert headers[constants.HEADER_ENCODING] == encoding
+        assert len(headers.keys()) == 14
 
     req.post("URL")
     _, post_kwargs = post.call_args

@@ -37,6 +37,7 @@ HEADER_CLIENT_INFO = "X-Trino-Client-Info"
 HEADER_CLIENT_TAGS = "X-Trino-Client-Tags"
 HEADER_EXTRA_CREDENTIAL = "X-Trino-Extra-Credential"
 HEADER_TIMEZONE = "X-Trino-Time-Zone"
+HEADER_ENCODING = "X-Trino-Query-Data-Encoding"
 
 HEADER_SESSION = "X-Trino-Session"
 HEADER_SET_SESSION = "X-Trino-Set-Session"
