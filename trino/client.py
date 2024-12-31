@@ -35,6 +35,7 @@ The main interface is :class:`TrinoQuery`: ::
 from __future__ import annotations
 
 import abc
+import atexit
 import base64
 import copy
 import functools
@@ -47,6 +48,7 @@ import urllib.parse
 import warnings
 from abc import abstractmethod
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from email.utils import parsedate_to_datetime
@@ -86,6 +88,14 @@ __all__ = [
 ]
 
 logger = trino.logging.get_logger(__name__)
+executor = ThreadPoolExecutor(max_workers=4)
+
+
+def close_executor():
+    executor.shutdown(wait=True)
+
+
+atexit.register(close_executor)
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
@@ -1118,9 +1128,8 @@ class SpooledSegment(Segment):
                     self._request.raise_response_error(http_response)
             except Exception as e:
                 logger.error(f"Failed to acknowledge spooling request for segment {self}: {e}")
-        # Start the acknowledgment in a background thread
-        thread = threading.Thread(target=acknowledge_request, daemon=True)
-        thread.start()
+        # Start the acknowledgment in the executor thread
+        executor.submit(acknowledge_request)
 
     def _send_spooling_request(self, uri: str, **kwargs) -> requests.Response:
         headers_with_single_value = {}
@@ -1256,14 +1265,14 @@ class CompressedQueryDataDecoder(QueryDataDecoder):
             expected_compressed_size = metadata["segmentSize"]
             if not len(data) == expected_compressed_size:
                 raise RuntimeError(f"Expected to read {expected_compressed_size} bytes but got {len(data)}")
-            compressed_data = self.decompress(data, metadata)
+            decompressed_data = self.decompress(data, metadata)
             expected_uncompressed_size = metadata["uncompressedSize"]
-            if not len(compressed_data) == expected_uncompressed_size:
+            if not len(decompressed_data) == expected_uncompressed_size:
                 raise RuntimeError(
                     "Decompressed size does not match expected segment size, "
-                    f"expected {expected_uncompressed_size}, got {len(compressed_data)}"
+                    f"expected {expected_uncompressed_size}, got {len(decompressed_data)}"
                 )
-            return self._delegate.decode(compressed_data, metadata)
+            return self._delegate.decode(decompressed_data, metadata)
         # Data not compressed - below threshold
         return self._delegate.decode(data, metadata)
 
