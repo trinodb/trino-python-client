@@ -106,11 +106,8 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
             text += "\nLIMIT " + self.process(select._limit_clause, **kw)
         return text
 
-    def visit_table(self, table, asfrom=False, iscrud=False, ashint=False,
-                    fromhints=None, use_schema=True, **kwargs):
-        sql = super(TrinoSQLCompiler, self).visit_table(
-            table, asfrom, iscrud, ashint, fromhints, use_schema, **kwargs
-        )
+    def visit_table(self, table, asfrom=False, iscrud=False, ashint=False, fromhints=None, use_schema=True, **kwargs):
+        sql = super(TrinoSQLCompiler, self).visit_table(table, asfrom, iscrud, ashint, fromhints, use_schema, **kwargs)
         return self.add_catalog(sql, table)
 
     @staticmethod
@@ -118,13 +115,10 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
         if table is None or not isinstance(table, DialectKWArgs):
             return sql
 
-        if (
-                'trino' not in table.dialect_options
-                or 'catalog' not in table.dialect_options['trino']
-        ):
+        if "trino" not in table.dialect_options or "catalog" not in table.dialect_options["trino"]:
             return sql
 
-        catalog = table.dialect_options['trino']['catalog']
+        catalog = table.dialect_options["trino"]["catalog"]
         sql = f'"{catalog}".{sql}'
         return sql
 
@@ -146,23 +140,23 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            if kwargs.get('ignore_nulls'):
+            if kwargs.get("ignore_nulls"):
                 self.ignore_nulls = True
 
     class FirstValue(GenericIgnoreNulls):
-        name = 'first_value'
+        name = "first_value"
 
     class LastValue(GenericIgnoreNulls):
-        name = 'last_value'
+        name = "last_value"
 
     class NthValue(GenericIgnoreNulls):
-        name = 'nth_value'
+        name = "nth_value"
 
     class Lead(GenericIgnoreNulls):
-        name = 'lead'
+        name = "lead"
 
     class Lag(GenericIgnoreNulls):
-        name = 'lag'
+        name = "lag"
 
     @staticmethod
     @compiles(FirstValue)
@@ -171,9 +165,9 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
     @compiles(Lead)
     @compiles(Lag)
     def compile_ignore_nulls(element, compiler, **kwargs):
-        compiled = f'{element.name}({compiler.process(element.clauses)})'
+        compiled = f"{element.name}({compiler.process(element.clauses)})"
         if element.ignore_nulls:
-            compiled += ' IGNORE NULLS'
+            compiled += " IGNORE NULLS"
         return compiled
 
     def visit_try_cast(self, element, **kw):
@@ -248,17 +242,17 @@ class TrinoTypeCompiler(compiler.GenericTypeCompiler):
         return datatype
 
     def visit_JSON(self, type_, **kw):
-        return 'JSON'
+        return "JSON"
 
     def visit_MAP(self, type_, **kw):
         # the key and value types themselves need to be processed otherwise sqltypes.MAP(Float, Float) will get
         # rendered as MAP(FLOAT, FLOAT) instead of MAP(REAL, REAL) or MAP(DOUBLE, DOUBLE)
         key_type = self.process(type_.key_type, **kw)
         value_type = self.process(type_.value_type, **kw)
-        return f'MAP({key_type}, {value_type})'
+        return f"MAP({key_type}, {value_type})"
 
     def visit_ARRAY(self, type_, **kw):
-        return f'ARRAY({self.process(type_.item_type, **kw)})'
+        return f"ARRAY({self.process(type_.item_type, **kw)})"
 
     def visit_ROW(self, type_, **kw):
         return f'ROW({", ".join(f"{name} {self.process(attr_type, **kw)}" for name, attr_type in type_.attr_types)})'

@@ -66,9 +66,7 @@ class Transaction:
     def begin(self) -> None:
         response = self._request.post(START_TRANSACTION)
         if not response.ok:
-            raise trino.exceptions.DatabaseError(
-                "failed to start transaction: {}".format(response.status_code)
-            )
+            raise trino.exceptions.DatabaseError("failed to start transaction: {}".format(response.status_code))
         transaction_id = response.headers.get(constants.HEADER_STARTED_TRANSACTION)
         if transaction_id and transaction_id != NO_TRANSACTION:
             self._id = response.headers[constants.HEADER_STARTED_TRANSACTION]
@@ -87,9 +85,7 @@ class Transaction:
         try:
             list(query.execute())
         except Exception as err:
-            raise trino.exceptions.DatabaseError(
-                "failed to commit transaction {}: {}".format(self._id, err)
-            )
+            raise trino.exceptions.DatabaseError("failed to commit transaction {}: {}".format(self._id, err))
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
 
@@ -98,8 +94,6 @@ class Transaction:
         try:
             list(query.execute())
         except Exception as err:
-            raise trino.exceptions.DatabaseError(
-                "failed to rollback transaction {}: {}".format(self._id, err)
-            )
+            raise trino.exceptions.DatabaseError("failed to rollback transaction {}: {}".format(self._id, err))
         self._id = NO_TRANSACTION
         self._request.transaction_id = self._id
