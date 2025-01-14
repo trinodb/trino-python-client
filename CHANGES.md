@@ -6,6 +6,11 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.332.0
+
+* Add support for spooling protocol.
+  ([#509](https://github.com/trinodb/trino-python-client/pull/509))
+
 ## Release 0.331.0
 
 * Add support for Python 3.13 and drop support for Python 3.8 which is
