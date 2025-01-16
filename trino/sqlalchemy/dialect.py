@@ -229,6 +229,19 @@ class TrinoDialect(DefaultDialect):
         partition_names = [desc[0] for desc in res.cursor.description]
         return partition_names
 
+    def _connector_is_hive(self, connection: Connection, catalog_name: str):
+        query = dedent(
+            """
+            SELECT
+                COUNT(*)
+            FROM "system"."metadata"."table_properties"
+            WHERE "catalog_name" = :catalog_name
+              AND "property_name" = 'bucketing_version'
+        """
+        ).strip()
+        res = connection.execute(sql.text(query), {"catalog_name": catalog_name})
+        return res.scalar() == 1
+
     def get_pk_constraint(self, connection: Connection, table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
         """Trino has no support for primary keys. Returns a dummy"""
         return dict(name=None, constrained_columns=[])
@@ -322,11 +335,17 @@ class TrinoDialect(DefaultDialect):
         if not self.has_table(connection, table_name, schema):
             raise exc.NoSuchTableError(f"schema={schema}, table={table_name}")
 
+        catalog_name = self._get_default_catalog_name(connection)
+        if catalog_name is None:
+            raise exc.NoSuchTableError("catalog is required in connection")
+        if not self._connector_is_hive(connection, catalog_name):
+            return []
+
         partitioned_columns = None
         try:
             partitioned_columns = self._get_partitions(connection, f"{table_name}", schema)
         except Exception as e:
-            # e.g. it's not a Hive table or an unpartitioned Hive table
+            # e.g. it's an unpartitioned Hive table
             logger.debug("Couldn't fetch partition columns. schema: %s, table: %s, error: %s", schema, table_name, e)
         if not partitioned_columns:
             return []
