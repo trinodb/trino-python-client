@@ -931,6 +931,7 @@ class TrinoQuery:
 
     def _to_segments(self, rows: _SpooledProtocolResponseTO) -> SpooledData:
         encoding = rows["encoding"]
+        metadata = rows["metadata"] if "metadata" in rows else None
         segments = []
         for segment in rows["segments"]:
             segment_type = segment["type"]
@@ -943,7 +944,7 @@ class TrinoQuery:
             else:
                 raise ValueError(f"Unsupported segment type: {segment_type}")
 
-        return SpooledData(encoding, segments)
+        return SpooledData(encoding, metadata, segments)
 
     def cancel(self) -> None:
         """Cancel the current query"""
@@ -1024,6 +1025,7 @@ def _parse_retry_after_header(retry_after):
 # Trino Spooled protocol transfer objects
 class _SpooledProtocolResponseTO(TypedDict):
     encoding: Literal["json", "json+std", "json+lz4"]
+    metadata: _SegmentMetadataTO
     segments: List[_SegmentTO]
 
 
@@ -1168,10 +1170,12 @@ class SpooledData:
 
     Attributes:
         encoding (str): The encoding format of the spooled data.
+        metadata (_SegmentMetadataTO): Metadata for all segments
         segments (List[Segment]): The list of segments in the spooled data.
     """
-    def __init__(self, encoding: str, segments: List[Segment]) -> None:
+    def __init__(self, encoding: str, metadata: _SegmentMetadataTO, segments: List[Segment]) -> None:
         self._encoding = encoding
+        self._metadata = metadata
         self._segments = segments
         self._segments_iterator = iter(segments)
 
@@ -1190,7 +1194,7 @@ class SpooledData:
         return self, next(self._segments_iterator)
 
     def __repr__(self):
-        return (f"SpooledData(encoding={self._encoding}, segments={list(self._segments)})")
+        return (f"SpooledData(encoding={self._encoding}, metadata={self._metadata}, segments={list(self._segments)})")
 
 
 class SegmentIterator:
