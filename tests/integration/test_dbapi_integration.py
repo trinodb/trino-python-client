@@ -29,12 +29,14 @@ from tzlocal import get_localzone_name  # type: ignore
 import trino
 from tests.integration.conftest import trino_version
 from trino import constants
+from trino.client import SegmentIterator
 from trino.dbapi import Cursor
 from trino.dbapi import DescribeOutput
 from trino.dbapi import TimeBoundLRUCache
 from trino.exceptions import NotSupportedError
 from trino.exceptions import TrinoQueryError
 from trino.exceptions import TrinoUserError
+from trino.mapper import RowMapperFactory
 from trino.transaction import IsolationLevel
 
 
@@ -1876,12 +1878,16 @@ def test_segments_cursor(trino_connection):
         start => 1,
         stop => 5,
         step => 1)) n""")
-    rows = cur.fetchall()
-    assert len(rows) > 0
-    for spooled_data, spooled_segment in rows:
-        assert spooled_data.encoding == trino_connection._client_session.encoding
-        assert isinstance(spooled_segment.uri, str), f"Expected string for uri, got {spooled_segment.uri}"
-        assert isinstance(spooled_segment.ack_uri, str), f"Expected string for ack_uri, got {spooled_segment.ack_uri}"
+    segments = cur.fetchall()
+    assert len(segments) > 0
+    row_mapper = RowMapperFactory().create(columns=cur._query.columns, legacy_primitive_types=False)
+    total = 0
+    for segment in segments:
+        assert segment.encoding == trino_connection._client_session.encoding
+        assert isinstance(segment.segment.uri, str), f"Expected string for uri, got {segment.segment.uri}"
+        assert isinstance(segment.segment.ack_uri, str), f"Expected string for ack_uri, got {segment.segment.ack_uri}"
+        total += len(list(SegmentIterator(segment, row_mapper)))
+    assert total == 300875, f"Expected total rows 300875, got {total}"
 
 
 def get_cursor(legacy_prepared_statements, run_trino):

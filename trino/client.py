@@ -89,7 +89,7 @@ __all__ = [
     "TrinoQuery",
     "TrinoRequest",
     "PROXIES",
-    "SpooledData",
+    "DecodableSegment",
     "SpooledSegment",
     "InlineSegment",
     "Segment"
@@ -920,16 +920,16 @@ class TrinoQuery:
         if isinstance(status.rows, dict):
             # spooling protocol
             rows = cast(_SpooledProtocolResponseTO, rows)
-            segments = self._to_segments(rows)
+            spooled = self._to_segments(rows)
             if self._fetch_mode == "segments":
-                return segments
-            return list(SegmentIterator(segments, self._row_mapper))
+                return spooled
+            return list(SegmentIterator(spooled, self._row_mapper))
         elif isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         else:
             raise ValueError(f"Unexpected type: {type(status.rows)}")
 
-    def _to_segments(self, rows: _SpooledProtocolResponseTO) -> SpooledData:
+    def _to_segments(self, rows: _SpooledProtocolResponseTO) -> List[DecodableSegment]:
         encoding = rows["encoding"]
         metadata = rows["metadata"] if "metadata" in rows else None
         segments = []
@@ -944,7 +944,7 @@ class TrinoQuery:
             else:
                 raise ValueError(f"Unsupported segment type: {segment_type}")
 
-        return SpooledData(encoding, metadata, segments)
+        return list(map(lambda segment: DecodableSegment(encoding, metadata, segment), segments))
 
     def cancel(self) -> None:
         """Cancel the current query"""
@@ -1164,46 +1164,44 @@ class SpooledSegment(Segment):
         )
 
 
-class SpooledData:
+class DecodableSegment:
     """
     Represents a collection of spooled segments of data, with an encoding format.
 
     Attributes:
         encoding (str): The encoding format of the spooled data.
-        metadata (_SegmentMetadataTO): Metadata for all segments
-        segments (List[Segment]): The list of segments in the spooled data.
+        metadata (_SegmentMetadataTO): Metadata for all segments in the query
+        segment (Segment): The spooled segment data
     """
-    def __init__(self, encoding: str, metadata: _SegmentMetadataTO, segments: List[Segment]) -> None:
+    def __init__(self, encoding: str, metadata: _SegmentMetadataTO, segment: Segment) -> None:
         self._encoding = encoding
         self._metadata = metadata
-        self._segments = segments
-        self._segments_iterator = iter(segments)
+        self._segment = segment
 
     @property
     def encoding(self):
         return self._encoding
 
     @property
-    def segments(self):
-        return self._segments
+    def segment(self):
+        return self._segment
 
-    def __iter__(self) -> Iterator[Tuple["SpooledData", "Segment"]]:
-        return self
-
-    def __next__(self) -> Tuple["SpooledData", "Segment"]:
-        return self, next(self._segments_iterator)
+    @property
+    def metadata(self):
+        return self._metadata
 
     def __repr__(self):
-        return (f"SpooledData(encoding={self._encoding}, metadata={self._metadata}, segments={list(self._segments)})")
+        return (f"DecodableSegment(encoding={self._encoding}, metadata={self._metadata}, segment={self._segment})")
 
 
 class SegmentIterator:
-    def __init__(self, spooled_data: SpooledData, mapper: RowMapper) -> None:
-        self._segments = iter(spooled_data._segments)
-        self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(mapper).create(spooled_data.encoding))
+    def __init__(self, segments: Union[DecodableSegment, List[DecodableSegment]], mapper: RowMapper) -> None:
+        self._segments = iter(segments if isinstance(segments, List) else [segments])
+        self._mapper = mapper
+        self._decoder = None
         self._rows: Iterator[List[List[Any]]] = iter([])
         self._finished = False
-        self._current_segment: Optional[Segment] = None
+        self._current_segment: Optional[DecodableSegment] = None
 
     def __iter__(self) -> Iterator[List[Any]]:
         return self
@@ -1214,16 +1212,22 @@ class SegmentIterator:
             try:
                 return next(self._rows)
             except StopIteration:
-                if self._current_segment and isinstance(self._current_segment, SpooledSegment):
-                    self._current_segment.acknowledge()
                 if self._finished:
                     raise StopIteration
                 self._load_next_segment()
 
     def _load_next_segment(self):
         try:
-            self._current_segment = segment = next(self._segments)
-            self._rows = iter(self._decoder.decode(segment))
+            if self._current_segment:
+                segment = self._current_segment.segment
+                if isinstance(segment, SpooledSegment):
+                    segment.acknowledge()
+
+            self._current_segment = next(self._segments)
+            if self._decoder is None:
+                self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(self._mapper)
+                                               .create(self._current_segment.encoding))
+            self._rows = iter(self._decoder.decode(self._current_segment.segment))
         except StopIteration:
             self._finished = True
 
