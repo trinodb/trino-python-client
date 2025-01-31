@@ -573,6 +573,15 @@ class TrinoRequest:
 
         return headers
 
+    def unauthenticated(self):
+        return TrinoRequest(
+            host=self._host,
+            port=self._port,
+            max_attempts=self.max_attempts,
+            request_timeout=self._request_timeout,
+            handle_retry=self._handle_retry,
+            client_session=ClientSession(user=self._client_session.user))
+
     @property
     def max_attempts(self) -> int:
         return self._max_attempts
@@ -940,7 +949,7 @@ class TrinoQuery:
                 segments.append(InlineSegment(inline_segment))
             elif segment_type == SegmentType.SPOOLED:
                 spooled_segment = cast(_SpooledSegmentTO, segment)
-                segments.append(SpooledSegment(spooled_segment, self._request))
+                segments.append(SpooledSegment(spooled_segment, self._request.unauthenticated()))
             else:
                 raise ValueError(f"Unsupported segment type: {segment_type}")
 
