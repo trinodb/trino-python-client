@@ -1876,12 +1876,18 @@ def test_segments_cursor(trino_connection):
         start => 1,
         stop => 5,
         step => 1)) n""")
-    rows = cur.fetchall()
-    assert len(rows) > 0
-    for spooled_data, spooled_segment in rows:
+    segments = cur.fetchall()
+    assert len(segments) > 0
+    row_mapper = trino.mapper.RowMapperFactory().create(columns=cur._query.columns, legacy_primitive_types=False)
+    total = 0
+    for spooled_data in segments:
+        assert len(spooled_data.segments) == 1, "Expected SpooledData to contain a single segment"
+        segment = spooled_data.segments[0]
         assert spooled_data.encoding == trino_connection._client_session.encoding
-        assert isinstance(spooled_segment.uri, str), f"Expected string for uri, got {spooled_segment.uri}"
-        assert isinstance(spooled_segment.ack_uri, str), f"Expected string for ack_uri, got {spooled_segment.ack_uri}"
+        assert isinstance(segment.uri, str), f"Expected string for uri, got {segment.uri}"
+        assert isinstance(segment.ack_uri, str), f"Expected string for ack_uri, got {segment.ack_uri}"
+        total += len(list(trino.client.SegmentIterator(spooled_data, row_mapper)))
+    assert total == 300875, f"Expected total rows 300875, got {total}"
 
 
 def get_cursor(legacy_prepared_statements, run_trino):

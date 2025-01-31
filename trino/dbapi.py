@@ -742,7 +742,7 @@ class SegmentCursor(Cursor):
         self._query = trino.client.TrinoQuery(self._request, query=operation,
                                               legacy_primitive_types=self._legacy_primitive_types,
                                               fetch_mode="segments")
-        self._iterator = iter(self._query.execute())
+        self._iterator = map(lambda tuple: tuple[0], iter(self._query.execute()))
         return self
 
 

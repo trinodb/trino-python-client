@@ -1187,7 +1187,8 @@ class SpooledData:
         return self
 
     def __next__(self) -> Tuple["SpooledData", "Segment"]:
-        return self, next(self._segments_iterator)
+        segment = next(self._segments_iterator)
+        return SpooledData(self._encoding, [segment]), segment
 
     def __repr__(self):
         return (f"SpooledData(encoding={self._encoding}, segments={list(self._segments)})")
