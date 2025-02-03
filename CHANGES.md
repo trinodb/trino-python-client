@@ -8,12 +8,13 @@ and the [PyPI page](https://pypi.org/project/trino/).
 
 ## Release 0.333.0
 
-* Improve handling of query results containing null error field.
+* Improve handling of query results containing `null` values for
+  the error field.
   ([#512](https://github.com/trinodb/trino-python-client/pull/512))
-* Fix accessing spooled segments on S3 when authentication to Trino cluster
-  is used.
+* Fix accessing spooled segments on S3 when authentication to the
+  Trino cluster is used.
   ([#525](https://github.com/trinodb/trino-python-client/pull/525))
-* Simplify `segment` cursor API, that makes it easier to iterate over spooled
+* Simplify `segment` cursor API to make it easier to iterate over spooled
   segments.
   ([#525](https://github.com/trinodb/trino-python-client/pull/525))
 
