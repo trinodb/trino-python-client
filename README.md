@@ -256,6 +256,35 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
     )
     ```
 
+### Keycloak Authentication
+
+The `KeycloakAuthentication` class can be used to connect to a Trino cluster that is configured with the [OAuth2 authentication type](https://trino.io/docs/current/security/oauth2.html) using an external OIDC identity provider (i.e Keycloak)
+
+It works by sending credentials to the OpenId identity provider and recieving a grant, then passing said grant to the Trino cluster secured using OAuth2
+
+> [!WARNING]
+> Client Authentication must be turned off (public access) as the flow does not send a client secret
+
+- DBAPI
+
+    ```python
+    from trino.dbapi import connect
+    from trino.auth import KeycloakAuthentication
+
+    conn = connect(
+        user="<username>",
+        auth=KeycloakAuthentication(
+            username="<username>",
+            password="<password>",
+            keycloak_url="<keycloak_url>",
+            realm="<realm>",
+            client_id="<client_id>",
+        ),
+        ...
+    )
+
+    ```
+
 ### Certificate authentication
 
 `CertificateAuthentication` class can be used to connect to Trino cluster configured with [certificate based authentication](https://trino.io/docs/current/security/certificate.html). `CertificateAuthentication` requires paths to a valid client certificate and private key.
