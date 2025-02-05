@@ -489,8 +489,6 @@ class TrinoRequest:
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
         if self._auth:
-            if self._http_scheme == constants.HTTP:
-                raise ValueError("cannot use authentication with HTTP")
             self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
 
