@@ -133,19 +133,15 @@ class TrinoDialect(DefaultDialect):
         if url.password:
             if not url.username:
                 raise ValueError("Username is required when specify password in connection URL")
-            kwargs["http_scheme"] = "https"
             kwargs["auth"] = BasicAuthentication(unquote_plus(url.username), unquote_plus(url.password))
 
         if "access_token" in url.query:
-            kwargs["http_scheme"] = "https"
             kwargs["auth"] = JWTAuthentication(unquote_plus(url.query["access_token"]))
 
         if "cert" in url.query and "key" in url.query:
-            kwargs["http_scheme"] = "https"
             kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
 
         if "externalAuthentication" in url.query:
-            kwargs["http_scheme"] = "https"
             kwargs["auth"] = OAuth2Authentication()
 
         if "source" in url.query:

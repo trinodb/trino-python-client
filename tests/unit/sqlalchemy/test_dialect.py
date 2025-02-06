@@ -58,7 +58,6 @@ class TestTrinoDialect:
                     catalog="system",
                     user="user",
                     auth=BasicAuthentication("user", "pass"),
-                    http_scheme="https",
                     source="trino-rulez"
                 ),
             ),
@@ -80,7 +79,6 @@ class TestTrinoDialect:
                     catalog="system",
                     user="user",
                     auth=CertificateAuthentication("/my/path/to/cert", "afdlsdfk%4#'"),
-                    http_scheme="https",
                     source="trino-sqlalchemy"
                 ),
             ),
@@ -100,7 +98,6 @@ class TestTrinoDialect:
                     catalog="system",
                     user="user",
                     auth=JWTAuthentication("afdlsdfk%4#'"),
-                    http_scheme="https",
                     source="trino-sqlalchemy"
                 ),
             ),
@@ -168,7 +165,6 @@ class TestTrinoDialect:
                     catalog="system",
                     user="user@test.org/my_role",
                     auth=BasicAuthentication("user@test.org/my_role", "pass /*&"),
-                    http_scheme="https",
                     source="trino-sqlalchemy",
                     session_properties={"query_max_run_time": "1d"},
                     http_headers={"trino": 1},
@@ -270,7 +266,6 @@ def test_trino_connection_basic_auth():
     url = make_url(f'trino://{username}:{password}@host')
     _, cparams = dialect.create_connect_args(url)
 
-    assert cparams['http_scheme'] == "https"
     assert isinstance(cparams['auth'], BasicAuthentication)
     assert cparams['auth']._username == username
     assert cparams['auth']._password == password
@@ -282,7 +277,6 @@ def test_trino_connection_jwt_auth():
     url = make_url(f'trino://host/?access_token={access_token}')
     _, cparams = dialect.create_connect_args(url)
 
-    assert cparams['http_scheme'] == "https"
     assert isinstance(cparams['auth'], JWTAuthentication)
     assert cparams['auth'].token == access_token
 
@@ -294,7 +288,6 @@ def test_trino_connection_certificate_auth():
     url = make_url(f'trino://host/?cert={cert}&key={key}')
     _, cparams = dialect.create_connect_args(url)
 
-    assert cparams['http_scheme'] == "https"
     assert isinstance(cparams['auth'], CertificateAuthentication)
     assert cparams['auth']._cert == cert
     assert cparams['auth']._key == key
@@ -307,13 +300,11 @@ def test_trino_connection_certificate_auth_cert_and_key_required():
     url = make_url(f'trino://host/?cert={cert}')
     _, cparams = dialect.create_connect_args(url)
 
-    assert 'http_scheme' not in cparams
     assert 'auth' not in cparams
 
     url = make_url(f'trino://host/?key={key}')
     _, cparams = dialect.create_connect_args(url)
 
-    assert 'http_scheme' not in cparams
     assert 'auth' not in cparams
 
 
@@ -322,5 +313,4 @@ def test_trino_connection_oauth2_auth():
     url = make_url('trino://host/?externalAuthentication=true')
     _, cparams = dialect.create_connect_args(url)
 
-    assert cparams['http_scheme'] == "https"
     assert isinstance(cparams['auth'], OAuth2Authentication)
