@@ -520,6 +520,23 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
+## Custom requests Session
+
+You can create a custom [requests.Session object](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) and pass it to the `http_session` parameter. This can be used for things like setting additional HTTP headers, client certificates, etc.
+
+```python
+import requests
+from trino.dbapi import connect
+
+s = requests.Session()
+s.cert = '/path/client.cert'
+
+conn = connect(
+    http_session=s,
+    ...
+)
+```
+
 ## Legacy Primitive types
 
 By default, the client will convert the results of the query to the
