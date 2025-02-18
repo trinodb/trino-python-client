@@ -108,9 +108,15 @@ class TrinoQueryError(Error):
         return self._error.get("message", "Trino did not return an error message")
 
     @property
-    def error_location(self) -> Tuple[int, int]:
-        location = self._error["errorLocation"]
-        return (location["lineNumber"], location["columnNumber"])
+    def error_location(self) -> Optional[Tuple[int, int]]:
+        location = self._error.get("errorLocation", None)
+        if location is None:
+            return None
+        line_number = location.get("lineNumber", None)
+        column_number = location.get("columnNumber", None)
+        if line_number is None or column_number is None:
+            return None
+        return (line_number, column_number)
 
     @property
     def query_id(self) -> Optional[str]:
