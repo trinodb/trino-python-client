@@ -312,5 +312,5 @@ def test_hostname_parsing():
 
 def test_description_is_none_when_cursor_is_not_executed():
     connection = Connection("sample_trino_cluster:443")
-    cursor = connection.cursor()
-    assert hasattr(cursor, 'description')
+    with connection.cursor() as cursor:
+        assert hasattr(cursor, 'description')

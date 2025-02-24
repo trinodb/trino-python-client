@@ -382,6 +382,12 @@ class Cursor:
     def __iter__(self):
         return self._iterator
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
     @property
     def connection(self):
         return self._connection
