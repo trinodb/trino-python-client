@@ -181,7 +181,14 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
-    pass
+    def visit_foreign_key_constraint(self, constraint, **kw):
+        return None
+
+    def visit_primary_key_constraint(self, constraint, **kw):
+        return None
+
+    def visit_unique_constraint(self, constraint, **kw):
+        return None
 
 
 class TrinoTypeCompiler(compiler.GenericTypeCompiler):
