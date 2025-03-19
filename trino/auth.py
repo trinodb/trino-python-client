@@ -50,11 +50,15 @@ class Authentication(metaclass=abc.ABCMeta):
 
 
 class KerberosAuthentication(Authentication):
+    MUTUAL_REQUIRED = 1
+    MUTUAL_OPTIONAL = 2
+    MUTUAL_DISABLED = 3
+
     def __init__(
         self,
         config: Optional[str] = None,
         service_name: Optional[str] = None,
-        mutual_authentication: bool = False,
+        mutual_authentication: int = MUTUAL_REQUIRED,
         force_preemptive: bool = False,
         hostname_override: Optional[str] = None,
         sanitize_mutual_error_response: bool = True,
@@ -117,11 +121,15 @@ class KerberosAuthentication(Authentication):
 
 
 class GSSAPIAuthentication(Authentication):
+    MUTUAL_REQUIRED = 1
+    MUTUAL_OPTIONAL = 2
+    MUTUAL_DISABLED = 3
+
     def __init__(
         self,
         config: Optional[str] = None,
         service_name: Optional[str] = None,
-        mutual_authentication: bool = False,
+        mutual_authentication: int = MUTUAL_DISABLED,
         force_preemptive: bool = False,
         hostname_override: Optional[str] = None,
         sanitize_mutual_error_response: bool = True,
