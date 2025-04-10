@@ -291,8 +291,7 @@ class ConsoleRedirectHandler(RedirectHandler):
     """
 
     def __call__(self, url: str) -> None:
-        print("Open the following URL in browser for the external authentication:")
-        print(url)
+        print(f"Open the following URL in browser for the external authentication:\n{url}", flush=True)
 
 
 class WebBrowserRedirectHandler(RedirectHandler):
