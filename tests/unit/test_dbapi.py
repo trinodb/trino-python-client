@@ -281,7 +281,7 @@ def test_hostname_parsing():
 
     https_server_without_port = Connection("https://mytrinoserver.domain")
     assert https_server_without_port.host == "mytrinoserver.domain"
-    assert https_server_without_port.port == 8080
+    assert https_server_without_port.port == constants.DEFAULT_TLS_PORT
     assert https_server_without_port.http_scheme == constants.HTTPS
 
     http_server_with_port = Connection("http://mytrinoserver.domain:9999")
@@ -291,22 +291,22 @@ def test_hostname_parsing():
 
     http_server_without_port = Connection("http://mytrinoserver.domain")
     assert http_server_without_port.host == "mytrinoserver.domain"
-    assert http_server_without_port.port == 8080
+    assert http_server_without_port.port == constants.DEFAULT_PORT
     assert http_server_without_port.http_scheme == constants.HTTP
 
     http_server_with_path = Connection("http://mytrinoserver.domain/some_path")
     assert http_server_with_path.host == "mytrinoserver.domain/some_path"
-    assert http_server_with_path.port == 8080
+    assert http_server_with_path.port == constants.DEFAULT_PORT
     assert http_server_with_path.http_scheme == constants.HTTP
 
     only_hostname = Connection("mytrinoserver.domain")
     assert only_hostname.host == "mytrinoserver.domain"
-    assert only_hostname.port == 8080
+    assert only_hostname.port == constants.DEFAULT_PORT
     assert only_hostname.http_scheme == constants.HTTP
 
     only_hostname_with_path = Connection("mytrinoserver.domain/some_path")
     assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
-    assert only_hostname_with_path.port == 8080
+    assert only_hostname_with_path.port == constants.DEFAULT_PORT
     assert only_hostname_with_path.http_scheme == constants.HTTP
 
 
