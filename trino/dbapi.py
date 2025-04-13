@@ -143,7 +143,7 @@ class Connection:
     def __init__(
         self,
         host: str,
-        port=constants.DEFAULT_PORT,
+        port=None,
         user=None,
         source=constants.DEFAULT_SOURCE,
         catalog=constants.DEFAULT_CATALOG,
@@ -176,7 +176,6 @@ class Connection:
             ]
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
-        self.port = port if parsed_host.port is None else parsed_host.port
         self.user = user
         self.source = source
         self.catalog = catalog
@@ -204,6 +203,16 @@ class Connection:
             self._http_session = http_session
         self.http_headers = http_headers
         self.http_scheme = http_scheme if not parsed_host.scheme else parsed_host.scheme
+
+        # Infer connection port: `hostname` takes precedence over explicit `port` argument
+        # If none is given, use default based on HTTP protocol
+        default_port = constants.DEFAULT_TLS_PORT if self.http_scheme == constants.HTTPS else constants.DEFAULT_PORT
+        self.port = (
+            parsed_host.port if parsed_host.port is not None
+            else port if port is not None
+            else default_port
+        )
+
         self.auth = auth
         self.extra_credential = extra_credential
         self.max_attempts = max_attempts
