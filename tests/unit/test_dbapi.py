@@ -71,13 +71,13 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
     # bind post statement to submit query
     httpretty.register_uri(
         method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
         body=post_statement_callback)
 
     # bind get statement for result retrieval
     httpretty.register_uri(
         method=httpretty.GET,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
         body=get_statement_callback)
 
     # bind get token
@@ -136,13 +136,13 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
     # bind post statement to submit query
     httpretty.register_uri(
         method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
         body=post_statement_callback)
 
     # bind get statement for result retrieval
     httpretty.register_uri(
         method=httpretty.GET,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
         body=get_statement_callback)
 
     # bind get token
@@ -201,13 +201,13 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
     # bind post statement to submit query
     httpretty.register_uri(
         method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}",
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
         body=post_statement_callback)
 
     # bind get statement for result retrieval
     httpretty.register_uri(
         method=httpretty.GET,
-        uri=f"{SERVER_ADDRESS}:8080{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
+        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
         body=get_statement_callback)
 
     # bind get token
