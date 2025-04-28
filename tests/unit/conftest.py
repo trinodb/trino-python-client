@@ -38,10 +38,10 @@ def sample_post_response_data():
     """
 
     yield {
-        "nextUri": "https://coordinator:8080/v1/statement/20210817_140827_00000_arvdv/1",
+        "nextUri": "https://coordinator/v1/statement/20210817_140827_00000_arvdv/1",
         "id": "20210817_140827_00000_arvdv",
         "taskDownloadUris": [],
-        "infoUri": "https://coordinator:8080/query.html?20210817_140827_00000_arvdv",
+        "infoUri": "https://coordinator/query.html?20210817_140827_00000_arvdv",
         "stats": {
             "scheduled": False,
             "runningSplits": 0,
