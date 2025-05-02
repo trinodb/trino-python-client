@@ -522,7 +522,8 @@ class TrinoRequest:
             headers[constants.HEADER_ENCODING] = self._client_session.encoding
         else:
             raise ValueError("Invalid type for encoding: expected str or list")
-        headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME,SESSION_AUTHORIZATION'
+        headers[constants.HEADER_CLIENT_CAPABILITIES] = constants.CLIENT_CAPABILITIES
+
         headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
