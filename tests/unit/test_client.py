@@ -135,7 +135,7 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_SESSION] == ""
         assert headers[constants.HEADER_TRANSACTION] is None
         assert headers[constants.HEADER_TIMEZONE] == timezone
-        assert headers[constants.HEADER_CLIENT_CAPABILITIES] == "PARAMETRIC_DATETIME,SESSION_AUTHORIZATION"
+        assert headers[constants.HEADER_CLIENT_CAPABILITIES] == constants.CLIENT_CAPABILITIES
         assert headers[accept_encoding_header] == accept_encoding_value
         assert headers[client_info_header] == client_info_value
         assert headers[constants.HEADER_ROLE] == (
