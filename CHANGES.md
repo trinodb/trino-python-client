@@ -6,6 +6,24 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+
+## Release 0.334.0
+
+* Allow authentication over insecure channel.
+   ([#530](https://github.com/trinodb/trino-python-client/pull/530))
+* Add support for `with` statement with `Cursor` class.
+   ([#537](https://github.com/trinodb/trino-python-client/pull/537))
+* Fix `KeyError` when accessing missing `error_location` in `TrinoQueryError`.
+   ([#535](https://github.com/trinodb/trino-python-client/pull/535)).
+* Add support for `SET AUTHORIZATION` and `RESET AUTHORIZATION` statements.
+  ([#551](https://github.com/trinodb/trino-python-client/pull/551))
+* Use default TLS port when URI scheme is `https`.
+  ([#549](https://github.com/trinodb/trino-python-client/pull/549))
+* Fix redirect URI not getting printed during OAuth authentication when using terminals that buffer output.
+  ([#548](https://github.com/trinodb/trino-python-client/pull/548))
+* Use TLS verification mode set on the connection when retrieving spooled results.
+  ([#546](https://github.com/trinodb/trino-python-client/pull/546))
+
 ## Release 0.333.0
 
 * Improve handling of query results containing `null` values for
