@@ -11,6 +11,7 @@
 # limitations under the License.
 import pytest
 from sqlalchemy import Column
+from sqlalchemy import ForeignKey
 from sqlalchemy import func
 from sqlalchemy import insert
 from sqlalchemy import Integer
@@ -38,6 +39,26 @@ table_with_catalog = Table(
     Column('id', Integer),
     schema='default',
     trino_catalog='other'
+)
+
+table_with_pk = Table(
+    'table_with_pk',
+    metadata,
+    Column('id', String, primary_key=True)
+)
+
+table_with_fk = Table(
+    'table_with_fk',
+    metadata,
+    Column('id', String, primary_key=True),
+    Column('fk', String, ForeignKey('table_with_pk.id'))
+)
+
+table_with_unique = Table(
+    'table_with_constraint',
+    metadata,
+    Column('id', String, primary_key=True),
+    Column('uniq', String, unique=True)
 )
 
 
@@ -170,3 +191,21 @@ def test_try_cast(dialect):
     statement = select(try_cast(table_without_catalog.c.id, String))
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT try_cast("table".id as VARCHAR) AS id \nFROM "table"'
+
+
+def test_catalogs_create_table_with_pk(dialect):
+    statement = CreateTable(table_with_pk)
+    query = statement.compile(dialect=dialect)
+    assert 'primary key' not in str(query).lower()
+
+
+def test_catalogs_create_table_with_fk(dialect):
+    statement = CreateTable(table_with_fk)
+    query = statement.compile(dialect=dialect)
+    assert 'foreign key' not in str(query).lower()
+
+
+def test_catalogs_create_table_with_unique(dialect):
+    statement = CreateTable(table_with_unique)
+    query = statement.compile(dialect=dialect)
+    assert 'unique' not in str(query).lower()
