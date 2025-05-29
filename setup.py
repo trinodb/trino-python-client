@@ -38,7 +38,7 @@ external_authentication_token_cache_require = ["keyring"]
 # We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
 all_require = kerberos_require + sqlalchemy_require
 
-tests_require = all_require + gssapi_require + orjson_require + [
+tests_require = all_require + gssapi_require + [
     # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
     # https://github.com/gabrielfalcao/HTTPretty/issues/425
     "httpretty < 1.1",

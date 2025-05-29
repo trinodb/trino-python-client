@@ -42,7 +42,6 @@ import functools
 import os
 import random
 import re
-import sys
 import threading
 import urllib.parse
 import warnings
@@ -85,10 +84,7 @@ from trino.mapper import RowMapper
 from trino.mapper import RowMapperFactory
 
 try:
-    if sys.implementation.name == 'pypy':
-        import json
-    else:
-        import orjson as json
+    import orjson as json
 except ImportError:
     import json
 
