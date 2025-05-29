@@ -39,13 +39,10 @@ import atexit
 import base64
 import copy
 import functools
-try:
-    import orjson as json
-except ImportError:
-    import json
 import os
 import random
 import re
+import sys
 import threading
 import urllib.parse
 import warnings
@@ -86,6 +83,14 @@ from trino.exceptions import TrinoQueryError
 from trino.exceptions import TrinoUserError
 from trino.mapper import RowMapper
 from trino.mapper import RowMapperFactory
+
+try:
+    if sys.implementation.name == 'pypy':
+        import json
+    else:
+        import orjson as json
+except ImportError:
+    import json
 
 __all__ = [
     "ClientSession",
