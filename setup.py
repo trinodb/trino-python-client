@@ -32,12 +32,13 @@ gssapi_require = [""
                   # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
                   "krb5 == 0.5.1"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
+orjson_require = ["orjson >= 3.0.0"]
 external_authentication_token_cache_require = ["keyring"]
 
 # We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
 all_require = kerberos_require + sqlalchemy_require
 
-tests_require = all_require + gssapi_require + [
+tests_require = all_require + gssapi_require + orjson_require + [
     # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
     # https://github.com/gabrielfalcao/HTTPretty/issues/425
     "httpretty < 1.1",
@@ -96,6 +97,7 @@ setup(
         "kerberos": kerberos_require,
         "gssapi": gssapi_require,
         "sqlalchemy": sqlalchemy_require,
+        "orjson": orjson_require,
         "tests": tests_require,
         "external-authentication-token-cache": external_authentication_token_cache_require,
     },

@@ -39,7 +39,10 @@ import atexit
 import base64
 import copy
 import functools
-import json
+try:
+    import orjson as json
+except ImportError:
+    import json
 import os
 import random
 import re
