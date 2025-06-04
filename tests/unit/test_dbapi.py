@@ -14,6 +14,7 @@ import uuid
 from unittest.mock import patch
 
 import httpretty
+import pytest
 from httpretty import httprettified
 from requests import Session
 
@@ -314,3 +315,26 @@ def test_description_is_none_when_cursor_is_not_executed():
     connection = Connection("sample_trino_cluster:443")
     with connection.cursor() as cursor:
         assert hasattr(cursor, 'description')
+
+
+@pytest.mark.parametrize(
+    "host, port, http_scheme_input_argument, http_scheme_set",
+    [
+        # Infer from hostname
+        ("https://mytrinoserver.domain:9999", None, None, constants.HTTPS),
+        ("http://mytrinoserver.domain:9999", None, None, constants.HTTP),
+        # Infer from port
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, None, constants.HTTPS),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, None, constants.HTTP),
+        # http_scheme parameter has higher precedence than port parameter
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTP, constants.HTTP),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTPS, constants.HTTPS),
+        # Set explicitly by http_scheme parameter
+        ("mytrinoserver.domain", None, constants.HTTPS, constants.HTTPS),
+        # Default
+        ("mytrinoserver.domain", None, None, constants.HTTP),
+    ],
+)
+def test_setting_http_scheme(host, port, http_scheme_input_argument, http_scheme_set):
+    connection = Connection(host, port, http_scheme=http_scheme_input_argument)
+    assert connection.http_scheme == http_scheme_set

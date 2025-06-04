@@ -150,7 +150,7 @@ class Connection:
         schema=constants.DEFAULT_SCHEMA,
         session_properties=None,
         http_headers=None,
-        http_scheme=constants.HTTP,
+        http_scheme=None,
         auth=constants.DEFAULT_AUTH,
         extra_credential=None,
         max_attempts=constants.DEFAULT_MAX_ATTEMPTS,
@@ -202,7 +202,18 @@ class Connection:
         else:
             self._http_session = http_session
         self.http_headers = http_headers
-        self.http_scheme = http_scheme if not parsed_host.scheme else parsed_host.scheme
+
+        # Set http_scheme
+        if parsed_host.scheme:
+            self.http_scheme = parsed_host.scheme
+        elif http_scheme:
+            self.http_scheme = http_scheme
+        elif port == constants.DEFAULT_TLS_PORT:
+            self.http_scheme = constants.HTTPS
+        elif port == constants.DEFAULT_PORT:
+            self.http_scheme = constants.HTTP
+        else:
+            self.http_scheme = constants.HTTP
 
         # Infer connection port: `hostname` takes precedence over explicit `port` argument
         # If none is given, use default based on HTTP protocol
