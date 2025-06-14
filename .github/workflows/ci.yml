@@ -72,6 +72,14 @@ jobs:
           cache: "pip"
           cache-dependency-path: setup.py
       - name: Install dependencies
+        if: matrix.python != 'pypy-3.9' && matrix.python != 'pypy-3.10'
+        run: |
+          sudo apt-get update
+          sudo apt-get install libkrb5-dev
+          pip install wheel
+          pip install .[tests,gssapi,orjson] sqlalchemy${{ matrix.sqlalchemy }}
+      - name: Install dependencies in pypy
+        if: matrix.python == 'pypy-3.9' || matrix.python == 'pypy-3.10'
         run: |
           sudo apt-get update
           sudo apt-get install libkrb5-dev
