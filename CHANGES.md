@@ -6,6 +6,10 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.335.0
+
+* Fix connection scheme being incorrectly inferred as HTTP.
+  ([#557](https://github.com/trinodb/trino-python-client/issues/557))
 
 ## Release 0.334.0
 
