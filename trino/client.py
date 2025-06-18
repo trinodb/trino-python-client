@@ -39,7 +39,6 @@ import atexit
 import base64
 import copy
 import functools
-import json
 import os
 import random
 import re
@@ -83,6 +82,11 @@ from trino.exceptions import TrinoQueryError
 from trino.exceptions import TrinoUserError
 from trino.mapper import RowMapper
 from trino.mapper import RowMapperFactory
+
+try:
+    import orjson as json
+except ImportError:
+    import json
 
 __all__ = [
     "ClientSession",
