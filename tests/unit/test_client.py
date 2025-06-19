@@ -130,8 +130,8 @@ def test_request_headers(mock_get_and_post):
         assert headers[constants.HEADER_CATALOG] == catalog
         assert headers[constants.HEADER_SCHEMA] == schema
         assert headers[constants.HEADER_SOURCE] == source
-        assert headers[constants.HEADER_USER] == user
-        assert headers[constants.HEADER_AUTHORIZATION_USER] == authorization_user
+        assert headers[constants.HEADER_ORIGINAL_USER] == user
+        assert headers[constants.HEADER_USER] == authorization_user
         assert headers[constants.HEADER_SESSION] == ""
         assert headers[constants.HEADER_TRANSACTION] is None
         assert headers[constants.HEADER_TIMEZONE] == timezone
