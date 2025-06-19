@@ -511,8 +511,11 @@ class TrinoRequest:
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
-        headers[constants.HEADER_USER] = self._client_session.user
-        headers[constants.HEADER_AUTHORIZATION_USER] = self._client_session.authorization_user
+        if self._client_session.authorization_user is not None:
+            headers[constants.HEADER_ORIGINAL_USER] = self._client_session.user
+            headers[constants.HEADER_USER] = self._client_session.authorization_user
+        else:
+            headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         if self._client_session.encoding is None:
             pass
