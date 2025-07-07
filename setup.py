@@ -86,8 +86,8 @@ setup(
         "lz4",
         "python-dateutil",
         "pytz",
-        # requests CVE https://github.com/advisories/GHSA-j8r2-6x86-q33q
-        "requests>=2.31.0",
+        # CVE-2024-47081
+        "requests>=2.32.4",
         "tzlocal",
         "zstandard",
     ],
