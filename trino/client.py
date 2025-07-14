@@ -71,7 +71,6 @@ import zstandard
 from requests import Response
 from requests import Session
 from requests.structures import CaseInsensitiveDict
-from tzlocal import get_localzone_name  # type: ignore
 
 import trino.logging
 from trino import constants
@@ -184,9 +183,12 @@ class ClientSession:
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else list()
         self._roles = self._format_roles(roles) if roles is not None else {}
-        self._timezone = timezone or get_localzone_name()
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
+            self._timezone = timezone
+        else:
+            from tzlocal import get_localzone_name
+            self._timezone = get_localzone_name()
         self._encoding = encoding
 
     @property
