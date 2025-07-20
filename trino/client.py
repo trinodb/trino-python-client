@@ -808,7 +808,8 @@ class TrinoQuery:
             request: TrinoRequest,
             query: str,
             legacy_primitive_types: bool = False,
-            fetch_mode: Literal["mapped", "segments"] = "mapped"
+            fetch_mode: Literal["mapped", "segments"] = "mapped",
+            heartbeat_interval: float = 60.0,  # seconds
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -826,6 +827,11 @@ class TrinoQuery:
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
         self._fetch_mode = fetch_mode
+        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_thread = None
+        self._heartbeat_stop_event = threading.Event()
+        self._heartbeat_failures = 0
+        self._heartbeat_enabled = True
 
     @property
     def query_id(self) -> Optional[str]:
@@ -868,6 +874,39 @@ class TrinoQuery:
     def info_uri(self):
         return self._info_uri
 
+    def _start_heartbeat(self):
+        if self._heartbeat_thread is not None:
+            return
+        self._heartbeat_stop_event.clear()
+        self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self._heartbeat_thread.start()
+
+    def _stop_heartbeat(self):
+        self._heartbeat_stop_event.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=2)
+            self._heartbeat_thread = None
+
+    def _heartbeat_loop(self):
+        while not self._heartbeat_stop_event.is_set() and not self.finished and not self.cancelled and self._heartbeat_enabled:
+            if self._next_uri is None:
+                break
+            try:
+                response = self._request.http.head(self._next_uri, timeout=10)
+                if response.status_code == 404 or response.status_code == 405:
+                    self._heartbeat_enabled = False
+                    break
+                if response.status_code == 200:
+                    self._heartbeat_failures = 0
+                else:
+                    self._heartbeat_failures += 1
+            except Exception:
+                self._heartbeat_failures += 1
+            if self._heartbeat_failures >= 3:
+                self._heartbeat_enabled = False
+                break
+            self._heartbeat_stop_event.wait(self._heartbeat_interval)
+
     def execute(self, additional_http_headers=None) -> TrinoResult:
         """Initiate a Trino query by sending the SQL statement
 
@@ -895,6 +934,9 @@ class TrinoQuery:
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
+        # Start heartbeat thread
+        self._start_heartbeat()
+
         # Execute should block until at least one row is received or query is finished or cancelled
         while not self.finished and not self.cancelled and len(self._result.rows) == 0:
             self._result.rows += self.fetch()
@@ -921,6 +963,7 @@ class TrinoQuery:
         self._update_state(status)
         if status.next_uri is None:
             self._finished = True
+            self._stop_heartbeat()
 
         if not self._row_mapper:
             return []
@@ -968,6 +1011,7 @@ class TrinoQuery:
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
+            self._stop_heartbeat()
             return
 
         self._request.raise_response_error(response)
@@ -984,6 +1028,11 @@ class TrinoQuery:
     @property
     def cancelled(self) -> bool:
         return self._cancelled
+
+    @property
+    def is_running(self) -> bool:
+        """Return True if the query is still running (not finished or cancelled)."""
+        return not self.finished and not self.cancelled
 
 
 def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):

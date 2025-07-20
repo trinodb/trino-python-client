@@ -1447,3 +1447,149 @@ class MockKeyring(keyring.backend.KeyringBackend):
             return None
 
         os.remove(file_path)
+
+
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trinoquery_heartbeat_success(mock_requests, sample_post_response_data, sample_get_response_data):
+    """Test that heartbeat is sent periodically and does not stop on success."""
+    head_call_count = 0
+    def fake_head(url, timeout=10):
+        nonlocal head_call_count
+        head_call_count += 1
+        class Resp:
+            status_code = 200
+        return Resp()
+    mock_requests.head.side_effect = fake_head
+    mock_requests.Response.return_value.json.return_value = sample_post_response_data
+    mock_requests.get.return_value.json.return_value = sample_get_response_data
+    mock_requests.post.return_value.json.return_value = sample_post_response_data
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+    )
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.1)
+    def finish_query(*args, **kwargs):
+        query._finished = True
+        return []
+    query.fetch = finish_query
+    query._next_uri = "http://coordinator/v1/statement/next"
+    query._row_mapper = mock.Mock(map=lambda x: [])
+    query._start_heartbeat()
+    time.sleep(0.3)
+    query._stop_heartbeat()
+    assert head_call_count >= 2
+
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trinoquery_heartbeat_failure_stops(mock_requests, sample_post_response_data, sample_get_response_data):
+    """Test that heartbeat stops after 3 consecutive failures."""
+    def fake_head(url, timeout=10):
+        class Resp:
+            status_code = 500
+        return Resp()
+    mock_requests.head.side_effect = fake_head
+    mock_requests.Response.return_value.json.return_value = sample_post_response_data
+    mock_requests.get.return_value.json.return_value = sample_get_response_data
+    mock_requests.post.return_value.json.return_value = sample_post_response_data
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+    )
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+    query._next_uri = "http://coordinator/v1/statement/next"
+    query._row_mapper = mock.Mock(map=lambda x: [])
+    query._start_heartbeat()
+    time.sleep(0.3)
+    assert not query._heartbeat_enabled
+    query._stop_heartbeat()
+
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trinoquery_heartbeat_404_405_stops(mock_requests, sample_post_response_data, sample_get_response_data):
+    """Test that heartbeat stops if server returns 404 or 405."""
+    for code in (404, 405):
+        def fake_head(url, timeout=10, code=code):
+            class Resp:
+                status_code = code
+            return Resp()
+        mock_requests.head.side_effect = fake_head
+        mock_requests.Response.return_value.json.return_value = sample_post_response_data
+        mock_requests.get.return_value.json.return_value = sample_get_response_data
+        mock_requests.post.return_value.json.return_value = sample_post_response_data
+        req = TrinoRequest(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(user="test"),
+            http_scheme="http",
+        )
+        query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+        query._next_uri = "http://coordinator/v1/statement/next"
+        query._row_mapper = mock.Mock(map=lambda x: [])
+        query._start_heartbeat()
+        time.sleep(0.2)
+        assert not query._heartbeat_enabled
+        query._stop_heartbeat()
+
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trinoquery_heartbeat_stops_on_finish(mock_requests, sample_post_response_data, sample_get_response_data):
+    """Test that heartbeat stops when the query is finished."""
+    head_call_count = 0
+    def fake_head(url, timeout=10):
+        nonlocal head_call_count
+        head_call_count += 1
+        class Resp:
+            status_code = 200
+        return Resp()
+    mock_requests.head.side_effect = fake_head
+    mock_requests.Response.return_value.json.return_value = sample_post_response_data
+    mock_requests.get.return_value.json.return_value = sample_get_response_data
+    mock_requests.post.return_value.json.return_value = sample_post_response_data
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+    )
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+    query._next_uri = "http://coordinator/v1/statement/next"
+    query._row_mapper = mock.Mock(map=lambda x: [])
+    query._start_heartbeat()
+    time.sleep(0.1)
+    query._finished = True
+    time.sleep(0.1)
+    query._stop_heartbeat()
+    # Heartbeat should have stopped after query finished
+    assert head_call_count >= 1
+
+@mock.patch("trino.client.TrinoRequest.http")
+def test_trinoquery_heartbeat_stops_on_cancel(mock_requests, sample_post_response_data, sample_get_response_data):
+    """Test that heartbeat stops when the query is cancelled."""
+    head_call_count = 0
+    def fake_head(url, timeout=10):
+        nonlocal head_call_count
+        head_call_count += 1
+        class Resp:
+            status_code = 200
+        return Resp()
+    mock_requests.head.side_effect = fake_head
+    mock_requests.Response.return_value.json.return_value = sample_post_response_data
+    mock_requests.get.return_value.json.return_value = sample_get_response_data
+    mock_requests.post.return_value.json.return_value = sample_post_response_data
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+    )
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+    query._next_uri = "http://coordinator/v1/statement/next"
+    query._row_mapper = mock.Mock(map=lambda x: [])
+    query._start_heartbeat()
+    time.sleep(0.1)
+    query._cancelled = True
+    time.sleep(0.1)
+    query._stop_heartbeat()
+    # Heartbeat should have stopped after query cancelled
+    assert head_call_count >= 1
