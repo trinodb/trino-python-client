@@ -888,7 +888,8 @@ class TrinoQuery:
             self._heartbeat_thread = None
 
     def _heartbeat_loop(self):
-        while not self._heartbeat_stop_event.is_set() and not self.finished and not self.cancelled and self._heartbeat_enabled:
+        while all([not self._heartbeat_stop_event.is_set(), not self.finished, not self.cancelled,
+                   self._heartbeat_enabled]):
             if self._next_uri is None:
                 break
             try:
