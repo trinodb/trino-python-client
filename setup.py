@@ -84,6 +84,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "lz4",
+        "orjson >= 3.11.0 ; platform_python_implementation != 'PyPy'",
         "python-dateutil",
         "pytz",
         # requests CVE https://github.com/advisories/GHSA-j8r2-6x86-q33q
