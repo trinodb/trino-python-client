@@ -39,7 +39,6 @@ import atexit
 import base64
 import copy
 import functools
-import json
 import os
 import random
 import re
@@ -66,6 +65,11 @@ from typing import Union
 from zoneinfo import ZoneInfo
 
 import lz4.block
+try:
+    import orjson as json
+except ImportError:
+    import json
+
 import requests
 import zstandard
 from requests import Response
@@ -689,7 +693,7 @@ class TrinoRequest:
             self.raise_response_error(http_response)
 
         http_response.encoding = "utf-8"
-        response = http_response.json()
+        response = json.loads(http_response.text)
         if "error" in response and response["error"]:
             raise self._process_error(response["error"], response.get("id"))
 

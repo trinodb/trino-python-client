@@ -9,7 +9,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import threading
 import time
 import urllib
@@ -26,6 +25,10 @@ from zoneinfo import ZoneInfoNotFoundError
 import gssapi
 import httpretty
 import keyring
+try:
+    import orjson as json
+except ImportError:
+    import json
 import pytest
 import requests
 from httpretty import httprettified
@@ -61,8 +64,7 @@ from trino.client import TrinoResult
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trino_initial_request(mock_requests, sample_post_response_data):
-    mock_requests.Response.return_value.json.return_value = sample_post_response_data
-
+    mock_requests.Response.return_value.text = json.dumps(sample_post_response_data)
     req = TrinoRequest(
         host="coordinator",
         port=8080,
@@ -692,7 +694,7 @@ def test_multithreaded_oauth2_authentication_flow(sample_post_response_data):
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trino_fetch_request(mock_requests, sample_get_response_data):
-    mock_requests.Response.return_value.json.return_value = sample_get_response_data
+    mock_requests.Response.return_value.text = json.dumps(sample_get_response_data)
 
     req = TrinoRequest(
         host="coordinator",
@@ -718,7 +720,7 @@ def test_trino_fetch_request(mock_requests, sample_get_response_data):
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trino_fetch_request_data_none(mock_requests, sample_get_response_data_none):
-    mock_requests.Response.return_value.json.return_value = sample_get_response_data_none
+    mock_requests.Response.return_value.text = json.dumps(sample_get_response_data_none)
 
     req = TrinoRequest(
         host="coordinator",
@@ -744,7 +746,7 @@ def test_trino_fetch_request_data_none(mock_requests, sample_get_response_data_n
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trino_fetch_error(mock_requests, sample_get_error_response_data):
-    mock_requests.Response.return_value.json.return_value = sample_get_error_response_data
+    mock_requests.Response.return_value.text = json.dumps(sample_get_error_response_data)
 
     req = TrinoRequest(
         host="coordinator",
@@ -1154,8 +1156,9 @@ def test_trino_query_response_headers(sample_get_response_data):
                 'X-Trino-Fake-2': 'two',
             }
 
-        def json(self):
-            return sample_get_response_data
+        @property
+        def text(self):
+            return json.dumps(sample_get_response_data)
 
     req = TrinoRequest(
         host="coordinator",
