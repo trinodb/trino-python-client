@@ -566,6 +566,74 @@ assert rows[0][0] == "-2001-08-22"
 assert cur.description[0][1] == "date"
 ```
 
+## Progress Callback
+
+The Trino client supports progress callbacks to track query execution progress in real-time. you can provide a callback function that gets called whenever the query status is updated.
+
+### Basic Usage
+
+```python
+from trino.client import TrinoQuery, TrinoRequest, ClientSession, TrinoStatus
+from typing import Dict, Any
+
+def progress_callback(status: TrinoStatus, stats: Dict[str, Any]) -> None:
+    """Progress callback function that gets called whenever the query status is updated."""
+    state = stats.get('state', 'UNKNOWN')
+    processed_bytes = stats.get('processedBytes', 0)
+    processed_rows = stats.get('processedRows', 0)
+    completed_splits = stats.get('completedSplits', 0)
+    total_splits = stats.get('totalSplits', 0)
+    
+    print(f"Query {status.id}: {state} - {processed_bytes} bytes, {processed_rows} rows")
+    if total_splits > 0:
+        progress = (completed_splits / total_splits) * 100.0
+        print(f"Progress: {progress:.1f}% ({completed_splits}/{total_splits} splits)")
+
+session = ClientSession(user="test_user", catalog="memory", schema="default")
+
+request = TrinoRequest(
+    host="localhost",
+    port=8080,
+    client_session=session,
+    http_scheme="http"
+)
+
+query = TrinoQuery(
+    request=request,
+    query="SELECT * FROM large_table",
+    progress_callback=progress_callback
+)
+
+result = query.execute()
+
+while not query.finished:
+    rows = query.fetch()
+```
+
+### Progress Calculation
+
+The callback receives a `stats` dictionary containing various metrics that can be used to calculate progress:
+
+- `state`: Query state (RUNNING, FINISHED, FAILED, etc.)
+- `processedBytes`: Total bytes processed
+- `processedRows`: Total rows processed  
+- `completedSplits`: Number of completed splits
+- `totalSplits`: Total number of splits
+
+The most accurate progress calculation is based on splits completion:
+
+```python
+def calculate_progress(stats: Dict[str, Any]) -> float:
+    """Calculate progress percentage based on splits completion."""
+    completed_splits = stats.get('completedSplits', 0)
+    total_splits = stats.get('totalSplits', 0)
+    if total_splits > 0:
+        return min(100.0, (completed_splits / total_splits) * 100.0)
+    elif stats.get('state') == 'FINISHED':
+        return 100.0
+    return 0.0
+```
+
 ### Trino to Python type mappings
 
 | Trino type | Python type       |

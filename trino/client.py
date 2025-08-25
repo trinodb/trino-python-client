@@ -54,19 +54,21 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from enum import Enum
 from time import sleep
-from typing import Any
+from typing import Any, Callable, Optional
 from typing import cast
 from typing import Dict
 from typing import List
 from typing import Literal
-from typing import Optional
-from typing import Tuple
-from typing import TypedDict
 from typing import Union
+from typing import TypedDict
+from typing import Tuple
 from zoneinfo import ZoneInfo
 
 import lz4.block
 import requests
+
+# Progress callback type definition
+ProgressCallback = Callable[['TrinoStatus', Dict[str, Any]], None]
 import zstandard
 from requests import Response
 from requests import Session
@@ -810,6 +812,7 @@ class TrinoQuery:
             legacy_primitive_types: bool = False,
             fetch_mode: Literal["mapped", "segments"] = "mapped",
             heartbeat_interval: float = 60.0,  # seconds
+            progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -832,6 +835,8 @@ class TrinoQuery:
         self._heartbeat_stop_event = threading.Event()
         self._heartbeat_failures = 0
         self._heartbeat_enabled = True
+        self._progress_callback = progress_callback
+        self._last_progress_stats = {}
 
     @property
     def query_id(self) -> Optional[str]:
@@ -952,6 +957,10 @@ class TrinoQuery:
                                                          legacy_primitive_types=self._legacy_primitive_types)
         if status.columns:
             self._columns = status.columns
+        
+        # Call progress callback if provided
+        if self._progress_callback is not None:
+            self._progress_callback(status, self._stats)
 
     def fetch(self) -> List[Union[List[Any]], Any]:
         """Continue fetching data for the current query_id"""
@@ -1033,6 +1042,35 @@ class TrinoQuery:
     def is_running(self) -> bool:
         """Return True if the query is still running (not finished or cancelled)."""
         return not self.finished and not self.cancelled
+
+    def calculate_progress_percentage(self, stats: Dict[str, Any]) -> float:
+        """
+        Calculate progress percentage based on available statistics.
+        
+        Args:
+            stats: The current query statistics from Trino
+            
+        Returns:
+            Progress percentage as a float between 0.0 and 100.0
+        """
+        # Try to calculate progress based on splits completion
+        if 'completedSplits' in stats and 'totalSplits' in stats:
+            completed_splits = stats.get('completedSplits', 0)
+            total_splits = stats.get('totalSplits', 0)
+            if total_splits > 0:
+                return min(100.0, (completed_splits / total_splits) * 100.0)
+        
+        # Fallback: check if query is finished
+        if stats.get('state') == 'FINISHED':
+            return 100.0
+        
+        # If query is running but we don't have split info, estimate based on time
+        # This is a rough estimate and may not be accurate
+        if stats.get('state') == 'RUNNING':
+            # Return a conservative estimate - could be enhanced with more sophisticated logic
+            return 5.0  # Assume some progress has been made
+        
+        return 0.0
 
 
 def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
