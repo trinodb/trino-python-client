@@ -1453,9 +1453,11 @@ class MockKeyring(keyring.backend.KeyringBackend):
 def test_trinoquery_heartbeat_success(mock_requests, sample_post_response_data, sample_get_response_data):
     """Test that heartbeat is sent periodically and does not stop on success."""
     head_call_count = 0
+
     def fake_head(url, timeout=10):
         nonlocal head_call_count
         head_call_count += 1
+
         class Resp:
             status_code = 200
         return Resp()
@@ -1470,6 +1472,7 @@ def test_trinoquery_heartbeat_success(mock_requests, sample_post_response_data, 
         http_scheme="http",
     )
     query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.1)
+
     def finish_query(*args, **kwargs):
         query._finished = True
         return []
@@ -1480,6 +1483,7 @@ def test_trinoquery_heartbeat_success(mock_requests, sample_post_response_data, 
     time.sleep(0.3)
     query._stop_heartbeat()
     assert head_call_count >= 2
+
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trinoquery_heartbeat_failure_stops(mock_requests, sample_post_response_data, sample_get_response_data):
@@ -1505,6 +1509,7 @@ def test_trinoquery_heartbeat_failure_stops(mock_requests, sample_post_response_
     time.sleep(0.3)
     assert not query._heartbeat_enabled
     query._stop_heartbeat()
+
 
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trinoquery_heartbeat_404_405_stops(mock_requests, sample_post_response_data, sample_get_response_data):
@@ -1532,13 +1537,16 @@ def test_trinoquery_heartbeat_404_405_stops(mock_requests, sample_post_response_
         assert not query._heartbeat_enabled
         query._stop_heartbeat()
 
+
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trinoquery_heartbeat_stops_on_finish(mock_requests, sample_post_response_data, sample_get_response_data):
     """Test that heartbeat stops when the query is finished."""
     head_call_count = 0
+
     def fake_head(url, timeout=10):
         nonlocal head_call_count
         head_call_count += 1
+
         class Resp:
             status_code = 200
         return Resp()
@@ -1563,13 +1571,16 @@ def test_trinoquery_heartbeat_stops_on_finish(mock_requests, sample_post_respons
     # Heartbeat should have stopped after query finished
     assert head_call_count >= 1
 
+
 @mock.patch("trino.client.TrinoRequest.http")
 def test_trinoquery_heartbeat_stops_on_cancel(mock_requests, sample_post_response_data, sample_get_response_data):
     """Test that heartbeat stops when the query is cancelled."""
     head_call_count = 0
+
     def fake_head(url, timeout=10):
         nonlocal head_call_count
         head_call_count += 1
+
         class Resp:
             status_code = 200
         return Resp()
