@@ -19,6 +19,7 @@ from sqlalchemy import MetaData
 from sqlalchemy import select
 from sqlalchemy import String
 from sqlalchemy import Table
+from sqlalchemy.exc import SAWarning
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column
 from sqlalchemy.sql import table
@@ -194,18 +195,21 @@ def test_try_cast(dialect):
 
 
 def test_catalogs_create_table_with_pk(dialect):
-    statement = CreateTable(table_with_pk)
-    query = statement.compile(dialect=dialect)
-    assert 'primary key' not in str(query).lower()
+    with pytest.warns(SAWarning, match="Trino does not support PRIMARY KEY constraints. Constraint will be ignored."):
+        statement = CreateTable(table_with_pk)
+        query = statement.compile(dialect=dialect)
+        assert 'primary key' not in str(query).lower()
 
 
 def test_catalogs_create_table_with_fk(dialect):
-    statement = CreateTable(table_with_fk)
-    query = statement.compile(dialect=dialect)
-    assert 'foreign key' not in str(query).lower()
+    with pytest.warns(SAWarning, match="Trino does not support FOREIGN KEY constraints. Constraint will be ignored."):
+        statement = CreateTable(table_with_fk)
+        query = statement.compile(dialect=dialect)
+        assert 'foreign key' not in str(query).lower()
 
 
 def test_catalogs_create_table_with_unique(dialect):
-    statement = CreateTable(table_with_unique)
-    query = statement.compile(dialect=dialect)
-    assert 'unique' not in str(query).lower()
+    with pytest.warns(SAWarning, match="Trino does not support UNIQUE constraints. Constraint will be ignored."):
+        statement = CreateTable(table_with_unique)
+        query = statement.compile(dialect=dialect)
+        assert 'unique' not in str(query).lower()

@@ -14,6 +14,7 @@ from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
 from sqlalchemy.sql.functions import GenericFunction
+from sqlalchemy.util import warn as SAWarn
 
 # https://trino.io/docs/current/language/reserved.html
 RESERVED_WORDS = {
@@ -182,12 +183,15 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
 class TrinoDDLCompiler(compiler.DDLCompiler):
     def visit_foreign_key_constraint(self, constraint, **kw):
+        SAWarn("Trino does not support FOREIGN KEY constraints. Constraint will be ignored.")
         return None
 
     def visit_primary_key_constraint(self, constraint, **kw):
+        SAWarn("Trino does not support PRIMARY KEY constraints. Constraint will be ignored.")
         return None
 
     def visit_unique_constraint(self, constraint, **kw):
+        SAWarn("Trino does not support UNIQUE constraints. Constraint will be ignored.")
         return None
 
 
