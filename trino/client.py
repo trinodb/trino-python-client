@@ -53,15 +53,14 @@ from datetime import datetime
 from email.utils import parsedate_to_datetime
 from enum import Enum
 from time import sleep
-from typing import Any
+from typing import Any, Callable, Optional
 from typing import cast
 from typing import Dict
 from typing import List
 from typing import Literal
-from typing import Optional
-from typing import Tuple
-from typing import TypedDict
 from typing import Union
+from typing import TypedDict
+from typing import Tuple
 from zoneinfo import ZoneInfo
 
 import lz4.block
@@ -71,6 +70,9 @@ except ImportError:
     import json
 
 import requests
+
+# Progress callback type definition
+ProgressCallback = Callable[['TrinoStatus', Dict[str, Any]], None]
 import zstandard
 from requests import Response
 from requests import Session
@@ -817,7 +819,9 @@ class TrinoQuery:
             request: TrinoRequest,
             query: str,
             legacy_primitive_types: bool = False,
-            fetch_mode: Literal["mapped", "segments"] = "mapped"
+            fetch_mode: Literal["mapped", "segments"] = "mapped",
+            heartbeat_interval: float = 60.0,  # seconds
+            progress_callback: Optional[ProgressCallback] = None,
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -835,6 +839,13 @@ class TrinoQuery:
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
         self._fetch_mode = fetch_mode
+        self._heartbeat_interval = heartbeat_interval
+        self._heartbeat_thread = None
+        self._heartbeat_stop_event = threading.Event()
+        self._heartbeat_failures = 0
+        self._heartbeat_enabled = True
+        self._progress_callback = progress_callback
+        self._last_progress_stats = {}
 
     @property
     def query_id(self) -> Optional[str]:
@@ -877,6 +888,40 @@ class TrinoQuery:
     def info_uri(self):
         return self._info_uri
 
+    def _start_heartbeat(self):
+        if self._heartbeat_thread is not None:
+            return
+        self._heartbeat_stop_event.clear()
+        self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
+        self._heartbeat_thread.start()
+
+    def _stop_heartbeat(self):
+        self._heartbeat_stop_event.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=2)
+            self._heartbeat_thread = None
+
+    def _heartbeat_loop(self):
+        while all([not self._heartbeat_stop_event.is_set(), not self.finished, not self.cancelled,
+                   self._heartbeat_enabled]):
+            if self._next_uri is None:
+                break
+            try:
+                response = self._request.http.head(self._next_uri, timeout=10)
+                if response.status_code == 404 or response.status_code == 405:
+                    self._heartbeat_enabled = False
+                    break
+                if response.status_code == 200:
+                    self._heartbeat_failures = 0
+                else:
+                    self._heartbeat_failures += 1
+            except Exception:
+                self._heartbeat_failures += 1
+            if self._heartbeat_failures >= 3:
+                self._heartbeat_enabled = False
+                break
+            self._heartbeat_stop_event.wait(self._heartbeat_interval)
+
     def execute(self, additional_http_headers=None) -> TrinoResult:
         """Initiate a Trino query by sending the SQL statement
 
@@ -904,6 +949,9 @@ class TrinoQuery:
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
+        # Start heartbeat thread
+        self._start_heartbeat()
+
         # Execute should block until at least one row is received or query is finished or cancelled
         while not self.finished and not self.cancelled and len(self._result.rows) == 0:
             self._result.rows += self.fetch()
@@ -919,6 +967,10 @@ class TrinoQuery:
                                                          legacy_primitive_types=self._legacy_primitive_types)
         if status.columns:
             self._columns = status.columns
+        
+        # Call progress callback if provided
+        if self._progress_callback is not None:
+            self._progress_callback(status, self._stats)
 
     def fetch(self) -> List[Union[List[Any]], Any]:
         """Continue fetching data for the current query_id"""
@@ -930,6 +982,7 @@ class TrinoQuery:
         self._update_state(status)
         if status.next_uri is None:
             self._finished = True
+            self._stop_heartbeat()
 
         if not self._row_mapper:
             return []
@@ -977,6 +1030,7 @@ class TrinoQuery:
         if response.status_code == requests.codes.no_content:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
+            self._stop_heartbeat()
             return
 
         self._request.raise_response_error(response)
@@ -993,6 +1047,40 @@ class TrinoQuery:
     @property
     def cancelled(self) -> bool:
         return self._cancelled
+
+    @property
+    def is_running(self) -> bool:
+        """Return True if the query is still running (not finished or cancelled)."""
+        return not self.finished and not self.cancelled
+
+    def calculate_progress_percentage(self, stats: Dict[str, Any]) -> float:
+        """
+        Calculate progress percentage based on available statistics.
+        
+        Args:
+            stats: The current query statistics from Trino
+            
+        Returns:
+            Progress percentage as a float between 0.0 and 100.0
+        """
+        # Try to calculate progress based on splits completion
+        if 'completedSplits' in stats and 'totalSplits' in stats:
+            completed_splits = stats.get('completedSplits', 0)
+            total_splits = stats.get('totalSplits', 0)
+            if total_splits > 0:
+                return min(100.0, (completed_splits / total_splits) * 100.0)
+        
+        # Fallback: check if query is finished
+        if stats.get('state') == 'FINISHED':
+            return 100.0
+        
+        # If query is running but we don't have split info, estimate based on time
+        # This is a rough estimate and may not be accurate
+        if stats.get('state') == 'RUNNING':
+            # Return a conservative estimate - could be enhanced with more sophisticated logic
+            return 5.0  # Assume some progress has been made
+        
+        return 0.0
 
 
 def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
