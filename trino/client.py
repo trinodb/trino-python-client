@@ -64,17 +64,30 @@ from typing import TypedDict
 from typing import Union
 from zoneinfo import ZoneInfo
 
-import lz4.block
+try:
+    import lz4.block
+except ImportError as err:
+    _LZ4_ERROR = str(err)
+else:
+    _LZ4_ERROR = None
+
 try:
     import orjson as json
 except ImportError:
     import json
 
 import requests
-import zstandard
 from requests import Response
 from requests import Session
 from requests.structures import CaseInsensitiveDict
+
+try:
+    import zstandard
+except ImportError as err:
+    _ZSTD_ERROR = str(err)
+else:
+    _ZSTD_ERROR = None
+
 
 import trino.logging
 from trino import constants
@@ -86,6 +99,7 @@ from trino.exceptions import TrinoQueryError
 from trino.exceptions import TrinoUserError
 from trino.mapper import RowMapper
 from trino.mapper import RowMapperFactory
+
 
 __all__ = [
     "ClientSession",
@@ -116,6 +130,13 @@ else:
     PROXIES = {}
 
 _HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
+
+ENCODINGS = ["json+zstd", "json+lz4", "json"]
+CODECS_UNAVAILABLE = {}
+if _LZ4_ERROR:
+    CODECS_UNAVAILABLE["lz4"] = _LZ4_ERROR
+if _ZSTD_ERROR:
+    CODECS_UNAVAILABLE["zstd"] = _ZSTD_ERROR
 
 ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
 
@@ -290,7 +311,7 @@ class ClientSession:
             return self._timezone
 
     @property
-    def encoding(self) -> Union[str, List[str]]:
+    def encoding(self) -> Optional[Union[str, List[str]]]:
         with self._object_lock:
             return self._encoding
 
@@ -524,7 +545,15 @@ class TrinoRequest:
             headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         if self._client_session.encoding is None:
-            pass
+            if not CODECS_UNAVAILABLE:
+                pass
+            else:
+                encoding = [
+                    enc
+                    for enc in ENCODINGS
+                    if (enc.split("+")[1] if "+" in enc else None) not in CODECS_UNAVAILABLE
+                ]
+                headers[constants.HEADER_ENCODING] = ",".join(encoding)
         elif isinstance(self._client_session.encoding, list):
             headers[constants.HEADER_ENCODING] = ",".join(self._client_session.encoding)
         elif isinstance(self._client_session.encoding, str):
@@ -1271,8 +1300,16 @@ class CompressedQueryDataDecoderFactory():
 
     def create(self, encoding: str) -> QueryDataDecoder:
         if encoding == "json+zstd":
+            if "zstd" in CODECS_UNAVAILABLE:
+                raise ValueError(
+                    f"zstd is not installed so json+zstd encoding is not supported: {CODECS_UNAVAILABLE['zstd']}"
+                )
             return ZStdQueryDataDecoder(JsonQueryDataDecoder(self._mapper))
         elif encoding == "json+lz4":
+            if "lz4" in CODECS_UNAVAILABLE:
+                raise ValueError(
+                    f"lz4 is not installed so json+lz4 encoding is not supported: {CODECS_UNAVAILABLE['lz4']}"
+                )
             return Lz4QueryDataDecoder(JsonQueryDataDecoder(self._mapper))
         elif encoding == "json":
             return JsonQueryDataDecoder(self._mapper)
@@ -1322,10 +1359,14 @@ class CompressedQueryDataDecoder(QueryDataDecoder):
 
 
 class ZStdQueryDataDecoder(CompressedQueryDataDecoder):
-    zstd_decompressor = zstandard.ZstdDecompressor()
+    def __init__(self, delegate: QueryDataDecoder) -> None:
+        super().__init__(delegate)
+        self._decompressor = None
 
     def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
-        return ZStdQueryDataDecoder.zstd_decompressor.decompress(data)
+        if self._decompressor is None:
+            self._decompressor = zstandard.ZstdDecompressor()
+        return self._decompressor.decompress(data)
 
 
 class Lz4QueryDataDecoder(CompressedQueryDataDecoder):

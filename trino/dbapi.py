@@ -170,9 +170,9 @@ class Connection:
 
         if encoding is _USE_DEFAULT_ENCODING:
             encoding = [
-                "json+zstd",
-                "json+lz4",
-                "json",
+                enc
+                for enc in trino.client.ENCODINGS
+                if (enc.split("+")[1] if "+" in enc else None) not in trino.client.CODECS_UNAVAILABLE
             ]
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path

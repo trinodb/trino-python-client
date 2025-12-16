@@ -338,3 +338,27 @@ def test_description_is_none_when_cursor_is_not_executed():
 def test_setting_http_scheme(host, port, http_scheme_input_argument, http_scheme_set):
     connection = Connection(host, port, http_scheme=http_scheme_input_argument)
     assert connection.http_scheme == http_scheme_set
+
+
+@patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed", "zstd": "Not installed"})
+def test_default_encoding_no_compression():
+    connection = Connection("host", 8080, user="test")
+    assert connection._client_session.encoding == ["json"]
+
+
+@patch("trino.client.CODECS_UNAVAILABLE", {"zstd": "Not installed"})
+def test_default_encoding_lz4():
+    connection = Connection("host", 8080, user="test")
+    assert connection._client_session.encoding == ["json+lz4", "json"]
+
+
+@patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed"})
+def test_default_encoding_zstd():
+    connection = Connection("host", 8080, user="test")
+    assert connection._client_session.encoding == ["json+zstd", "json"]
+
+
+@patch("trino.client.CODECS_UNAVAILABLE", {})
+def test_default_encoding_all():
+    connection = Connection("host", 8080, user="test")
+    assert connection._client_session.encoding == ["json+zstd", "json+lz4", "json"]
