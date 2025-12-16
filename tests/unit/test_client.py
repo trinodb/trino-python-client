@@ -57,6 +57,7 @@ from trino.client import _DelayExponential
 from trino.client import _retry_with
 from trino.client import _RetryWithExponentialBackoff
 from trino.client import ClientSession
+from trino.client import CompressedQueryDataDecoderFactory
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
 from trino.client import TrinoResult
@@ -1450,3 +1451,51 @@ class MockKeyring(keyring.backend.KeyringBackend):
             return None
 
         os.remove(file_path)
+
+
+def test_trino_request_headers_encoding_default_behavior():
+    session = ClientSession(user="test", encoding=None)
+
+    # Case 1: Both available -> No header
+    with mock.patch("trino.client.CODECS_UNAVAILABLE", {}):
+        req = TrinoRequest("host", 8080, session)
+        assert constants.HEADER_ENCODING not in req.http_headers
+
+    # Case 2: Zstd missing -> Header set with json+lz4,json
+    with mock.patch("trino.client.CODECS_UNAVAILABLE", {"zstd": "Not installed"}):
+        req = TrinoRequest("host", 8080, session)
+        assert req.http_headers[constants.HEADER_ENCODING] == "json+lz4,json"
+
+    # Case 3: Lz4 missing -> Header set with json+zstd,json
+    with mock.patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed"}):
+        req = TrinoRequest("host", 8080, session)
+        assert req.http_headers[constants.HEADER_ENCODING] == "json+zstd,json"
+
+    # Case 4: Both missing -> Header set with json
+    with mock.patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed", "zstd": "Not installed"}):
+        req = TrinoRequest("host", 8080, session)
+        assert req.http_headers[constants.HEADER_ENCODING] == "json"
+
+
+def test_decoder_factory_raises_with_message_on_missing_zstd():
+    mapper = mock.Mock()
+    factory = CompressedQueryDataDecoderFactory(mapper)
+    error_message = "No module named 'zstandard'"
+    with mock.patch("trino.client.CODECS_UNAVAILABLE", {"zstd": error_message}):
+        with pytest.raises(
+            ValueError,
+            match=f"zstd is not installed so json\\+zstd encoding is not supported: {error_message}"
+        ):
+            factory.create("json+zstd")
+
+
+def test_decoder_factory_raises_with_message_on_missing_lz4():
+    mapper = mock.Mock()
+    factory = CompressedQueryDataDecoderFactory(mapper)
+    error_message = "No module named 'lz4.block'"
+    with mock.patch("trino.client.CODECS_UNAVAILABLE", {"lz4": error_message}):
+        with pytest.raises(
+            ValueError,
+            match=f"lz4 is not installed so json\\+lz4 encoding is not supported: {error_message}"
+        ):
+            factory.create("json+lz4")
