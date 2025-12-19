@@ -172,7 +172,7 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
     @compiles(Lead)
     @compiles(Lag)
     def compile_ignore_nulls(element, compiler, **kwargs):
-        compiled = f'{element.name}({compiler.process(element.clauses)})'
+        compiled = f'{element.name}({compiler.process(element.clauses, **kwargs)})'
         if element.ignore_nulls:
             compiled += ' IGNORE NULLS'
         return compiled

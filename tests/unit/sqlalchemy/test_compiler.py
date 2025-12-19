@@ -182,6 +182,18 @@ def test_ignore_nulls(dialect, function, element):
            f'SELECT {function}("table".id) OVER (PARTITION BY "table".name) AS window ' \
            f'\nFROM "table"'
 
+    # testing with compile kwargs
+    statement = select(
+        element(
+            func.round(table_without_catalog.c.id, 2),
+            ignore_nulls=True,
+        ).over(partition_by=table_without_catalog.c.name).label('window')
+    )
+    query = statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    assert str(query) == \
+           f'SELECT {function}(round("table".id, 2)) IGNORE NULLS OVER (PARTITION BY "table".name) AS window '\
+           f'\nFROM "table"'
+
 
 @pytest.mark.skipif(
     sqlalchemy_version() < "2.0",
