@@ -60,6 +60,7 @@ from trino.client import ClientSession
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
 from trino.client import TrinoResult
+from trino.client import TrinoStatus
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -1618,13 +1619,13 @@ def test_progress_callback_initialization():
         client_session=ClientSession(user="test"),
         http_scheme="http",
     )
-    
+
     def callback(status, stats):
         pass
-    
+
     query = TrinoQuery(request=req, query="SELECT 1", progress_callback=callback)
     assert query._progress_callback == callback
-    
+
     # Test without callback
     query_no_callback = TrinoQuery(request=req, query="SELECT 1")
     assert query_no_callback._progress_callback is None
@@ -1639,17 +1640,17 @@ def test_calculate_progress_percentage():
         http_scheme="http",
     )
     query = TrinoQuery(request=req, query="SELECT 1")
-    
+
     # Test splits-based calculation
     assert query.calculate_progress_percentage({'completedSplits': 5, 'totalSplits': 10}) == 50.0
     assert query.calculate_progress_percentage({'completedSplits': 10, 'totalSplits': 10}) == 100.0
     assert query.calculate_progress_percentage({'completedSplits': 15, 'totalSplits': 10}) == 100.0  # Cap at 100%
-    
+
     # Test state-based calculation
     assert query.calculate_progress_percentage({'state': 'FINISHED'}) == 100.0
     assert query.calculate_progress_percentage({'state': 'RUNNING'}) == 5.0
     assert query.calculate_progress_percentage({'state': 'FAILED'}) == 0.0
-    
+
     # Test empty stats
     assert query.calculate_progress_percentage({}) == 0.0
 
@@ -1659,12 +1660,12 @@ def test_calculate_progress_percentage():
 def test_progress_callback_execution(mock_get, mock_post):
     """Test that progress callback is called during query execution."""
     callback_calls = []
-    
+
     def callback(status, stats):
         callback_calls.append((status, stats))
-    
+
     # Mock responses
-    mock_post_response = Mock()
+    mock_post_response = mock.Mock()
     mock_post_response.json.return_value = {
         'id': 'test_query_id',
         'nextUri': 'http://localhost:8080/v1/statement/test_query_id/1',
@@ -1673,8 +1674,8 @@ def test_progress_callback_execution(mock_get, mock_post):
         'columns': []
     }
     mock_post.return_value = mock_post_response
-    
-    mock_get_response = Mock()
+
+    mock_get_response = mock.Mock()
     mock_get_response.json.return_value = {
         'id': 'test_query_id',
         'nextUri': None,
@@ -1683,17 +1684,17 @@ def test_progress_callback_execution(mock_get, mock_post):
         'columns': [{'name': 'col1', 'type': 'integer'}]
     }
     mock_get.return_value = mock_get_response
-    
+
     req = TrinoRequest(
         host="coordinator",
         port=8080,
         client_session=ClientSession(user="test"),
         http_scheme="http",
     )
-    
+
     query = TrinoQuery(request=req, query="SELECT 1", progress_callback=callback)
-    result = query.execute()
-    
+    query.execute()
+
     # Verify callback was called
     assert len(callback_calls) > 0
     assert isinstance(callback_calls[0][0], TrinoStatus)
