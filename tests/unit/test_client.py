@@ -60,7 +60,6 @@ from trino.client import ClientSession
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
 from trino.client import TrinoResult
-from trino.client import TrinoStatus
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -1617,5 +1616,3 @@ def test_trinoquery_heartbeat_stops_on_cancel(mock_requests, sample_post_respons
     query._stop_heartbeat()
     # Heartbeat should have stopped after query cancelled
     assert head_call_count >= 1
-
-
