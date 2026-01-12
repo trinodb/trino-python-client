@@ -87,7 +87,7 @@ from trino.exceptions import TrinoUserError
 from trino.mapper import RowMapper
 from trino.mapper import RowMapperFactory
 
-__all__ = [``
+__all__ = [
     "ClientSession",
     "TrinoQuery",
     "TrinoRequest",
