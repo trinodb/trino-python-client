@@ -54,6 +54,7 @@ from email.utils import parsedate_to_datetime
 from enum import Enum
 from time import sleep
 from typing import Any
+from typing import Callable
 from typing import cast
 from typing import Dict
 from typing import List

@@ -1458,14 +1458,17 @@ def test_trinoquery_heartbeat_success(mock_requests, sample_post_response_data, 
     """Test that heartbeat is sent periodically and does not stop on success."""
     head_call_count = 0
 
-    def fake_head(url, timeout=10):
+    def mock_head_response(url, timeout=10, **kwargs):
         nonlocal head_call_count
         head_call_count += 1
 
         class Resp:
             status_code = 200
         return Resp()
-    mock_requests.head.side_effect = fake_head
+    # Mock the Session's head method
+    mock_session = mock.Mock()
+    mock_session.head.side_effect = mock_head_response
+    mock_requests.Session.return_value = mock_session
     mock_requests.Response.return_value.json.return_value = sample_post_response_data
     mock_requests.get.return_value.json.return_value = sample_get_response_data
     mock_requests.post.return_value.json.return_value = sample_post_response_data
@@ -1547,14 +1550,17 @@ def test_trinoquery_heartbeat_stops_on_finish(mock_requests, sample_post_respons
     """Test that heartbeat stops when the query is finished."""
     head_call_count = 0
 
-    def fake_head(url, timeout=10):
+    def mock_head_response(url, timeout=10, **kwargs):
         nonlocal head_call_count
         head_call_count += 1
 
         class Resp:
             status_code = 200
         return Resp()
-    mock_requests.head.side_effect = fake_head
+    # Mock the Session's head method
+    mock_session = mock.Mock()
+    mock_session.head.side_effect = mock_head_response
+    mock_requests.Session.return_value = mock_session
     mock_requests.Response.return_value.json.return_value = sample_post_response_data
     mock_requests.get.return_value.json.return_value = sample_get_response_data
     mock_requests.post.return_value.json.return_value = sample_post_response_data
@@ -1581,14 +1587,17 @@ def test_trinoquery_heartbeat_stops_on_cancel(mock_requests, sample_post_respons
     """Test that heartbeat stops when the query is cancelled."""
     head_call_count = 0
 
-    def fake_head(url, timeout=10):
+    def mock_head_response(url, timeout=10, **kwargs):
         nonlocal head_call_count
         head_call_count += 1
 
         class Resp:
             status_code = 200
         return Resp()
-    mock_requests.head.side_effect = fake_head
+    # Mock the Session's head method
+    mock_session = mock.Mock()
+    mock_session.head.side_effect = mock_head_response
+    mock_requests.Session.return_value = mock_session
     mock_requests.Response.return_value.json.return_value = sample_post_response_data
     mock_requests.get.return_value.json.return_value = sample_get_response_data
     mock_requests.post.return_value.json.return_value = sample_post_response_data
