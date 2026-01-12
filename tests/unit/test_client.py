@@ -1475,7 +1475,7 @@ def test_trinoquery_heartbeat_success(mock_requests, sample_post_response_data, 
         client_session=ClientSession(user="test"),
         http_scheme="http",
     )
-    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.1)
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval_seconds=0.1)
 
     def finish_query(*args, **kwargs):
         query._finished = True
@@ -1506,7 +1506,7 @@ def test_trinoquery_heartbeat_failure_stops(mock_requests, sample_post_response_
         client_session=ClientSession(user="test"),
         http_scheme="http",
     )
-    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval_seconds=0.05)
     query._next_uri = "http://coordinator/v1/statement/next"
     query._row_mapper = mock.Mock(map=lambda x: [])
     query._start_heartbeat()
@@ -1533,7 +1533,7 @@ def test_trinoquery_heartbeat_404_405_stops(mock_requests, sample_post_response_
             client_session=ClientSession(user="test"),
             http_scheme="http",
         )
-        query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+        query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval_seconds=0.05)
         query._next_uri = "http://coordinator/v1/statement/next"
         query._row_mapper = mock.Mock(map=lambda x: [])
         query._start_heartbeat()
@@ -1564,7 +1564,7 @@ def test_trinoquery_heartbeat_stops_on_finish(mock_requests, sample_post_respons
         client_session=ClientSession(user="test"),
         http_scheme="http",
     )
-    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval_seconds=0.05)
     query._next_uri = "http://coordinator/v1/statement/next"
     query._row_mapper = mock.Mock(map=lambda x: [])
     query._start_heartbeat()
@@ -1598,7 +1598,7 @@ def test_trinoquery_heartbeat_stops_on_cancel(mock_requests, sample_post_respons
         client_session=ClientSession(user="test"),
         http_scheme="http",
     )
-    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval=0.05)
+    query = TrinoQuery(request=req, query="SELECT 1", heartbeat_interval_seconds=0.05)
     query._next_uri = "http://coordinator/v1/statement/next"
     query._row_mapper = mock.Mock(map=lambda x: [])
     query._start_heartbeat()
