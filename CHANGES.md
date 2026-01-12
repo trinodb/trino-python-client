@@ -6,6 +6,15 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.336.0
+
+* Fix user impersonation support.
+  ([#568](https://github.com/trinodb/trino-python-client/pull/568))
+* Fix importing `get_localzone_name` for old `tzlocal` versions.
+  ([#574](https://github.com/trinodb/trino-python-client/pull/574))
+* Use faster JSON implementation (`orjson`) for compatible Python runtimes.
+  ([#576](https://github.com/trinodb/trino-python-client/pull/576))
+
 ## Release 0.335.0
 
 * Fix connection scheme being incorrectly inferred as HTTP.

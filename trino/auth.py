@@ -34,6 +34,7 @@ from requests.auth import extract_cookies_to_jar
 
 import trino.logging
 from trino import exceptions
+from trino.constants import HEADER_ORIGINAL_USER
 from trino.constants import HEADER_USER
 from trino.constants import MAX_NT_PASSWORD_SIZE
 
@@ -552,7 +553,7 @@ class _OAuth2TokenBearer(AuthBase):
 
     @staticmethod
     def _determine_user(headers: Mapping[Any, Any]) -> Optional[Any]:
-        return headers.get(HEADER_USER)
+        return headers.get(HEADER_ORIGINAL_USER, headers.get(HEADER_USER))
 
     @staticmethod
     def _construct_cache_key(host: Optional[str], user: Optional[str]) -> Optional[str]:

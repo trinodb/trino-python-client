@@ -39,7 +39,6 @@ import atexit
 import base64
 import copy
 import functools
-import json
 import os
 import random
 import re
@@ -65,6 +64,11 @@ from typing import Tuple
 from zoneinfo import ZoneInfo
 
 import lz4.block
+try:
+    import orjson as json
+except ImportError:
+    import json
+
 import requests
 
 # Progress callback type definition
@@ -73,7 +77,6 @@ import zstandard
 from requests import Response
 from requests import Session
 from requests.structures import CaseInsensitiveDict
-from tzlocal import get_localzone_name  # type: ignore
 
 import trino.logging
 from trino import constants
@@ -186,9 +189,12 @@ class ClientSession:
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else list()
         self._roles = self._format_roles(roles) if roles is not None else {}
-        self._timezone = timezone or get_localzone_name()
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
+            self._timezone = timezone
+        else:
+            from tzlocal import get_localzone_name
+            self._timezone = get_localzone_name()
         self._encoding = encoding
 
     @property
@@ -513,8 +519,11 @@ class TrinoRequest:
         headers[constants.HEADER_CATALOG] = self._client_session.catalog
         headers[constants.HEADER_SCHEMA] = self._client_session.schema
         headers[constants.HEADER_SOURCE] = self._client_session.source
-        headers[constants.HEADER_USER] = self._client_session.user
-        headers[constants.HEADER_AUTHORIZATION_USER] = self._client_session.authorization_user
+        if self._client_session.authorization_user is not None:
+            headers[constants.HEADER_ORIGINAL_USER] = self._client_session.user
+            headers[constants.HEADER_USER] = self._client_session.authorization_user
+        else:
+            headers[constants.HEADER_USER] = self._client_session.user
         headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
         if self._client_session.encoding is None:
             pass
@@ -686,7 +695,7 @@ class TrinoRequest:
             self.raise_response_error(http_response)
 
         http_response.encoding = "utf-8"
-        response = http_response.json()
+        response = json.loads(http_response.text)
         if "error" in response and response["error"]:
             raise self._process_error(response["error"], response.get("id"))
 
