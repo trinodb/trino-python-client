@@ -946,11 +946,11 @@ class TrinoQuery:
             raise trino.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
         status = self._request.process(response)
         self._update_state(status)
-        
+
         # Start heartbeat if interval is set and next_uri is now available
         if self._heartbeat_interval_seconds is not None and self._next_uri is not None and not self._heartbeat_enabled:
             self._start_heartbeat()
-        
+
         if status.next_uri is None:
             self._finished = True
             # Stop heartbeat when query finishes
