@@ -150,3 +150,54 @@ class MultithreadedTokenServer:
         if challenge.attempts == 0:
             return [200, response_headers, f'{{"token": "{challenge.token}"}}']
         return [200, response_headers, f'{{"nextUri": "{uri}"}}']
+
+
+import keyring.backend
+
+
+class MockKeyring(keyring.backend.KeyringBackend):
+    priority = 1
+
+    def __init__(self):
+        self.file_location = self._generate_test_root_dir()
+
+    @staticmethod
+    def _generate_test_root_dir():
+        import tempfile
+
+        return tempfile.mkdtemp(prefix="trino-python-client-unit-test-")
+
+    def _get_file_path(self, servicename, username):
+        from os.path import join
+
+        file_location = self.file_location
+        file_name = f"{servicename}_{username}.txt"
+        return join(file_location, file_name)
+
+    def set_password(self, servicename, username, password):
+        file_path = self._get_file_path(servicename, username)
+
+        with open(file_path, "w") as file:
+            file.write(password)
+
+    def get_password(self, servicename, username):
+        import os
+
+        file_path = self._get_file_path(servicename, username)
+        if not os.path.exists(file_path):
+            return None
+
+        with open(file_path, "r") as file:
+            password = file.read()
+
+        return password
+
+    def delete_password(self, servicename, username):
+        import os
+
+        file_path = self._get_file_path(servicename, username)
+        if not os.path.exists(file_path):
+            return None
+
+        os.remove(file_path)
+

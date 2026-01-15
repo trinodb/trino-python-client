@@ -217,6 +217,10 @@ the [`JWT` authentication type](https://trino.io/docs/current/security/jwt.html)
 
 ### OAuth2 authentication
 
+Make sure that the OAuth2 support is installed using `pip install trino[oauth]`.
+
+#### Interactive Browser authentication
+
 The `OAuth2Authentication` class can be used to connect to a Trino cluster configured with
 the [OAuth2 authentication type](https://trino.io/docs/current/security/oauth2.html).
 
@@ -248,13 +252,126 @@ The OAuth2 token will be cached either per `trino.auth.OAuth2Authentication` ins
     from trino.auth import OAuth2Authentication
 
     engine = create_engine(
-    "trino://<username>@<host>:<port>/<catalog>",
+        "trino://<username>@<host>:<port>/<catalog>",
         connect_args={
             "auth": OAuth2Authentication(),
             "http_scheme": "https",
         }
     )
     ```
+
+#### Client Credentials authentication
+
+```python
+from trino.dbapi import connect
+from trino.auth import ClientCredentials
+from trino.oauth2.models import OidcConfig
+
+auth = ClientCredentials(
+    client_id="<client_id>",
+    client_secret="<client_secret>",
+    url_config=OidcConfig(
+        token_endpoint="<token_endpoint>",
+        # other endpoints if needed
+    ),
+    scope="<number of scopes>", # optional
+    audience="<audience>", # optional
+)
+
+conn = connect(
+    user="<username>",
+    auth=auth,
+    http_scheme="https",
+    ...
+)
+```
+
+#### Device Code authentication
+
+```python
+from trino.dbapi import connect
+from trino.auth import DeviceCode
+from trino.oauth2.models import OidcConfig
+
+auth = DeviceCode(
+    client_id="<client_id>",
+    url_config=OidcConfig(
+        token_endpoint="<token_endpoint>",
+        device_authorization_endpoint="<device_authorization_endpoint>",
+    ),
+    scope="<scope>", # optional
+    audience="<audience>", # optional
+)
+
+conn = connect(
+    user="<username>",
+    auth=auth,
+    http_scheme="https",
+    ...
+)
+```
+
+#### Authorization Code authentication
+
+```python
+from trino.dbapi import connect
+from trino.auth import AuthorizationCode
+from trino.oauth2.models import OidcConfig
+
+auth = AuthorizationCode(
+    client_id="<client_id>",
+    client_secret="<client_secret>", # optional
+    url_config=OidcConfig(
+        token_endpoint="<token_endpoint>",
+        authorization_endpoint="<authorization_endpoint>",
+    ),
+    scope="<scope>", # optional
+    audience="<audience>", # optional
+)
+
+conn = connect(
+    user="<username>",
+    auth=auth,
+    http_scheme="https",
+    ...
+)
+```
+
+### Reference
+
+For further details, please consult [Trino documentation](https://trino.io/docs/current).
+
+### Secure Token Storage
+
+By default all ClientCredentials, DeviceCode, AuthorizationCode JWT tokens are securely storaged
+using the keyrings.cryptfile feature of [keyring library](https://pypi.org/project/keyring/).
+
+Tokens are stored encrypted at ~/.local/share/python_keyring/cryptfile_pass.cfg
+
+You can optionally use different keyring backends by supplying the `PYTHON_KEYRING_BACKEND` environment variable.
+
+To use an encrypted file backend for credentials:
+
+```bash
+export KEYRING_CRYPTFILE_PASSWORD=your_secure_password
+```
+
+Or you can pass the password directly (less secure):
+
+```python
+conn = connect(
+    host="trino.example.com",
+    port=443,
+    auth=DeviceCode(
+        client_id="<CLIENT_ID>",
+        client_secret="<CLIENT_SECRET>",
+        url_config=OidcConfig(oidc_discovery_url="https://sso.example.com/.well-known/openid-configuration"),
+        token_storage_password="your_secure_password"  # less secure
+    ),
+    http_scheme="https"
+)
+```
+
 
 ### Certificate authentication
 
