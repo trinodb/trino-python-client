@@ -554,6 +554,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
             for name in possible_names:
                 prefixes = (f"KEYRING_PROPERTY_{name}", f"KEYRING_{name}")
                 if any(k.upper().startswith(prefixes) for k in os.environ):
+                    print("Environment variable-based keyring backend found for %s", name)
                     return True
             return False
 
@@ -564,6 +565,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
                 if hasattr(sub_backend, 'file_path'):
                     # Case 1: File exists
                     if os.path.exists(sub_backend.file_path):
+                        print("File-based keyring backend found at %s", sub_backend.file_path)
                         return True
 
                     # Case 2: Env var exists (using the helper)
@@ -575,6 +577,7 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
 
                 # B. System backends (Priority check)
                 if sub_backend.priority >= 1:
+                    print("File-based keyring backend with sufficient priority found: {}, priority={}".format(str(sub_backend), str(sub_backend.priority)))
                     return True
 
             return False
