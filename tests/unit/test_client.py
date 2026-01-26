@@ -1406,4 +1406,3 @@ class TestShardedPassword(TestCase):
 
         retrieved_password = cache.get_token_from_cache(host)
         self.assertEqual(long_password, retrieved_password)
-

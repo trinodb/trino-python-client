@@ -15,6 +15,7 @@ import uuid
 from collections import namedtuple
 
 import httpretty
+import keyring.backend
 
 from trino import constants
 
@@ -152,9 +153,6 @@ class MultithreadedTokenServer:
         return [200, response_headers, f'{{"nextUri": "{uri}"}}']
 
 
-import keyring.backend
-
-
 class MockKeyring(keyring.backend.KeyringBackend):
     priority = 1
 
@@ -200,4 +198,3 @@ class MockKeyring(keyring.backend.KeyringBackend):
             return None
 
         os.remove(file_path)
-

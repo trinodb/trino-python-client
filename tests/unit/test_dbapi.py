@@ -14,20 +14,20 @@ import uuid
 from unittest.mock import patch
 
 import httpretty
-import pytest
 import keyring
+import pytest
 from httpretty import httprettified
 from requests import Session
 
 from tests.unit.oauth_test_utils import _get_token_requests
 from tests.unit.oauth_test_utils import _post_statement_requests
 from tests.unit.oauth_test_utils import GetTokenCallback
+from tests.unit.oauth_test_utils import MockKeyring
 from tests.unit.oauth_test_utils import PostStatementCallback
 from tests.unit.oauth_test_utils import REDIRECT_RESOURCE
 from tests.unit.oauth_test_utils import RedirectHandler
 from tests.unit.oauth_test_utils import SERVER_ADDRESS
 from tests.unit.oauth_test_utils import TOKEN_RESOURCE
-from tests.unit.oauth_test_utils import MockKeyring
 from trino import constants
 from trino.auth import OAuth2Authentication
 from trino.dbapi import connect
