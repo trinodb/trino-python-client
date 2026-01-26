@@ -12,7 +12,17 @@
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import keyring
 import pytest
+
+from tests.unit.oauth_test_utils import MockKeyring
+
+
+@pytest.fixture(autouse=True, scope="session")
+def setup_test_keyring():
+    mk = MockKeyring()
+    keyring.set_keyring(mk)
+    yield mk
 
 
 @pytest.fixture(scope="session")

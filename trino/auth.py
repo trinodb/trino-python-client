@@ -577,7 +577,8 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
 
                 # B. System backends (Priority check)
                 if sub_backend.priority >= 1:
-                    print("File-based keyring backend with sufficient priority found: {}, priority={}".format(str(sub_backend), str(sub_backend.priority)))
+                    print("File-based keyring backend with sufficient priority found: {}, priority={}"
+                          .format(str(sub_backend), str(sub_backend.priority)))
                     return True
 
             return False
