@@ -300,7 +300,7 @@ class JWTAuthentication(Authentication):
         return self.token == other.token
 
 
-class ClientCredentials(Authentication):
+class ClientCredentials(OAuth2TokenAuthentication):
     def __init__(self,
                  client_id: str,
                  client_secret: str,
@@ -344,7 +344,7 @@ class ClientCredentials(Authentication):
         )
 
 
-class DeviceCode(Authentication):
+class DeviceCode(OAuth2TokenAuthentication):
     def __init__(self,
                  client_id: str,
                  url_config: Union[OidcConfig, ManualUrlsConfig],
@@ -390,7 +390,7 @@ class DeviceCode(Authentication):
         )
 
 
-class AuthorizationCode(Authentication):
+class AuthorizationCode(OAuth2TokenAuthentication):
     def __init__(self,
                  client_id: str,
                  url_config: Union[OidcConfig, ManualUrlsConfig],
