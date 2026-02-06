@@ -47,6 +47,7 @@ from tests.unit.oauth_test_utils import RedirectHandler
 from tests.unit.oauth_test_utils import RedirectHandlerWithException
 from tests.unit.oauth_test_utils import SERVER_ADDRESS
 from tests.unit.oauth_test_utils import TOKEN_RESOURCE
+from tests.unit.oauth_test_utils import MockKeyring
 from trino import __version__
 from trino import constants
 from trino.auth import _OAuth2KeyRingTokenCache
@@ -1405,48 +1406,3 @@ class TestShardedPassword(TestCase):
 
         retrieved_password = cache.get_token_from_cache(host)
         self.assertEqual(long_password, retrieved_password)
-
-
-class MockKeyring(keyring.backend.KeyringBackend):
-    def __init__(self):
-        self.file_location = self._generate_test_root_dir()
-
-    @staticmethod
-    def _generate_test_root_dir():
-        import tempfile
-
-        return tempfile.mkdtemp(prefix="trino-python-client-unit-test-")
-
-    def file_path(self, servicename, username):
-        from os.path import join
-
-        file_location = self.file_location
-        file_name = f"{servicename}_{username}.txt"
-        return join(file_location, file_name)
-
-    def set_password(self, servicename, username, password):
-        file_path = self.file_path(servicename, username)
-
-        with open(file_path, "w") as file:
-            file.write(password)
-
-    def get_password(self, servicename, username):
-        import os
-
-        file_path = self.file_path(servicename, username)
-        if not os.path.exists(file_path):
-            return None
-
-        with open(file_path, "r") as file:
-            password = file.read()
-
-        return password
-
-    def delete_password(self, servicename, username):
-        import os
-
-        file_path = self.file_path(servicename, username)
-        if not os.path.exists(file_path):
-            return None
-
-        os.remove(file_path)

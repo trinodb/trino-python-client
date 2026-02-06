@@ -14,6 +14,7 @@ import uuid
 from unittest.mock import patch
 
 import httpretty
+import keyring
 import pytest
 from httpretty import httprettified
 from requests import Session
@@ -21,6 +22,7 @@ from requests import Session
 from tests.unit.oauth_test_utils import _get_token_requests
 from tests.unit.oauth_test_utils import _post_statement_requests
 from tests.unit.oauth_test_utils import GetTokenCallback
+from tests.unit.oauth_test_utils import MockKeyring
 from tests.unit.oauth_test_utils import PostStatementCallback
 from tests.unit.oauth_test_utils import REDIRECT_RESOURCE
 from tests.unit.oauth_test_utils import RedirectHandler
@@ -58,8 +60,15 @@ def test_http_session_is_defaulted_when_not_specified(mock_client):
     assert mock_client.TrinoRequest.http.Session.return_value in request_args
 
 
+@pytest.fixture
+def mock_keyring():
+    mk = MockKeyring()
+    keyring.set_keyring(mk)
+    return mk
+
+
 @httprettified
-def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sample_get_response_data):
+def test_token_retrieved_once_per_auth_instance(mock_keyring, sample_post_response_data, sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 
@@ -123,7 +132,7 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
 
 
 @httprettified
-def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post_response_data,
+def test_token_retrieved_once_when_authentication_instance_is_shared(mock_keyring, sample_post_response_data,
                                                                      sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
@@ -189,7 +198,7 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
 
 
 @httprettified
-def test_token_retrieved_once_when_multithreaded(sample_post_response_data, sample_get_response_data):
+def test_token_retrieved_once_when_multithreaded(mock_keyring, sample_post_response_data, sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
 

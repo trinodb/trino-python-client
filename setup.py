@@ -33,9 +33,10 @@ gssapi_require = [""
                   "krb5 == 0.5.1"]
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
 external_authentication_token_cache_require = ["keyring"]
+oauth_require = ["trino.oauth2 @ git+https://github.com/dprophet/trino-python-oauth2"]
 
 # We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
-all_require = kerberos_require + sqlalchemy_require
+all_require = kerberos_require + sqlalchemy_require + oauth_require
 
 tests_require = all_require + gssapi_require + [
     # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
@@ -96,6 +97,7 @@ setup(
         "all": all_require,
         "kerberos": kerberos_require,
         "gssapi": gssapi_require,
+        "oauth": oauth_require,
         "sqlalchemy": sqlalchemy_require,
         "tests": tests_require,
         "external-authentication-token-cache": external_authentication_token_cache_require,

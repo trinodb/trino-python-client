@@ -23,6 +23,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+from typing import Union
 from urllib.parse import urlparse
 
 from requests import PreparedRequest
@@ -37,6 +38,12 @@ from trino import exceptions
 from trino.constants import HEADER_ORIGINAL_USER
 from trino.constants import HEADER_USER
 from trino.constants import MAX_NT_PASSWORD_SIZE
+from trino.oauth2 import OAuth2Client
+from trino.oauth2.models import AuthorizationCodeConfig
+from trino.oauth2.models import ClientCredentialsConfig
+from trino.oauth2.models import DeviceCodeConfig
+from trino.oauth2.models import ManualUrlsConfig
+from trino.oauth2.models import OidcConfig
 
 logger = trino.logging.get_logger(__name__)
 
@@ -48,6 +55,23 @@ class Authentication(metaclass=abc.ABCMeta):
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return tuple()
+
+
+class OAuth2TokenAuthentication(Authentication):
+    """Shared base for OAuth2 strategies that authenticate with a bearer token."""
+
+    def __init__(self) -> None:
+        self._oauth2: Optional[OAuth2Client] = None
+
+    @property
+    def oauth2(self) -> OAuth2Client:
+        if self._oauth2 is None:
+            raise RuntimeError("OAuth2 client not initialized")
+        return self._oauth2
+
+    def set_http_session(self, http_session: Session) -> Session:
+        http_session.auth = _BearerAuth(self.oauth2.token())
+        return http_session
 
 
 class KerberosAuthentication(Authentication):
@@ -276,6 +300,142 @@ class JWTAuthentication(Authentication):
         return self.token == other.token
 
 
+class ClientCredentials(OAuth2TokenAuthentication):
+    def __init__(self,
+                 client_id: str,
+                 client_secret: str,
+                 url_config: Union[OidcConfig, ManualUrlsConfig],
+                 scope: Optional[str] = None,
+                 audience: Optional[str] = None,
+                 token_storage_password: Optional[str] = None):
+        super().__init__()
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.url_config = url_config
+        self.scope = scope
+        self.audience = audience
+        self.token_storage_password = token_storage_password
+
+        config_args = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "url_config": self.url_config,
+        }
+        if self.scope is not None:
+            config_args["scope"] = self.scope
+        if self.audience is not None:
+            config_args["audience"] = self.audience
+
+        self._oauth2 = OAuth2Client(
+            config=ClientCredentialsConfig(**config_args),
+            token_storage_password=self.token_storage_password
+        )
+
+    def get_exceptions(self) -> Tuple[Any, ...]:
+        return ()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ClientCredentials):
+            return False
+        return (
+            self.client_id == other.client_id
+            and self.client_secret == other.client_secret
+            and self.url_config == other.url_config
+        )
+
+
+class DeviceCode(OAuth2TokenAuthentication):
+    def __init__(self,
+                 client_id: str,
+                 url_config: Union[OidcConfig, ManualUrlsConfig],
+                 client_secret: Optional[str] = None,
+                 scope: Optional[str] = None,
+                 audience: Optional[str] = None,
+                 token_storage_password: Optional[str] = None):
+
+        super().__init__()
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.url_config = url_config
+        self.scope = scope
+        self.audience = audience
+        self.token_storage_password = token_storage_password
+
+        config_args = {
+            "client_id": self.client_id,
+            "url_config": self.url_config,
+        }
+        if self.client_secret is not None:
+            config_args["client_secret"] = self.client_secret
+        if self.scope is not None:
+            config_args["scope"] = self.scope
+        if self.audience is not None:
+            config_args["audience"] = self.audience
+
+        self._oauth2 = OAuth2Client(
+            config=DeviceCodeConfig(**config_args),
+            token_storage_password=self.token_storage_password
+        )
+
+    def get_exceptions(self) -> Tuple[Any, ...]:
+        return ()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DeviceCode):
+            return False
+        return (
+            self.client_id == other.client_id
+            and self.client_secret == other.client_secret
+            and self.url_config == other.url_config
+        )
+
+
+class AuthorizationCode(OAuth2TokenAuthentication):
+    def __init__(self,
+                 client_id: str,
+                 url_config: Union[OidcConfig, ManualUrlsConfig],
+                 client_secret: Optional[str] = None,
+                 scope: Optional[str] = None,
+                 audience: Optional[str] = None,
+                 token_storage_password: Optional[str] = None):
+
+        super().__init__()
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.url_config = url_config
+        self.scope = scope
+        self.audience = audience
+        self.token_storage_password = token_storage_password
+
+        config_args = {
+            "client_id": self.client_id,
+            "url_config": self.url_config,
+        }
+        if self.client_secret is not None:
+            config_args["client_secret"] = self.client_secret
+        if self.scope is not None:
+            config_args["scope"] = self.scope
+        if self.audience is not None:
+            config_args["audience"] = self.audience
+
+        self._oauth2 = OAuth2Client(
+            config=AuthorizationCodeConfig(**config_args),
+            token_storage_password=self.token_storage_password
+        )
+
+    def get_exceptions(self) -> Tuple[Any, ...]:
+        return ()
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DeviceCode):
+            return False
+        return (
+            self.client_id == other.client_id
+            and self.client_secret == other.client_secret
+            and self.url_config == other.url_config
+        )
+
+
 class RedirectHandler(metaclass=abc.ABCMeta):
     """
     Abstract class for OAuth redirect handlers, inherit from this class to implement your own redirect handler.
@@ -292,7 +452,10 @@ class ConsoleRedirectHandler(RedirectHandler):
     """
 
     def __call__(self, url: str) -> None:
-        print(f"Open the following URL in browser for the external authentication:\n{url}", flush=True)
+        print(
+            f"Open the following URL in browser for the external authentication:\n{url}",
+            flush=True,
+        )
 
 
 class WebBrowserRedirectHandler(RedirectHandler):
@@ -361,8 +524,73 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
             logger.info("keyring module not found. OAuth2 token will not be stored in keyring.")
 
     def is_keyring_available(self) -> bool:
-        return self._keyring is not None \
-            and not isinstance(self._keyring.get_keyring(), self._keyring.backends.fail.Keyring)
+        if self._keyring is None:
+            return False
+
+        try:
+            backend = self._keyring.get_keyring()
+        except Exception:
+            return False
+
+        # 1. Check for "fail" backend
+        try:
+            fail_keyring_cls = self._keyring.backends.fail.Keyring
+            if isinstance(backend, fail_keyring_cls):
+                return False
+        except AttributeError:
+            pass
+
+        # 2. Helper to check env vars for a specific backend instance
+        def has_env_config(backend_obj: Any) -> bool:
+            # Get class name: e.g., 'CryptFileKeyring'
+            cls_name = backend_obj.__class__.__name__.upper()
+
+            # Generate potential config names: ['CRYPTFILEKEYRING', 'CRYPTFILE']
+            possible_names = [cls_name]
+            if cls_name.endswith("KEYRING"):
+                possible_names.append(cls_name[:-7])  # Strip 'KEYRING'
+
+            # check both KEYRING_PROPERTY_{NAME} and KEYRING_{NAME} for all variants
+            for name in possible_names:
+                prefixes = (f"KEYRING_PROPERTY_{name}", f"KEYRING_{name}")
+                if any(k.upper().startswith(prefixes) for k in os.environ):
+                    print("Environment variable-based keyring backend found for %s", name)
+                    return True
+            return False
+
+        # 3. Handle ChainerBackend
+        if hasattr(backend, 'backends'):
+            for sub_backend in backend.backends:
+                # A. File-based backends
+                if hasattr(sub_backend, 'file_path'):
+                    # Case 1: File exists
+                    if os.path.exists(sub_backend.file_path):
+                        print("File-based keyring backend found at %s", sub_backend.file_path)
+                        return True
+
+                    # Case 2: Env var exists (using the helper)
+                    if has_env_config(sub_backend):
+                        return True
+
+                    # Neither exists; skip
+                    continue
+
+                # B. System backends (Priority check)
+                if sub_backend.priority >= 1:
+                    print("File-based keyring backend with sufficient priority found: {}, priority={}"
+                          .format(str(sub_backend), str(sub_backend.priority)))
+                    return True
+
+            return False
+
+        # 4. Handle direct File-based backends via ~/.config/python_keyring/keyringrc.cfg
+        if hasattr(backend, 'file_path'):
+            if os.path.exists(backend.file_path):
+                return True
+            return has_env_config(backend)
+
+        # 5. Fallback
+        return backend.priority >= 1
 
     def get_token_from_cache(self, key: Optional[str]) -> Optional[str]:
         password = self._keyring.get_password(key, "token")
