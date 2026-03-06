@@ -208,7 +208,7 @@ class Connection:
             self.http_scheme = parsed_host.scheme
         elif http_scheme:
             self.http_scheme = http_scheme
-        elif port == constants.DEFAULT_TLS_PORT:
+        elif port in (constants.DEFAULT_TLS_PORT, constants.SECONDARY_TLS_PORT):
             self.http_scheme = constants.HTTPS
         elif port == constants.DEFAULT_PORT:
             self.http_scheme = constants.HTTP
