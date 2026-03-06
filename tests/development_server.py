@@ -76,9 +76,6 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
 
         root = Path(__file__).parent.parent
 
-        trino = trino \
-            .with_volume_mapping(str(root / "etc/catalog"), "/etc/trino/catalog")
-
         # Enable spooling config
         if supports_spooling_protocol:
             trino \
@@ -89,6 +86,7 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
                 .with_volume_mapping(str(root / "etc/config.properties"), "/etc/trino/config.properties")
         else:
             trino \
+                .with_volume_mapping(str(root / "etc/catalog"), "/etc/trino/catalog") \
                 .with_volume_mapping(str(root / "etc/jvm-pre-466.config"), "/etc/trino/jvm.config") \
                 .with_volume_mapping(str(root / "etc/config-pre-466.properties"), "/etc/trino/config.properties")
 

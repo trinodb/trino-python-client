@@ -20,6 +20,7 @@ from sqlalchemy.sql import not_
 from sqlalchemy.sql import or_
 from sqlalchemy.types import ARRAY
 
+import trino.dbapi
 from tests.integration.conftest import trino_version
 from tests.unit.conftest import sqlalchemy_version
 from trino.sqlalchemy.datatype import JSON
@@ -757,3 +758,99 @@ def _num_queries_containing_string(connection, query_string):
     result = connection.execute(statement)
     rows = result.fetchall()
     return len(list(filter(lambda rec: query_string in rec[0], rows)))
+
+
+@pytest.mark.skipif(trino_version() == 351, reason="Dynamic catalogs not supported")
+def test_get_indexes_returns_empty_for_iceberg_table(run_trino):
+    host, port = run_trino
+    catalog_name = "test_iceberg"
+    schema_name = "test_schema"
+    table_name = "partitioned"
+
+    conn = trino.dbapi.connect(host=host, port=port, user="test")
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"CREATE CATALOG {catalog_name} USING iceberg "
+            f"WITH (\"iceberg.catalog.type\" = 'TESTING_FILE_METASTORE', "
+            f"\"hive.metastore.catalog.dir\" = 'file:///tmp/iceberg-test', "
+            f"\"fs.native-local.enabled\" = 'true')"
+        )
+        cur.fetchall()
+        cur.execute(f"CREATE SCHEMA {catalog_name}.{schema_name}")
+        cur.fetchall()
+        cur.execute(
+            f"CREATE TABLE {catalog_name}.{schema_name}.{table_name} "
+            f"(id INTEGER, year INTEGER) "
+            f"WITH (partitioning = ARRAY['year'])"
+        )
+        cur.fetchall()
+        cur.execute(
+            f"INSERT INTO {catalog_name}.{schema_name}.{table_name} VALUES (1, 2023)"
+        )
+        cur.fetchall()
+
+        engine = sqla.create_engine(
+            f"trino://test@{host}:{port}/{catalog_name}",
+            connect_args={"source": "test", "max_attempts": 1},
+        )
+        indexes = sqla.inspect(engine).get_indexes(table_name, schema=schema_name)
+        assert indexes == []
+    finally:
+        cur = conn.cursor()
+        cur.execute(f"DROP TABLE IF EXISTS {catalog_name}.{schema_name}.{table_name}")
+        cur.fetchall()
+        cur.execute(f"DROP SCHEMA IF EXISTS {catalog_name}.{schema_name}")
+        cur.fetchall()
+        cur.execute(f"DROP CATALOG IF EXISTS {catalog_name}")
+        cur.fetchall()
+        conn.close()
+
+
+@pytest.mark.skipif(trino_version() == 351, reason="Dynamic catalogs not supported")
+def test_get_indexes_returns_partitions_for_hive_table(run_trino):
+    host, port = run_trino
+    catalog_name = "test_hive"
+    schema_name = "test_schema"
+    table_name = "partitioned"
+
+    conn = trino.dbapi.connect(host=host, port=port, user="test")
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"CREATE CATALOG {catalog_name} USING hive "
+            f"WITH (\"hive.metastore\" = 'file', "
+            f"\"hive.metastore.catalog.dir\" = 'file:///tmp/hive-test', "
+            f"\"fs.native-local.enabled\" = 'true')"
+        )
+        cur.fetchall()
+        cur.execute(f"CREATE SCHEMA {catalog_name}.{schema_name}")
+        cur.fetchall()
+        cur.execute(
+            f"CREATE TABLE {catalog_name}.{schema_name}.{table_name} "
+            f"(id INTEGER, name VARCHAR, region VARCHAR) "
+            f"WITH (partitioned_by = ARRAY['name', 'region'])"
+        )
+        cur.fetchall()
+        cur.execute(
+            f"INSERT INTO {catalog_name}.{schema_name}.{table_name} VALUES (1, 'alice', 'us-east')"
+        )
+        cur.fetchall()
+
+        engine = sqla.create_engine(
+            f"trino://test@{host}:{port}/{catalog_name}",
+            connect_args={"source": "test", "max_attempts": 1},
+        )
+        indexes = sqla.inspect(engine).get_indexes(table_name, schema=schema_name)
+        assert len(indexes) == 1
+        assert indexes[0]["name"] == "partition"
+        assert indexes[0]["column_names"] == ["name", "region"]
+    finally:
+        cur = conn.cursor()
+        cur.execute(f"DROP TABLE IF EXISTS {catalog_name}.{schema_name}.{table_name}")
+        cur.fetchall()
+        cur.execute(f"DROP SCHEMA IF EXISTS {catalog_name}.{schema_name}")
+        cur.fetchall()
+        cur.execute(f"DROP CATALOG IF EXISTS {catalog_name}")
+        cur.fetchall()
+        conn.close()
