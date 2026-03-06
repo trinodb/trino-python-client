@@ -11,6 +11,7 @@
 # limitations under the License.
 import threading
 import uuid
+import warnings
 from unittest.mock import patch
 
 import httpretty
@@ -27,6 +28,7 @@ from tests.unit.oauth_test_utils import RedirectHandler
 from tests.unit.oauth_test_utils import SERVER_ADDRESS
 from tests.unit.oauth_test_utils import TOKEN_RESOURCE
 from trino import constants
+from trino.auth import BasicAuthentication
 from trino.auth import OAuth2Authentication
 from trino.dbapi import connect
 from trino.dbapi import Connection
@@ -362,3 +364,14 @@ def test_default_encoding_zstd():
 def test_default_encoding_all():
     connection = Connection("host", 8080, user="test")
     assert connection._client_session.encoding == ["json+zstd", "json+lz4", "json"]
+
+
+def test_warning_when_auth_over_http():
+    with pytest.warns(UserWarning, match="Authentication credentials are being sent over HTTP"):
+        Connection("mytrinoserver.domain", auth=BasicAuthentication("u", "p"))
+
+
+def test_no_warning_when_auth_over_https():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        Connection("mytrinoserver.domain", http_scheme=constants.HTTPS, auth=BasicAuthentication("u", "p"))
