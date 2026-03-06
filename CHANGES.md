@@ -6,6 +6,19 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.337.0
+
+* Make this package PEP-561 compatible by adding a `py.typed` marker.
+  ([#514](https://github.com/trinodb/trino-python-client/issues/514))
+* Ignore primary key, foreign key and unique constraints for table DDL generation.
+  ([#541](https://github.com/trinodb/trino-python-client/issues/541))
+* Fix SQLAlchemy function compilation for `first_value`, `last_value`, `nth_value`,
+  `lead`, and `lag`.
+  ([#586](https://github.com/trinodb/trino-python-client/issues/586))
+* Make `lz4` and `zstandard` optional dependencies. The client now gracefully handles
+  missing or broken compression libraries by disabling the corresponding encoding.
+  ([#585](https://github.com/trinodb/trino-python-client/issues/585))
+
 ## Release 0.336.0
 
 * Fix user impersonation support.
