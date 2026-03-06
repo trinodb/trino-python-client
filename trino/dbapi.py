@@ -215,6 +215,13 @@ class Connection:
         else:
             self.http_scheme = constants.HTTP
 
+        if auth is not None and self.http_scheme == constants.HTTP:
+            raise trino.exceptions.TrinoAuthError(
+                "TLS/SSL is required for authentication. "
+                "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
+                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'."
+            )
+
         # Infer connection port: `hostname` takes precedence over explicit `port` argument
         # If none is given, use default based on HTTP protocol
         default_port = constants.DEFAULT_TLS_PORT if self.http_scheme == constants.HTTPS else constants.DEFAULT_PORT

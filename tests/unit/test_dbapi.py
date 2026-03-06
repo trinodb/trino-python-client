@@ -18,6 +18,7 @@ import pytest
 from httpretty import httprettified
 from requests import Session
 
+import trino.exceptions
 from tests.unit.oauth_test_utils import _get_token_requests
 from tests.unit.oauth_test_utils import _post_statement_requests
 from tests.unit.oauth_test_utils import GetTokenCallback
@@ -27,6 +28,7 @@ from tests.unit.oauth_test_utils import RedirectHandler
 from tests.unit.oauth_test_utils import SERVER_ADDRESS
 from tests.unit.oauth_test_utils import TOKEN_RESOURCE
 from trino import constants
+from trino.auth import BasicAuthentication
 from trino.auth import OAuth2Authentication
 from trino.dbapi import connect
 from trino.dbapi import Connection
@@ -362,3 +364,12 @@ def test_default_encoding_zstd():
 def test_default_encoding_all():
     connection = Connection("host", 8080, user="test")
     assert connection._client_session.encoding == ["json+zstd", "json+lz4", "json"]
+
+
+def test_error_when_auth_over_http():
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection("mytrinoserver.domain", auth=BasicAuthentication("u", "p"))
+
+
+def test_no_error_when_auth_over_https():
+    Connection("mytrinoserver.domain", http_scheme=constants.HTTPS, auth=BasicAuthentication("u", "p"))
