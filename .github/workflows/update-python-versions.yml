@@ -1,0 +1,84 @@
+name: Update Python versions
+
+on:
+  schedule:
+    - cron: '0 0 1 * *'  # first of each month
+  workflow_dispatch:
+
+# Prevent races between overlapping scheduled and manual runs
+# on the shared bot/update-python-versions branch.
+concurrency:
+  group: update-python-versions
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-python-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run version update script
+        run: python .github/scripts/update_python_versions.py
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push to bot branch
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git checkout -B bot/update-python-versions
+          git add \
+            setup.py \
+            tox.ini \
+            .github/workflows/ci.yml \
+            .github/workflows/release.yml \
+            README.md \
+            .pre-commit-config.yaml
+          git commit -m "Update tested and supported Python versions"
+          git push --force origin bot/update-python-versions
+
+      - name: Create pull request
+        if: steps.check_changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXISTING_PR=$(gh pr list --head bot/update-python-versions --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+          if [ -z "$EXISTING_PR" ]; then
+            gh pr create \
+              --title "Update tested and supported Python versions" \
+              --body "$(cat <<'EOF'
+          Automated update of supported Python versions based on the [Python release cycle](https://devguide.python.org/versions/).
+
+          Files updated:
+          - `setup.py`: classifiers and `python_requires`
+          - `tox.ini`: `envlist`
+          - `.github/workflows/ci.yml`: build matrix and Python pin
+          - `.github/workflows/release.yml`: Python version pin
+          - `README.md`: Python version mention
+          - `.pre-commit-config.yaml`: `--pyXX-plus` argument
+
+          > This PR was automatically created by the [Update Python versions](${{ github.server_url }}/${{ github.repository }}/actions/workflows/update-python-versions.yml) workflow.
+          EOF
+          )" \
+              --base master \
+              --head bot/update-python-versions
+          else
+            echo "PR #$EXISTING_PR already exists for bot/update-python-versions — branch updated in place."
+          fi
