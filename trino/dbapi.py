@@ -20,6 +20,7 @@ decide to convert then to a list of tuples.
 import datetime
 import math
 import uuid
+import warnings
 from collections import OrderedDict
 from decimal import Decimal
 from itertools import islice
@@ -214,6 +215,14 @@ class Connection:
             self.http_scheme = constants.HTTP
         else:
             self.http_scheme = constants.HTTP
+
+        if auth is not None and self.http_scheme == constants.HTTP:
+            warnings.warn(
+                "Authentication credentials are being sent over HTTP. "
+                "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
+                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'.",
+                stacklevel=2,
+            )
 
         # Infer connection port: `hostname` takes precedence over explicit `port` argument
         # If none is given, use default based on HTTP protocol
