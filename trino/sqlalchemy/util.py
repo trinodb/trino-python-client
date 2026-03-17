@@ -89,7 +89,7 @@ def _url(
         trino_url += f"&extra_credential={quote_plus(json.dumps(extra_credential))}"
 
     if client_tags is not None:
-        trino_url += f"&client_tags={quote_plus(json.dumps(client_tags))}"
+        trino_url += f"&client_tags={quote_plus(json.dumps(sorted(client_tags)))}"
 
     if client_info is not None:
         trino_url += f"&client_info={quote_plus(client_info)}"

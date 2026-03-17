@@ -47,6 +47,7 @@ import urllib.parse
 import warnings
 from abc import abstractmethod
 from collections.abc import Iterator
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
@@ -59,6 +60,7 @@ from typing import Dict
 from typing import List
 from typing import Literal
 from typing import Optional
+from typing import Set
 from typing import Tuple
 from typing import TypedDict
 from typing import Union
@@ -189,7 +191,7 @@ class ClientSession:
         headers: Optional[Dict[str, str]] = None,
         transaction_id: Optional[str] = None,
         extra_credential: Optional[List[Tuple[str, str]]] = None,
-        client_tags: Optional[List[str]] = None,
+        client_tags: Optional[Sequence[str]] = None,
         client_info: Optional[str] = None,
         trace_token: Optional[str] = None,
         sql_path: Optional[str] = None,
@@ -210,7 +212,7 @@ class ClientSession:
         self._headers = headers.copy() if headers is not None else {}
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
-        self._client_tags = client_tags.copy() if client_tags is not None else list()
+        self._client_tags = set(client_tags) if client_tags is not None else set()
         self._client_info = client_info
         self._trace_token = trace_token
         self._sql_path = sql_path
@@ -291,7 +293,7 @@ class ClientSession:
         return self._extra_credential
 
     @property
-    def client_tags(self) -> List[str]:
+    def client_tags(self) -> Set[str]:
         return self._client_tags
 
     @property

@@ -69,7 +69,7 @@ def test_client_session_extra_credential() -> None:
 
 def test_client_session_extra_client_tags() -> None:
     session = ClientSession(user="user")
-    assert session.client_tags == []
+    assert session.client_tags == set()
 
 
 def test_client_session_client_info() -> None:

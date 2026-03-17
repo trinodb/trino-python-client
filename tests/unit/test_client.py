@@ -250,7 +250,7 @@ def test_request_client_tags_headers(mock_get_and_post):
     )
 
     def assert_headers(headers):
-        assert headers[constants.HEADER_CLIENT_TAGS] == "tag1,tag2"
+        assert set(headers[constants.HEADER_CLIENT_TAGS].split(",")) == {"tag1", "tag2"}
 
     req.post("URL")
     _, post_kwargs = post.call_args
