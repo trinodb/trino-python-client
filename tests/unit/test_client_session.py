@@ -72,6 +72,26 @@ def test_client_session_extra_client_tags() -> None:
     assert session.client_tags == []
 
 
+def test_client_session_client_info() -> None:
+    session = ClientSession(user="user")
+    assert session.client_info is None
+
+
+def test_client_session_trace_token() -> None:
+    session = ClientSession(user="user")
+    assert session.trace_token is None
+
+
+def test_client_session_sql_path() -> None:
+    session = ClientSession(user="user")
+    assert session.sql_path is None
+
+
+def test_client_session_resource_estimates() -> None:
+    session = ClientSession(user="user")
+    assert session.resource_estimates == {}
+
+
 @pytest.mark.parametrize(
     argnames=["argument", "result"],
     argvalues=[

@@ -284,6 +284,166 @@ def test_request_client_tags_headers_no_client_tags(mock_get_and_post):
     assert_headers(get_kwargs["headers"])
 
 
+def test_request_client_info_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            client_info="test-client-info",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_CLIENT_INFO] == "test-client-info"
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert get_kwargs["headers"][constants.HEADER_CLIENT_INFO] == "test-client-info"
+
+
+def test_request_client_info_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_CLIENT_INFO not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_CLIENT_INFO not in get_kwargs["headers"]
+
+
+def test_request_trace_token_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            trace_token="test-trace-token",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_TRACE_TOKEN] == "test-trace-token"
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert get_kwargs["headers"][constants.HEADER_TRACE_TOKEN] == "test-trace-token"
+
+
+def test_request_trace_token_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_TRACE_TOKEN not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_TRACE_TOKEN not in get_kwargs["headers"]
+
+
+def test_request_sql_path_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            sql_path="catalog.schema",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_PATH] == "catalog.schema"
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert get_kwargs["headers"][constants.HEADER_PATH] == "catalog.schema"
+
+
+def test_request_sql_path_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_PATH not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_PATH not in get_kwargs["headers"]
+
+
+def test_request_resource_estimates_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            resource_estimates={"CPU_TIME": "10s", "PEAK_MEMORY": "1GB"},
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    header = post_kwargs["headers"][constants.HEADER_RESOURCE_ESTIMATE]
+    assert "CPU_TIME=10s" in header
+    assert "PEAK_MEMORY=1GB" in header
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    header = get_kwargs["headers"][constants.HEADER_RESOURCE_ESTIMATE]
+    assert "CPU_TIME=10s" in header
+    assert "PEAK_MEMORY=1GB" in header
+
+
+def test_request_resource_estimates_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_RESOURCE_ESTIMATE not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_RESOURCE_ESTIMATE not in get_kwargs["headers"]
+
+
 def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
     _, post = mock_get_and_post
 

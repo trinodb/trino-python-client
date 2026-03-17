@@ -26,6 +26,10 @@ def _url(
     http_headers: Dict[str, Union[str, int]] = None,
     extra_credential: Optional[List[Tuple[str, str]]] = None,
     client_tags: Optional[List[str]] = None,
+    client_info: Optional[str] = None,
+    trace_token: Optional[str] = None,
+    sql_path: Optional[str] = None,
+    resource_estimates: Optional[Dict[str, str]] = None,
     legacy_primitive_types: Optional[bool] = None,
     legacy_prepared_statements: Optional[bool] = None,
     access_token: Optional[str] = None,
@@ -86,6 +90,18 @@ def _url(
 
     if client_tags is not None:
         trino_url += f"&client_tags={quote_plus(json.dumps(client_tags))}"
+
+    if client_info is not None:
+        trino_url += f"&client_info={quote_plus(client_info)}"
+
+    if trace_token is not None:
+        trino_url += f"&trace_token={quote_plus(trace_token)}"
+
+    if sql_path is not None:
+        trino_url += f"&sql_path={quote_plus(sql_path)}"
+
+    if resource_estimates is not None:
+        trino_url += f"&resource_estimates={quote_plus(json.dumps(resource_estimates))}"
 
     if legacy_primitive_types is not None:
         trino_url += f"&legacy_primitive_types={json.dumps(legacy_primitive_types)}"

@@ -163,6 +163,18 @@ class TrinoDialect(DefaultDialect):
         if "client_tags" in url.query:
             kwargs["client_tags"] = json.loads(unquote_plus(url.query["client_tags"]))
 
+        if "client_info" in url.query:
+            kwargs["client_info"] = unquote_plus(url.query["client_info"])
+
+        if "trace_token" in url.query:
+            kwargs["trace_token"] = unquote_plus(url.query["trace_token"])
+
+        if "sql_path" in url.query:
+            kwargs["sql_path"] = unquote_plus(url.query["sql_path"])
+
+        if "resource_estimates" in url.query:
+            kwargs["resource_estimates"] = json.loads(unquote_plus(url.query["resource_estimates"]))
+
         if "legacy_primitive_types" in url.query:
             kwargs["legacy_primitive_types"] = json.loads(unquote_plus(url.query["legacy_primitive_types"]))
 

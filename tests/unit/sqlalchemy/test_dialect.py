@@ -201,6 +201,34 @@ class TestTrinoDialect:
                 make_url(trino_url(
                     user="user",
                     host="localhost",
+                    client_info="my-app",
+                    trace_token="trace-123",
+                    sql_path="catalog.schema",
+                    resource_estimates={"CPU_TIME": "10s", "PEAK_MEMORY": "1GB"},
+                )),
+                'trino://user@localhost:8080/'
+                '?client_info=my-app'
+                '&resource_estimates=%7B%22CPU_TIME%22%3A+%2210s%22%2C+%22PEAK_MEMORY%22%3A+%221GB%22%7D'
+                '&source=trino-sqlalchemy'
+                '&sql_path=catalog.schema'
+                '&trace_token=trace-123',
+                list(),
+                dict(
+                    host="localhost",
+                    port=8080,
+                    catalog="system",
+                    user="user",
+                    source="trino-sqlalchemy",
+                    client_info="my-app",
+                    trace_token="trace-123",
+                    sql_path="catalog.schema",
+                    resource_estimates={"CPU_TIME": "10s", "PEAK_MEMORY": "1GB"},
+                ),
+            ),
+            (
+                make_url(trino_url(
+                    user="user",
+                    host="localhost",
                     client_tags=["1", "sql"],
                     legacy_prepared_statements=False,
                 )),

@@ -265,6 +265,43 @@ def test_tags_are_set_when_specified(mock_client):
 
 
 @patch("trino.dbapi.trino.client")
+def test_client_info_is_set_when_specified(mock_client):
+    with connect("sample_trino_cluster:443", client_info="test-info") as conn:
+        conn.cursor().execute("SOME FAKE QUERY")
+
+    _, passed_kwargs = mock_client.ClientSession.call_args
+    assert passed_kwargs["client_info"] == "test-info"
+
+
+@patch("trino.dbapi.trino.client")
+def test_trace_token_is_set_when_specified(mock_client):
+    with connect("sample_trino_cluster:443", trace_token="test-token") as conn:
+        conn.cursor().execute("SOME FAKE QUERY")
+
+    _, passed_kwargs = mock_client.ClientSession.call_args
+    assert passed_kwargs["trace_token"] == "test-token"
+
+
+@patch("trino.dbapi.trino.client")
+def test_sql_path_is_set_when_specified(mock_client):
+    with connect("sample_trino_cluster:443", sql_path="catalog.schema") as conn:
+        conn.cursor().execute("SOME FAKE QUERY")
+
+    _, passed_kwargs = mock_client.ClientSession.call_args
+    assert passed_kwargs["sql_path"] == "catalog.schema"
+
+
+@patch("trino.dbapi.trino.client")
+def test_resource_estimates_is_set_when_specified(mock_client):
+    resource_estimates = {"CPU_TIME": "10s", "PEAK_MEMORY": "1GB"}
+    with connect("sample_trino_cluster:443", resource_estimates=resource_estimates) as conn:
+        conn.cursor().execute("SOME FAKE QUERY")
+
+    _, passed_kwargs = mock_client.ClientSession.call_args
+    assert passed_kwargs["resource_estimates"] == resource_estimates
+
+
+@patch("trino.dbapi.trino.client")
 def test_role_is_set_when_specified(mock_client):
     roles = {"system": "finance"}
     with connect("sample_trino_cluster:443", roles=roles) as conn:

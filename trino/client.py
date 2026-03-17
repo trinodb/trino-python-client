@@ -190,6 +190,10 @@ class ClientSession:
         transaction_id: Optional[str] = None,
         extra_credential: Optional[List[Tuple[str, str]]] = None,
         client_tags: Optional[List[str]] = None,
+        client_info: Optional[str] = None,
+        trace_token: Optional[str] = None,
+        sql_path: Optional[str] = None,
+        resource_estimates: Optional[Dict[str, str]] = None,
         roles: Optional[Union[Dict[str, str], str]] = None,
         timezone: Optional[str] = None,
         encoding: Optional[Union[str, List[str]]] = None,
@@ -207,6 +211,10 @@ class ClientSession:
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
         self._client_tags = client_tags.copy() if client_tags is not None else list()
+        self._client_info = client_info
+        self._trace_token = trace_token
+        self._sql_path = sql_path
+        self._resource_estimates = resource_estimates.copy() if resource_estimates is not None else {}
         self._roles = self._format_roles(roles) if roles is not None else {}
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
@@ -285,6 +293,22 @@ class ClientSession:
     @property
     def client_tags(self) -> List[str]:
         return self._client_tags
+
+    @property
+    def client_info(self) -> Optional[str]:
+        return self._client_info
+
+    @property
+    def trace_token(self) -> Optional[str]:
+        return self._trace_token
+
+    @property
+    def sql_path(self) -> Optional[str]:
+        return self._sql_path
+
+    @property
+    def resource_estimates(self) -> Dict[str, str]:
+        return self._resource_estimates
 
     @property
     def roles(self) -> Dict[str, str]:
@@ -571,6 +595,21 @@ class TrinoRequest:
             )
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
             headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
+
+        if self._client_session.client_info is not None:
+            headers[constants.HEADER_CLIENT_INFO] = self._client_session.client_info
+
+        if self._client_session.trace_token is not None:
+            headers[constants.HEADER_TRACE_TOKEN] = self._client_session.trace_token
+
+        if self._client_session.sql_path is not None:
+            headers[constants.HEADER_PATH] = self._client_session.sql_path
+
+        if self._client_session.resource_estimates is not None and len(self._client_session.resource_estimates) > 0:
+            headers[constants.HEADER_RESOURCE_ESTIMATE] = ",".join(
+                "{}={}".format(name, urllib.parse.quote_plus(str(value)))
+                for name, value in self._client_session.resource_estimates.items()
+            )
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``

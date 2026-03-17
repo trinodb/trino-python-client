@@ -159,6 +159,10 @@ class Connection:
         verify=True,
         http_session=None,
         client_tags=None,
+        client_info=None,
+        trace_token=None,
+        sql_path=None,
+        resource_estimates=None,
         legacy_primitive_types=False,
         legacy_prepared_statements=None,
         roles=None,
@@ -191,6 +195,10 @@ class Connection:
             transaction_id=NO_TRANSACTION,
             extra_credential=extra_credential,
             client_tags=client_tags,
+            client_info=client_info,
+            trace_token=trace_token,
+            sql_path=sql_path,
+            resource_estimates=resource_estimates,
             roles=roles,
             timezone=timezone,
             encoding=encoding,
@@ -229,6 +237,10 @@ class Connection:
         self.max_attempts = max_attempts
         self.request_timeout = request_timeout
         self.client_tags = client_tags
+        self.client_info = client_info
+        self.trace_token = trace_token
+        self.sql_path = sql_path
+        self.resource_estimates = resource_estimates
 
         self._isolation_level = isolation_level
         self._request = None
