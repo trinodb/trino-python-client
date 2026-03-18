@@ -592,7 +592,7 @@ class TrinoRequest:
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
                 # ``name`` must not contain ``=``
-                "{}={}".format(catalog, urllib.parse.quote(str(role)))
+                "{}={}".format(catalog, urllib.parse.quote_plus(str(role)))
                 for catalog, role in self._client_session.roles.items()
             )
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
@@ -615,7 +615,7 @@ class TrinoRequest:
 
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, urllib.parse.quote(str(value)))
+            "{}={}".format(name, urllib.parse.quote_plus(str(value)))
             for name, value in self._client_session.properties.items()
         )
 

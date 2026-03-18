@@ -143,9 +143,9 @@ def test_request_headers(mock_get_and_post):
         assert headers[client_info_header] == client_info_value
         assert headers[constants.HEADER_ROLE] == (
             "hive=ALL,"
-            "system=" + urllib.parse.quote("ROLE{analyst}") + ","
+            "system=" + urllib.parse.quote_plus("ROLE{analyst}") + ","
             "catalog1=NONE,"
-            "catalog2=" + urllib.parse.quote("ROLE{catalog2_role}")
+            "catalog2=" + urllib.parse.quote_plus("ROLE{catalog2_role}")
         )
         assert headers["User-Agent"] == f"{constants.CLIENT_NAME}/{__version__}"
         assert headers[constants.HEADER_ENCODING] == encoding
@@ -1449,7 +1449,7 @@ def test_request_headers_role_admin(mock_get_and_post):
             roles={"system": "admin"}
         ),
     )
-    roles = "system=" + urllib.parse.quote("ROLE{admin}")
+    roles = "system=" + urllib.parse.quote_plus("ROLE{admin}")
 
     req.post("URL")
     _, post_kwargs = post.call_args
