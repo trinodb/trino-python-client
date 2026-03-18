@@ -992,32 +992,42 @@ def test_extra_credential(mock_get_and_post):
     assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "a.username=foo, b.password=bar"
 
 
-def test_extra_credential_key_with_illegal_chars():
+@pytest.mark.parametrize(
+    "kwargs, expected_error",
+    [
+        # Extra credential validation
+        ({"extra_credential": [("", "v")]}, "Extra credential name is empty"),
+        ({"extra_credential": [("a=b", "v")]}, "Extra credential name must not contain '=': a=b"),
+        ({"extra_credential": [("的", "v")]}, "Extra credential name must be ASCII: 的"),
+        # Session property validation
+        ({"properties": {"": "v"}}, "Session property name is empty"),
+        ({"properties": {"a=b": "v"}}, "Session property name must not contain '=': a=b"),
+        ({"properties": {"的": "v"}}, "Session property name must be ASCII: 的"),
+        # Resource estimate validation
+        ({"resource_estimates": {"": "v"}}, "Resource estimate name is empty"),
+        ({"resource_estimates": {"a=b": "v"}}, "Resource estimate name must not contain '=': a=b"),
+        ({"resource_estimates": {"的": "v"}}, "Resource estimate name must be ASCII: 的"),
+        # Client tag validation
+        ({"client_tags": ["a,b"]}, "Client tag must not contain ',': a,b"),
+    ],
+    ids=[
+        "extra_credential-empty",
+        "extra_credential-equals",
+        "extra_credential-non_ascii",
+        "session_property-empty",
+        "session_property-equals",
+        "session_property-non_ascii",
+        "resource_estimate-empty",
+        "resource_estimate-equals",
+        "resource_estimate-non_ascii",
+        "client_tag-comma",
+    ],
+)
+def test_header_name_validation(kwargs, expected_error):
     with pytest.raises(ValueError) as e_info:
-        TrinoRequest(
-            host="coordinator",
-            port=constants.DEFAULT_TLS_PORT,
-            client_session=ClientSession(
-                user="test",
-                extra_credential=[("a=b", "")],
-            ),
-        )
+        ClientSession(user="test", **kwargs)
 
-    assert str(e_info.value) == "whitespace or '=' are disallowed in extra credential 'a=b'"
-
-
-def test_extra_credential_key_non_ascii():
-    with pytest.raises(ValueError) as e_info:
-        TrinoRequest(
-            host="coordinator",
-            port=constants.DEFAULT_TLS_PORT,
-            client_session=ClientSession(
-                user="test",
-                extra_credential=[("的", "")],
-            ),
-        )
-
-    assert str(e_info.value) == "only ASCII characters are allowed in extra credential '的'"
+    assert str(e_info.value) == expected_error
 
 
 def test_extra_credential_value_encoding(mock_get_and_post):

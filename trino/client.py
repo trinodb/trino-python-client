@@ -131,8 +131,6 @@ if SOCKS_PROXY:
 else:
     PROXIES = {}
 
-_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
-
 ENCODINGS = ["json+zstd", "json+lz4", "json"]
 CODECS_UNAVAILABLE = {}
 if _LZ4_ERROR:
@@ -141,6 +139,17 @@ if _ZSTD_ERROR:
     CODECS_UNAVAILABLE["zstd"] = _ZSTD_ERROR
 
 ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
+
+
+def _validate_header_name(name: str, header_type: str) -> None:
+    if not name:
+        raise ValueError(f"{header_type} name is empty")
+    if '=' in name:
+        raise ValueError(f"{header_type} name must not contain '=': {name}")
+    try:
+        name.encode('ascii')
+    except UnicodeEncodeError:
+        raise ValueError(f"{header_type} name must be ASCII: {name}")
 
 
 class ClientSession:
@@ -218,6 +227,18 @@ class ClientSession:
         self._sql_path = sql_path
         self._resource_estimates = resource_estimates.copy() if resource_estimates is not None else {}
         self._roles = self._format_roles(roles) if roles is not None else {}
+
+        for k in self._properties:
+            _validate_header_name(k, "Session property")
+        for k in self._resource_estimates:
+            _validate_header_name(k, "Resource estimate")
+        if self._extra_credential:
+            for tup in self._extra_credential:
+                _validate_header_name(tup[0], "Extra credential")
+        for tag in self._client_tags:
+            if ',' in tag:
+                raise ValueError(f"Client tag must not contain ',': {tag}")
+
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
             self._timezone = timezone
@@ -637,10 +658,6 @@ class TrinoRequest:
 
         if self._client_session.extra_credential is not None and \
                 len(self._client_session.extra_credential) > 0:
-
-            for tup in self._client_session.extra_credential:
-                self._verify_extra_credential(tup)
-
             # HTTP 1.1 section 4.2 combine multiple extra credentials into a
             # comma-separated value
             # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
@@ -824,21 +841,6 @@ class TrinoRequest:
             rows=data,
             columns=response.get("columns"),
         )
-
-    @staticmethod
-    def _verify_extra_credential(header: Tuple[str, str]) -> None:
-        """
-        Verifies that key has ASCII only and non-whitespace characters.
-        """
-        key = header[0]
-
-        if not _HEADER_EXTRA_CREDENTIAL_KEY_REGEX.match(key):
-            raise ValueError(f"whitespace or '=' are disallowed in extra credential '{key}'")
-
-        try:
-            key.encode().decode('ascii')
-        except UnicodeDecodeError:
-            raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
 
 class TrinoResult:
