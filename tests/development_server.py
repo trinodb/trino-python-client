@@ -51,7 +51,7 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
         network = Network().create()
         supports_spooling_protocol = TRINO_VERSION == "latest" or int(TRINO_VERSION) >= 466
         if supports_spooling_protocol:
-            localstack = LocalStackContainer(image="localstack/localstack:latest", region_name="us-east-1") \
+            localstack = LocalStackContainer(image="localstack/localstack:4.14.0", region_name="us-east-1") \
                 .with_name("localstack") \
                 .with_network(network) \
                 .with_bind_ports(4566, 4566) \

@@ -933,9 +933,32 @@ class TrinoQuery:
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
-        # Execute should block until at least one row is received or query is finished or cancelled
-        while not self.finished and not self.cancelled and len(self._result.rows) == 0:
-            self._result.rows += self.fetch()
+        """
+        Execute should block until at least one row is received or query is finished or cancelled
+        
+        For Standard Execution, rows is a list, we can check len. the first response usually contains no rows (just stats),
+        so we need to continue fetching until we get some rows or query is finished or cancelled.
+        
+        For Spooled Execution, rows start as empty list and eventually fetch returns the rows as iterator, 
+        we can't check len of an iterator easily without peeking. 
+        
+        So, if we get rows as non empty list or iterator, we stop blocking and return it to the caller to consume it.
+        """
+
+        while not self.finished and not self.cancelled:
+            if isinstance(self._result.rows, list) and len(self._result.rows) == 0:
+                 new_rows = self.fetch()
+                 if isinstance(new_rows, list):
+                     self._result.rows += new_rows
+                 else:
+                     # It's an iterator (spooled segments), replace rows with it
+                     self._result.rows = new_rows
+                     # We have an iterator now, so we can return result to user
+                     break
+            else:
+                 # We have data (list with items or an iterator), so return
+                 break
+                 
         return self._result
 
     def _update_state(self, status):
@@ -949,7 +972,7 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
-    def fetch(self) -> List[Union[List[Any]], Any]:
+    def fetch(self) -> Union[List[Union[List[Any], Any]], Iterator[List[Any]]]:
         """Continue fetching data for the current query_id"""
         try:
             response = self._request.get(self._request.next_uri)
@@ -970,7 +993,8 @@ class TrinoQuery:
             spooled = self._to_segments(rows)
             if self._fetch_mode == "segments":
                 return spooled
-            return list(SegmentIterator(spooled, self._row_mapper))
+            # Return iterator directly, do NOT materialize with list()
+            return SegmentIterator(spooled, self._row_mapper)
         elif isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         else:
