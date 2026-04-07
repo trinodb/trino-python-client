@@ -39,6 +39,7 @@ import atexit
 import base64
 import copy
 import functools
+import itertools
 import os
 import random
 import re
@@ -904,9 +905,26 @@ class TrinoQuery:
         rows = self._row_mapper.map(status.rows) if self._row_mapper else status.rows
         self._result = TrinoResult(self, rows)
 
-        # Execute should block until at least one row is received or query is finished or cancelled
-        while not self.finished and not self.cancelled and len(self._result.rows) == 0:
-            self._result.rows += self.fetch()
+        # Block until rows are available, the query finishes, or it is canceled.
+        # Rows start as an empty list. Early responses often contain only stats,
+        # so we keep fetching until actual data arrives.
+        #
+        # Two protocols produce rows differently:
+        #  - Direct: fetch() returns a list - accumulate into the existing list.
+        #  - Spooling: fetch() returns a lazy iterator - replace rows and stop,
+        #    because we cannot cheaply check iterator length.
+        while not self.finished and not self.cancelled and self._result.rows == []:
+            new_rows = self.fetch()
+            if isinstance(new_rows, list):
+                self._result.rows += new_rows
+            else:
+                try:
+                    first_row = next(new_rows)
+                    self._result.rows = itertools.chain([first_row], new_rows)
+                    break
+                except StopIteration:
+                    self._result.rows = []
+
         return self._result
 
     def _update_state(self, status):
@@ -920,7 +938,7 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
-    def fetch(self) -> List[Union[List[Any]], Any]:
+    def fetch(self) -> Union[List[Union[List[Any], Any]], Iterator[List[Any]]]:
         """Continue fetching data for the current query_id"""
         try:
             response = self._request.get(self._request.next_uri)
@@ -941,7 +959,8 @@ class TrinoQuery:
             spooled = self._to_segments(rows)
             if self._fetch_mode == "segments":
                 return spooled
-            return list(SegmentIterator(spooled, self._row_mapper))
+            # Return iterator directly, do NOT materialize with list()
+            return SegmentIterator(spooled, self._row_mapper)
         elif isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         else:

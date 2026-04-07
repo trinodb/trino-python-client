@@ -1900,6 +1900,79 @@ def test_segments_cursor(trino_connection):
     assert total == 300875, f"Expected total rows 300875, got {total}"
 
 
+@pytest.mark.skipif(
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
+)
+def test_spooled_segments_lazy_fetchone(trino_connection):
+    """Verify that spooled results can be consumed row-by-row via fetchone()
+    without materializing the entire result set in memory."""
+    if trino_connection._client_session.encoding is None:
+        pytest.skip("spooling requires an encoding")
+
+    cur = trino_connection.cursor()
+    cur.execute("""SELECT l.*
+    FROM tpch.tiny.lineitem l, TABLE(sequence(
+        start => 1,
+        stop => 5,
+        step => 1)) n""")
+
+    # The underlying result rows should be an iterator, not a list
+    result_rows = cur._query._result._rows
+    assert not isinstance(result_rows, list), (
+        f"Expected lazy iterator for spooled results, got {type(result_rows)}"
+    )
+
+    # Consume rows one by one and count them
+    count = 0
+    while cur.fetchone() is not None:
+        count += 1
+    assert count == 300875, f"Expected 300875 rows, got {count}"
+
+
+@pytest.mark.skipif(
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
+)
+def test_spooled_segments_fetchmany(trino_connection):
+    """Verify that fetchmany() works correctly with lazily loaded spooled segments."""
+    if trino_connection._client_session.encoding is None:
+        pytest.skip("spooling requires an encoding")
+
+    cur = trino_connection.cursor()
+    cur.execute("SELECT * FROM tpch.tiny.lineitem")
+
+    batch = cur.fetchmany(100)
+    assert len(batch) == 100
+
+    total = len(batch)
+    while True:
+        batch = cur.fetchmany(1000)
+        if not batch:
+            break
+        total += len(batch)
+    assert total == 60175, f"Expected 60175 rows, got {total}"
+
+
+@pytest.mark.skipif(
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
+)
+def test_spooled_segments_iterator_protocol(trino_connection):
+    """Verify that cursor iteration works correctly with spooled segments."""
+    if trino_connection._client_session.encoding is None:
+        pytest.skip("spooling requires an encoding")
+
+    cur = trino_connection.cursor()
+    cur.execute("SELECT * FROM tpch.tiny.lineitem")
+
+    count = 0
+    for row in cur:
+        count += 1
+        assert isinstance(row, list)
+    assert count == 60175, f"Expected 60175 rows, got {count}"
+
+
 def get_cursor(legacy_prepared_statements, run_trino):
     host, port = run_trino
 
