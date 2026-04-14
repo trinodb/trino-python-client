@@ -880,7 +880,21 @@ class TrinoQuery:
             while not self._columns and not self.finished and not self.cancelled:
                 # Columns are not returned immediately after query is submitted.
                 # Continue fetching data until columns information is available and push fetched rows into buffer.
-                self._result.rows += self.fetch()
+                #
+                # Two protocols produce rows differently:
+                #  - Direct: fetch() returns a list - accumulate into the existing list.
+                #  - Spooling: fetch() returns a lazy iterator - replace rows and stop,
+                #    because we cannot cheaply check iterator length.
+                new_rows = self.fetch()
+                if isinstance(new_rows, list):
+                    self._result.rows += new_rows
+                else:
+                    try:
+                        first_row = next(new_rows)
+                        self._result.rows = itertools.chain([first_row], new_rows)
+                        break
+                    except StopIteration:
+                        self._result.rows = []
         return self._columns
 
     @property

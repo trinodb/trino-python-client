@@ -1973,6 +1973,33 @@ def test_spooled_segments_iterator_protocol(trino_connection):
     assert count == 60175, f"Expected 60175 rows, got {count}"
 
 
+@pytest.mark.skipif(
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
+)
+def test_spooled_segments_lazy_description(trino_connection):
+    """Verify that accessing cursor.description does not materialize the lazy spooled iterator."""
+    if trino_connection._client_session.encoding is None:
+        pytest.skip("spooling requires an encoding")
+
+    cur = trino_connection.cursor()
+    cur.execute("SELECT * FROM tpch.tiny.lineitem")
+
+    assert not isinstance(cur._query._result._rows, list), (
+        f"Expected lazy iterator for spooled results, got {type(cur._query._result._rows)}"
+    )
+
+    desc = cur.description
+    assert desc is not None
+    assert len(desc) > 0
+
+    assert not isinstance(cur._query._result._rows, list), (
+        f"Expected lazy iterator after description access, got {type(cur._query._result._rows)}"
+    )
+
+    assert len(cur.fetchall()) == 60175
+
+
 def get_cursor(legacy_prepared_statements, run_trino):
     host, port = run_trino
 
