@@ -143,9 +143,9 @@ def test_request_headers(mock_get_and_post):
         assert headers[client_info_header] == client_info_value
         assert headers[constants.HEADER_ROLE] == (
             "hive=ALL,"
-            "system=" + urllib.parse.quote("ROLE{analyst}") + ","
+            "system=" + urllib.parse.quote_plus("ROLE{analyst}") + ","
             "catalog1=NONE,"
-            "catalog2=" + urllib.parse.quote("ROLE{catalog2_role}")
+            "catalog2=" + urllib.parse.quote_plus("ROLE{catalog2_role}")
         )
         assert headers["User-Agent"] == f"{constants.CLIENT_NAME}/{__version__}"
         assert headers[constants.HEADER_ENCODING] == encoding
@@ -250,7 +250,7 @@ def test_request_client_tags_headers(mock_get_and_post):
     )
 
     def assert_headers(headers):
-        assert headers[constants.HEADER_CLIENT_TAGS] == "tag1,tag2"
+        assert set(headers[constants.HEADER_CLIENT_TAGS].split(",")) == {"tag1", "tag2"}
 
     req.post("URL")
     _, post_kwargs = post.call_args
@@ -282,6 +282,166 @@ def test_request_client_tags_headers_no_client_tags(mock_get_and_post):
     req.get("URL")
     _, get_kwargs = get.call_args
     assert_headers(get_kwargs["headers"])
+
+
+def test_request_client_info_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            client_info="test-client-info",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_CLIENT_INFO] == "test-client-info"
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert get_kwargs["headers"][constants.HEADER_CLIENT_INFO] == "test-client-info"
+
+
+def test_request_client_info_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_CLIENT_INFO not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_CLIENT_INFO not in get_kwargs["headers"]
+
+
+def test_request_trace_token_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            trace_token="test-trace-token",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_TRACE_TOKEN] == "test-trace-token"
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert get_kwargs["headers"][constants.HEADER_TRACE_TOKEN] == "test-trace-token"
+
+
+def test_request_trace_token_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_TRACE_TOKEN not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_TRACE_TOKEN not in get_kwargs["headers"]
+
+
+def test_request_sql_path_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            sql_path="catalog.schema",
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_PATH] == "catalog.schema"
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert get_kwargs["headers"][constants.HEADER_PATH] == "catalog.schema"
+
+
+def test_request_sql_path_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_PATH not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_PATH not in get_kwargs["headers"]
+
+
+def test_request_resource_estimates_headers(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test_user",
+            resource_estimates={"CPU_TIME": "10s", "PEAK_MEMORY": "1GB"},
+        ),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    header = post_kwargs["headers"][constants.HEADER_RESOURCE_ESTIMATE]
+    assert "CPU_TIME=10s" in header
+    assert "PEAK_MEMORY=1GB" in header
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    header = get_kwargs["headers"][constants.HEADER_RESOURCE_ESTIMATE]
+    assert "CPU_TIME=10s" in header
+    assert "PEAK_MEMORY=1GB" in header
+
+
+def test_request_resource_estimates_headers_absent(mock_get_and_post):
+    get, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test_user"),
+    )
+
+    req.post("URL")
+    _, post_kwargs = post.call_args
+    assert constants.HEADER_RESOURCE_ESTIMATE not in post_kwargs["headers"]
+
+    req.get("URL")
+    _, get_kwargs = get.call_args
+    assert constants.HEADER_RESOURCE_ESTIMATE not in get_kwargs["headers"]
 
 
 def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
@@ -832,32 +992,42 @@ def test_extra_credential(mock_get_and_post):
     assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "a.username=foo, b.password=bar"
 
 
-def test_extra_credential_key_with_illegal_chars():
+@pytest.mark.parametrize(
+    "kwargs, expected_error",
+    [
+        # Extra credential validation
+        ({"extra_credential": [("", "v")]}, "Extra credential name is empty"),
+        ({"extra_credential": [("a=b", "v")]}, "Extra credential name must not contain '=': a=b"),
+        ({"extra_credential": [("的", "v")]}, "Extra credential name must be ASCII: 的"),
+        # Session property validation
+        ({"properties": {"": "v"}}, "Session property name is empty"),
+        ({"properties": {"a=b": "v"}}, "Session property name must not contain '=': a=b"),
+        ({"properties": {"的": "v"}}, "Session property name must be ASCII: 的"),
+        # Resource estimate validation
+        ({"resource_estimates": {"": "v"}}, "Resource estimate name is empty"),
+        ({"resource_estimates": {"a=b": "v"}}, "Resource estimate name must not contain '=': a=b"),
+        ({"resource_estimates": {"的": "v"}}, "Resource estimate name must be ASCII: 的"),
+        # Client tag validation
+        ({"client_tags": ["a,b"]}, "Client tag must not contain ',': a,b"),
+    ],
+    ids=[
+        "extra_credential-empty",
+        "extra_credential-equals",
+        "extra_credential-non_ascii",
+        "session_property-empty",
+        "session_property-equals",
+        "session_property-non_ascii",
+        "resource_estimate-empty",
+        "resource_estimate-equals",
+        "resource_estimate-non_ascii",
+        "client_tag-comma",
+    ],
+)
+def test_header_name_validation(kwargs, expected_error):
     with pytest.raises(ValueError) as e_info:
-        TrinoRequest(
-            host="coordinator",
-            port=constants.DEFAULT_TLS_PORT,
-            client_session=ClientSession(
-                user="test",
-                extra_credential=[("a=b", "")],
-            ),
-        )
+        ClientSession(user="test", **kwargs)
 
-    assert str(e_info.value) == "whitespace or '=' are disallowed in extra credential 'a=b'"
-
-
-def test_extra_credential_key_non_ascii():
-    with pytest.raises(ValueError) as e_info:
-        TrinoRequest(
-            host="coordinator",
-            port=constants.DEFAULT_TLS_PORT,
-            client_session=ClientSession(
-                user="test",
-                extra_credential=[("的", "")],
-            ),
-        )
-
-    assert str(e_info.value) == "only ASCII characters are allowed in extra credential '的'"
+    assert str(e_info.value) == expected_error
 
 
 def test_extra_credential_value_encoding(mock_get_and_post):
@@ -1289,7 +1459,7 @@ def test_request_headers_role_admin(mock_get_and_post):
             roles={"system": "admin"}
         ),
     )
-    roles = "system=" + urllib.parse.quote("ROLE{admin}")
+    roles = "system=" + urllib.parse.quote_plus("ROLE{admin}")
 
     req.post("URL")
     _, post_kwargs = post.call_args

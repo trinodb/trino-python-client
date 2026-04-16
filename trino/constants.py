@@ -19,7 +19,7 @@ DEFAULT_CATALOG: Optional[str] = None
 DEFAULT_SCHEMA: Optional[str] = None
 DEFAULT_AUTH: Optional[Any] = None
 DEFAULT_MAX_ATTEMPTS = 3
-DEFAULT_REQUEST_TIMEOUT: float = 30.0
+DEFAULT_REQUEST_TIMEOUT: float = 120.0
 MAX_NT_PASSWORD_SIZE: int = 1280
 
 HTTP = "http"
@@ -38,6 +38,9 @@ HEADER_CLIENT_INFO = "X-Trino-Client-Info"
 HEADER_CLIENT_TAGS = "X-Trino-Client-Tags"
 HEADER_EXTRA_CREDENTIAL = "X-Trino-Extra-Credential"
 HEADER_TIMEZONE = "X-Trino-Time-Zone"
+HEADER_TRACE_TOKEN = "X-Trino-Trace-Token"
+HEADER_RESOURCE_ESTIMATE = "X-Trino-Resource-Estimate"
+HEADER_PATH = "X-Trino-Path"
 HEADER_ENCODING = "X-Trino-Query-Data-Encoding"
 
 HEADER_SESSION = "X-Trino-Session"

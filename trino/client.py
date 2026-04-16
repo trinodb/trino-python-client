@@ -48,6 +48,7 @@ import urllib.parse
 import warnings
 from abc import abstractmethod
 from collections.abc import Iterator
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
@@ -60,6 +61,7 @@ from typing import Dict
 from typing import List
 from typing import Literal
 from typing import Optional
+from typing import Set
 from typing import Tuple
 from typing import TypedDict
 from typing import Union
@@ -130,8 +132,6 @@ if SOCKS_PROXY:
 else:
     PROXIES = {}
 
-_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
-
 ENCODINGS = ["json+zstd", "json+lz4", "json"]
 CODECS_UNAVAILABLE = {}
 if _LZ4_ERROR:
@@ -140,6 +140,17 @@ if _ZSTD_ERROR:
     CODECS_UNAVAILABLE["zstd"] = _ZSTD_ERROR
 
 ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
+
+
+def _validate_header_name(name: str, header_type: str) -> None:
+    if not name:
+        raise ValueError(f"{header_type} name is empty")
+    if '=' in name:
+        raise ValueError(f"{header_type} name must not contain '=': {name}")
+    try:
+        name.encode('ascii')
+    except UnicodeEncodeError:
+        raise ValueError(f"{header_type} name must be ASCII: {name}")
 
 
 class ClientSession:
@@ -190,7 +201,11 @@ class ClientSession:
         headers: Optional[Dict[str, str]] = None,
         transaction_id: Optional[str] = None,
         extra_credential: Optional[List[Tuple[str, str]]] = None,
-        client_tags: Optional[List[str]] = None,
+        client_tags: Optional[Sequence[str]] = None,
+        client_info: Optional[str] = None,
+        trace_token: Optional[str] = None,
+        sql_path: Optional[str] = None,
+        resource_estimates: Optional[Dict[str, str]] = None,
         roles: Optional[Union[Dict[str, str], str]] = None,
         timezone: Optional[str] = None,
         encoding: Optional[Union[str, List[str]]] = None,
@@ -207,8 +222,24 @@ class ClientSession:
         self._headers = headers.copy() if headers is not None else {}
         self._transaction_id = transaction_id
         self._extra_credential = extra_credential
-        self._client_tags = client_tags.copy() if client_tags is not None else list()
+        self._client_tags = set(client_tags) if client_tags is not None else set()
+        self._client_info = client_info
+        self._trace_token = trace_token
+        self._sql_path = sql_path
+        self._resource_estimates = resource_estimates.copy() if resource_estimates is not None else {}
         self._roles = self._format_roles(roles) if roles is not None else {}
+
+        for k in self._properties:
+            _validate_header_name(k, "Session property")
+        for k in self._resource_estimates:
+            _validate_header_name(k, "Resource estimate")
+        if self._extra_credential:
+            for tup in self._extra_credential:
+                _validate_header_name(tup[0], "Extra credential")
+        for tag in self._client_tags:
+            if ',' in tag:
+                raise ValueError(f"Client tag must not contain ',': {tag}")
+
         if timezone:  # Check timezone validity
             ZoneInfo(timezone)
             self._timezone = timezone
@@ -284,8 +315,24 @@ class ClientSession:
         return self._extra_credential
 
     @property
-    def client_tags(self) -> List[str]:
+    def client_tags(self) -> Set[str]:
         return self._client_tags
+
+    @property
+    def client_info(self) -> Optional[str]:
+        return self._client_info
+
+    @property
+    def trace_token(self) -> Optional[str]:
+        return self._trace_token
+
+    @property
+    def sql_path(self) -> Optional[str]:
+        return self._sql_path
+
+    @property
+    def resource_estimates(self) -> Dict[str, str]:
+        return self._resource_estimates
 
     @property
     def roles(self) -> Dict[str, str]:
@@ -567,15 +614,30 @@ class TrinoRequest:
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
                 # ``name`` must not contain ``=``
-                "{}={}".format(catalog, urllib.parse.quote(str(role)))
+                "{}={}".format(catalog, urllib.parse.quote_plus(str(role)))
                 for catalog, role in self._client_session.roles.items()
             )
         if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
             headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
 
+        if self._client_session.client_info is not None:
+            headers[constants.HEADER_CLIENT_INFO] = self._client_session.client_info
+
+        if self._client_session.trace_token is not None:
+            headers[constants.HEADER_TRACE_TOKEN] = self._client_session.trace_token
+
+        if self._client_session.sql_path is not None:
+            headers[constants.HEADER_PATH] = self._client_session.sql_path
+
+        if self._client_session.resource_estimates is not None and len(self._client_session.resource_estimates) > 0:
+            headers[constants.HEADER_RESOURCE_ESTIMATE] = ",".join(
+                "{}={}".format(name, urllib.parse.quote_plus(str(value)))
+                for name, value in self._client_session.resource_estimates.items()
+            )
+
         headers[constants.HEADER_SESSION] = ",".join(
             # ``name`` must not contain ``=``
-            "{}={}".format(name, urllib.parse.quote(str(value)))
+            "{}={}".format(name, urllib.parse.quote_plus(str(value)))
             for name, value in self._client_session.properties.items()
         )
 
@@ -597,10 +659,6 @@ class TrinoRequest:
 
         if self._client_session.extra_credential is not None and \
                 len(self._client_session.extra_credential) > 0:
-
-            for tup in self._client_session.extra_credential:
-                self._verify_extra_credential(tup)
-
             # HTTP 1.1 section 4.2 combine multiple extra credentials into a
             # comma-separated value
             # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
@@ -784,21 +842,6 @@ class TrinoRequest:
             rows=data,
             columns=response.get("columns"),
         )
-
-    @staticmethod
-    def _verify_extra_credential(header: Tuple[str, str]) -> None:
-        """
-        Verifies that key has ASCII only and non-whitespace characters.
-        """
-        key = header[0]
-
-        if not _HEADER_EXTRA_CREDENTIAL_KEY_REGEX.match(key):
-            raise ValueError(f"whitespace or '=' are disallowed in extra credential '{key}'")
-
-        try:
-            key.encode().decode('ascii')
-        except UnicodeDecodeError:
-            raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
 
 class TrinoResult:

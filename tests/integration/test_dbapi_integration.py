@@ -1502,19 +1502,19 @@ def test_info_uri(trino_connection):
 def test_client_tags_single_tag(run_trino):
     client_tags = ["foo"]
     query_client_tags = retrieve_client_tags_from_query(run_trino, client_tags)
-    assert query_client_tags == client_tags
+    assert set(query_client_tags) == set(client_tags)
 
 
 def test_client_tags_multiple_tags(run_trino):
     client_tags = ["foo", "bar"]
     query_client_tags = retrieve_client_tags_from_query(run_trino, client_tags)
-    assert query_client_tags == client_tags
+    assert set(query_client_tags) == set(client_tags)
 
 
 def test_client_tags_special_characters(run_trino):
     client_tags = ["foo %20", "bar=test"]
     query_client_tags = retrieve_client_tags_from_query(run_trino, client_tags)
-    assert query_client_tags == client_tags
+    assert set(query_client_tags) == set(client_tags)
 
 
 def retrieve_client_tags_from_query(run_trino, client_tags):
