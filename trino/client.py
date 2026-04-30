@@ -641,6 +641,9 @@ class TrinoRequest:
                 # need retry when there is no exception but the status code is 429, 502, 503, or 504
                 lambda response: getattr(response, "status_code", None)
                 in (429, 502, 503, 504),
+                # need retry when the server returns 200 with an empty body (transient under load)
+                lambda response: getattr(response, "status_code", None) == 200
+                and not getattr(response, "text", "").strip(),
             ),
             max_attempts=self._max_attempts,
         )
@@ -723,6 +726,10 @@ class TrinoRequest:
             self.raise_response_error(http_response)
 
         http_response.encoding = "utf-8"
+        if not http_response.text.strip():
+            raise exceptions.TrinoConnectionError(
+                "received empty response from server (status 200)"
+            )
         response = json.loads(http_response.text)
         if "error" in response and response["error"]:
             raise self._process_error(response["error"], response.get("id"))
