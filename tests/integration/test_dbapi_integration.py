@@ -27,6 +27,7 @@ import requests
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino
+from tests.development_server import get_trino_container
 from tests.integration.conftest import trino_version
 from trino import constants
 from trino.client import InlineSegment
@@ -1998,6 +1999,63 @@ def test_spooled_segments_lazy_description(trino_connection):
     )
 
     assert len(cur.fetchall()) == 60175
+
+
+@pytest.mark.skipif(
+    trino_version() <= 466,
+    reason="spooling protocol was introduced in version 466"
+)
+def test_heartbeat_head_requests_during_spooled_download(run_trino):
+    """Verify that heartbeat HEAD requests are sent to the coordinator while
+    downloading spooled segments from external storage."""
+    host, port = run_trino
+    container = get_trino_container(port)
+    assert container, "Cannot find a running Trino container"
+
+    conn = trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test",
+        max_attempts=1, encoding="json", heartbeat_interval=0.1,
+    )
+
+    log_path = "/data/trino/var/log/http-request.log"
+
+    # Capture the current size of the HTTP request log
+    exit_code, output = container.exec_run(["wc", "-l", log_path])
+    assert exit_code == 0, f"Cannot read Trino HTTP request log, is the log path `{log_path}` correct?"
+    logfile_lines = int(output.decode().split()[0])
+
+    cur = conn.cursor()
+    cur.execute("""SELECT l.*
+    FROM tpch.tiny.lineitem l, TABLE(sequence(
+        start => 1,
+        stop => 5,
+        step => 1)) n""")
+    query_id = cur.query_id
+    cur.fetchall()
+    cur.close()
+
+    head_request_found = False
+    # Sometimes trino needs time to flush the logs so we make few attempts
+    # to check the log with sleep inbetween.
+    for attempt in range(10):
+        if attempt:
+            t.sleep(1.0)
+
+        _, output = container.exec_run(["tail", "-n", f"+{logfile_lines}", log_path])
+        loglines = output.decode().splitlines()
+
+        pattern = f"/v1/statement/executing/{query_id}/"
+        for line in loglines:
+            if "HEAD" in line and pattern in line:
+                head_request_found = True
+                break
+
+        if head_request_found:
+            break
+
+    assert head_request_found, (
+        f"Expected heartbeat HEAD requests in http-request.log not found. Log tail:\n{''.join(loglines)}"
+    )
 
 
 def get_cursor(legacy_prepared_statements, run_trino):
