@@ -194,6 +194,7 @@ class ClientSession:
         roles: Optional[Union[Dict[str, str], str]] = None,
         timezone: Optional[str] = None,
         encoding: Optional[Union[str, List[str]]] = None,
+        heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
     ):
         self._object_lock = threading.Lock()
         self._prepared_statements: Dict[str, str] = {}
@@ -216,6 +217,7 @@ class ClientSession:
             from tzlocal import get_localzone_name
             self._timezone = get_localzone_name()
         self._encoding = encoding
+        self._heartbeat_interval = heartbeat_interval
 
     @property
     def user(self) -> str:
@@ -315,6 +317,10 @@ class ClientSession:
     def encoding(self) -> Optional[Union[str, List[str]]]:
         with self._object_lock:
             return self._encoding
+
+    @property
+    def heartbeat_interval(self) -> Optional[float]:
+        return self._heartbeat_interval
 
     @staticmethod
     def _format_roles(roles: Union[Dict[str, str], str]) -> Dict[str, str]:
@@ -632,6 +638,7 @@ class TrinoRequest:
             self._get = self._http_session.get
             self._post = self._http_session.post
             self._delete = self._http_session.delete
+            self._head = self._http_session.head
             return
 
         with_retry = _retry_with(
@@ -647,6 +654,7 @@ class TrinoRequest:
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
+        self._head = with_retry(self._http_session.head)
 
     def get_url(self, path: str) -> str:
         return "{protocol}://{host}:{port}{path}".format(
@@ -689,6 +697,14 @@ class TrinoRequest:
 
     def delete(self, url: str) -> Response:
         return self._delete(url, timeout=self._request_timeout, proxies=PROXIES)
+
+    def head(self, url: str) -> Response:
+        return self._head(
+            url,
+            headers=self.http_headers,
+            timeout=self._request_timeout,
+            proxies=PROXIES,
+        )
 
     @staticmethod
     def _process_error(error, query_id: Optional[str]) -> Union[TrinoExternalError, TrinoQueryError, TrinoUserError]:
@@ -1003,7 +1019,12 @@ class TrinoQuery:
             if self._fetch_mode == "segments":
                 return spooled
             # Return iterator directly, do NOT materialize with list()
-            return SegmentIterator(spooled, self._row_mapper)
+            return SegmentIterator(
+                spooled,
+                self._row_mapper,
+                request=self._request,
+                heartbeat_interval=self._request._client_session.heartbeat_interval,
+            )
         elif isinstance(status.rows, list):
             return self._row_mapper.map(rows)
         else:
@@ -1274,14 +1295,77 @@ class DecodableSegment:
         return (f"DecodableSegment(encoding={self._encoding}, metadata={self._metadata}, segment={self._segment})")
 
 
+class _RequestHeartbeat:
+    """
+    Heartbeat loop for a trino request. Periodically sends HEAD requests to the request's next URI.
+    This prevents the coordinator from abandoning a query if the client is silent for a longer
+    period of time, for example when downloading a spooled segment from an external storage.
+    """
+    MAX_FAILURES = 3
+
+    def __init__(self, request: TrinoRequest, interval: float) -> None:
+        self._request = request
+        self._interval = interval
+        # The event for telling the heartbeat thread to exit
+        self._stop_event = threading.Event()
+
+    def __enter__(self) -> _RequestHeartbeat:
+        threading.Thread(target=self._run, daemon=True).start()
+        return self
+
+    def __exit__(self, *_) -> None:
+        self._stop_event.set()
+
+    def _run(self) -> None:
+        """
+        Run the heartbeat loop.
+
+        Exit when the self._stop_event is set, the query completed
+        or if the error count exceeds _MAX_FAILURES.
+        """
+        failures = 0
+
+        while not self._stop_event.wait(timeout=self._interval):
+            uri = self._request.next_uri
+            if uri is None:
+                return
+
+            try:
+                response = self._request.head(uri)
+                if response.status_code in (404, 405):
+                    logger.warning("The server does not support heartbeat calls")
+                    return
+                if not response.ok:
+                    failures += 1
+                else:
+                    failures = 0
+            except Exception:
+                failures += 1
+
+            if failures >= self.MAX_FAILURES:
+                logger.warning(f"Stopping the heartbeat after {self.MAX_FAILURES} consecutive errors")
+                return
+
+
 class SegmentIterator:
-    def __init__(self, segments: Union[DecodableSegment, List[DecodableSegment]], mapper: RowMapper) -> None:
+    def __init__(
+        self,
+        segments: Union[DecodableSegment, List[DecodableSegment]],
+        mapper: RowMapper,
+        *,
+        request: Optional[TrinoRequest] = None,
+        heartbeat_interval: Optional[float] = None,
+    ) -> None:
         self._segments = iter(segments if isinstance(segments, List) else [segments])
         self._mapper = mapper
         self._decoder = None
         self._rows: Iterator[List[List[Any]]] = iter([])
         self._finished = False
         self._current_segment: Optional[DecodableSegment] = None
+        if (request is not None) != bool(heartbeat_interval):
+            raise ValueError("request and heartbeat_interval must be both provided or both omitted")
+        self._request = request
+        self._heartbeat_interval = heartbeat_interval
 
     def __iter__(self) -> Iterator[List[Any]]:
         return self
@@ -1307,7 +1391,17 @@ class SegmentIterator:
             if self._decoder is None:
                 self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(self._mapper)
                                                .create(self._current_segment.encoding))
-            self._rows = iter(self._decoder.decode(self._current_segment.segment))
+
+            if isinstance(self._current_segment.segment, SpooledSegment) and self._request and self._heartbeat_interval:
+                # Downloading a spooled segment may take some time. In the meantime, send heartbeat
+                # requests so the coordinator doesn't think we lost interest and close the query.
+                with _RequestHeartbeat(self._request, self._heartbeat_interval):
+                    rows = self._decoder.decode(self._current_segment.segment)
+            else:
+                rows = self._decoder.decode(self._current_segment.segment)
+
+            self._rows = iter(rows)
+
         except StopIteration:
             self._finished = True
 

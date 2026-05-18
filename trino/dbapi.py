@@ -164,6 +164,7 @@ class Connection:
         roles=None,
         timezone=None,
         encoding: Union[str, List[str]] = _USE_DEFAULT_ENCODING,
+        heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
     ):
         # Automatically assign http_schema, port based on hostname
         parsed_host = urlparse(host, allow_fragments=False)
@@ -194,6 +195,7 @@ class Connection:
             roles=roles,
             timezone=timezone,
             encoding=encoding,
+            heartbeat_interval=heartbeat_interval,
         )
         # mypy cannot follow module import
         if http_session is None:
