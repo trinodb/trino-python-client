@@ -46,8 +46,7 @@ jobs:
           "3.11",
           "3.12",
           "3.13",
-          "pypy-3.9",
-          "pypy-3.10",
+          "pypy-3.11",
         ]
         trino: [
           "latest",
@@ -76,7 +75,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install libkrb5-dev
           pip install wheel
-          pip install .[tests,gssapi] sqlalchemy${{ matrix.sqlalchemy }}
+          # gssapi is CPython-only; skip it on PyPy
+          if [[ "${{ matrix.python }}" == pypy-* ]]; then
+            pip install .[tests] sqlalchemy${{ matrix.sqlalchemy }}
+          else
+            pip install .[tests,gssapi] sqlalchemy${{ matrix.sqlalchemy }}
+          fi
       - name: Run tests
         run: |
           pytest -s tests/

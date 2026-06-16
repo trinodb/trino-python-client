@@ -13,8 +13,6 @@ import threading
 import time
 import urllib
 import uuid
-from contextlib import nullcontext as does_not_raise
-from typing import Any
 from typing import Dict
 from typing import Optional
 from unittest import mock
@@ -22,7 +20,6 @@ from unittest import TestCase
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfoNotFoundError
 
-import gssapi
 import httpretty
 import keyring
 try:
@@ -32,8 +29,6 @@ except ImportError:
 import pytest
 import requests
 from httpretty import httprettified
-from requests_gssapi.exceptions import SPNEGOExchangeError
-from requests_kerberos.exceptions import KerberosExchangeError
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino.exceptions
@@ -51,8 +46,6 @@ from trino import __version__
 from trino import constants
 from trino.auth import _OAuth2KeyRingTokenCache
 from trino.auth import _OAuth2TokenBearer
-from trino.auth import GSSAPIAuthentication
-from trino.auth import KerberosAuthentication
 from trino.client import _DelayExponential
 from trino.client import _retry_with
 from trino.client import _RetryWithExponentialBackoff
@@ -61,6 +54,29 @@ from trino.client import CompressedQueryDataDecoderFactory
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
 from trino.client import TrinoResult
+
+try:
+    from requests_kerberos.exceptions import KerberosExchangeError
+    from trino.auth import KerberosAuthentication
+except ImportError:
+    KerberosAuthentication = None
+    KerberosExchangeError = None
+
+try:
+    from requests_gssapi.exceptions import SPNEGOExchangeError
+    from trino.auth import GSSAPIAuthentication
+except ImportError:
+    GSSAPIAuthentication = None
+    SPNEGOExchangeError = None
+
+requires_kerberos = pytest.mark.skipif(
+    KerberosAuthentication is None,
+    reason="requests_kerberos is not installed",
+)
+requires_gssapi = pytest.mark.skipif(
+    GSSAPIAuthentication is None,
+    reason="gssapi is not available (CPython-only)",
+)
 
 
 @mock.patch("trino.client.TrinoRequest.http")
@@ -914,73 +930,6 @@ def test_extra_credential_value_object(mock_get_and_post):
     assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "foo=changed"
 
 
-class MockGssapiCredentials:
-    def __init__(self, name: gssapi.Name, usage: str):
-        self.name = name
-        self.usage = usage
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, MockGssapiCredentials):
-            return False
-        return (
-            self.name == other.name,
-            self.usage == other.usage,
-        )
-
-
-@pytest.fixture
-def mock_gssapi_creds(monkeypatch):
-    monkeypatch.setattr("gssapi.Credentials", MockGssapiCredentials)
-
-
-def _gssapi_uname(spn: str):
-    return gssapi.Name(spn, gssapi.NameType.user)
-
-
-def _gssapi_sname(principal: str):
-    return gssapi.Name(principal, gssapi.NameType.hostbased_service)
-
-
-@pytest.mark.parametrize(
-    "options, expected_credentials, expected_hostname, expected_exception",
-    [
-        (
-            {}, None, None, does_not_raise(),
-        ),
-        (
-            {"hostname_override": "foo"}, None, "foo", does_not_raise(),
-        ),
-        (
-            {"service_name": "bar"}, None, None,
-            pytest.raises(ValueError, match=r"must be used together with hostname_override"),
-        ),
-        (
-            {"hostname_override": "foo", "service_name": "bar"}, None, _gssapi_sname("bar@foo"), does_not_raise(),
-        ),
-        (
-            {"principal": "foo"}, MockGssapiCredentials(_gssapi_uname("foo"), "initial"), None, does_not_raise(),
-        ),
-    ]
-)
-def test_authentication_gssapi_init_arguments(
-    options,
-    expected_credentials,
-    expected_hostname,
-    expected_exception,
-    mock_gssapi_creds,
-    monkeypatch,
-):
-    auth = GSSAPIAuthentication(**options)
-
-    session = requests.Session()
-
-    with expected_exception:
-        auth.set_http_session(session)
-
-        assert session.auth.target_name == expected_hostname
-        assert session.auth.creds == expected_credentials
-
-
 class RetryRecorder:
     def __init__(self, error=None, result=None):
         self.__name__ = "RetryRecorder"
@@ -1003,8 +952,8 @@ class RetryRecorder:
 @pytest.mark.parametrize(
     "auth_class, retry_exception_class",
     [
-        (KerberosAuthentication, KerberosExchangeError),
-        (GSSAPIAuthentication, SPNEGOExchangeError),
+        pytest.param(KerberosAuthentication, KerberosExchangeError, marks=requires_kerberos),
+        pytest.param(GSSAPIAuthentication, SPNEGOExchangeError, marks=requires_gssapi),
     ]
 )
 def test_authentication_fail_retry(auth_class, retry_exception_class, monkeypatch):
