@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -80,6 +81,17 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
     def __init__(self, precision=None, timezone=False):
         super(TIMESTAMP, self).__init__(timezone=timezone)
         self.precision = precision
+
+    def literal_processor(self, dialect):
+        def process(value):
+            if isinstance(value, datetime.datetime):
+                ts = value.strftime("%Y-%m-%d %H:%M:%S")
+                if value.microsecond:
+                    ts += f".{value.microsecond // 1000:03d}"
+                return f"TIMESTAMP '{ts}'"
+            return str(value)
+
+        return process
 
 
 class JSON(TypeDecorator):
