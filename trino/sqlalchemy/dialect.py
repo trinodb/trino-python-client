@@ -23,6 +23,7 @@ from urllib.parse import unquote_plus
 
 from sqlalchemy import exc
 from sqlalchemy import sql
+from sqlalchemy import __version__ as SQLALCHEMY_VERSION
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.default import DefaultDialect
@@ -221,9 +222,20 @@ class TrinoDialect(DefaultDialect):
             SELECT * FROM {schema}."{table_name}$partitions"
         """
         ).strip()
-        res = connection.execute(sql.text(query))
-        partition_names = [desc[0] for desc in res.cursor.description]
-        data_types = [desc[1] for desc in res.cursor.description]
+
+        if SQLALCHEMY_VERSION >= '2.0.0':
+            # Lower versions of SQLAlchemy doesn't support execution of query as ctxt man
+            with connection.execute(sql.text(query)) as conn:
+                partition_names = [desc[0] for desc in conn.cursor.description]
+                data_types = [desc[1] for desc in conn.cursor.description]
+        else:
+            conn = connection.execute(sql.text(query))
+            partition_names = [desc[0] for desc in conn.cursor.description]
+            data_types = [desc[1] for desc in conn.cursor.description]
+            res = conn.fetchall() # Fetching data to consider query as FINISHED and not CANCELED
+            if not conn.closed:
+                conn.close()
+
         # Compare the column names and types to the shape of an Iceberg $partitions table
         if (partition_names == ['partition', 'record_count', 'file_count', 'total_size', 'data']
                 and data_types[0].startswith('row(')
