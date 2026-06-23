@@ -298,7 +298,7 @@ class RowMapperFactory:
             return IntegerValueMapper()
         if col_type in {'double', 'real'}:
             return DoubleValueMapper()
-        if col_type == 'decimal':
+        if col_type in {'decimal', 'number'}:
             return DecimalValueMapper()
         if col_type in {'varchar', 'char'}:
             return StringValueMapper()
