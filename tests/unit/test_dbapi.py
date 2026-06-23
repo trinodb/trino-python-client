@@ -325,6 +325,7 @@ def test_description_is_none_when_cursor_is_not_executed():
         ("http://mytrinoserver.domain:9999", None, None, constants.HTTP),
         # Infer from port
         ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, None, constants.HTTPS),
+        ("mytrinoserver.domain", constants.SECONDARY_TLS_PORT, None, constants.HTTPS),
         ("mytrinoserver.domain", constants.DEFAULT_PORT, None, constants.HTTP),
         # http_scheme parameter has higher precedence than port parameter
         ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTP, constants.HTTP),
