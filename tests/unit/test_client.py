@@ -1145,6 +1145,49 @@ def test_trino_query_response_headers(sample_get_response_data):
         assert isinstance(result, TrinoResult)
 
 
+def test_trino_result_iterator_survives_transient_error():
+    """Iterator recovers from mid-iteration exceptions without losing rows."""
+
+    class FailOnceIterator:
+        def __init__(self):
+            self._count = 0
+            self._failed = False
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            self._count += 1
+            if self._count == 3 and not self._failed:
+                self._failed = True
+                raise IOError("S3 segment download failed")
+            if self._count > 5:
+                raise StopIteration
+            return [self._count]
+
+    class FakeQuery:
+        finished = True
+
+        def fetch(self):
+            return []
+
+    result = TrinoResult(FakeQuery(), FailOnceIterator())
+    it = iter(result)
+
+    assert next(it) == [1]
+    assert next(it) == [2]
+
+    with pytest.raises(IOError, match="S3 segment download failed"):
+        next(it)
+
+    # Key: iterator resumes after the error
+    assert next(it) == [4]
+    assert next(it) == [5]
+
+    with pytest.raises(StopIteration):
+        next(it)
+
+
 def test_delay_exponential_without_jitter():
     max_delay = 1200.0
     get_delay = _DelayExponential(base=5, jitter=False, max_delay=max_delay)
