@@ -821,8 +821,10 @@ class TrinoResult:
     """
     Represent the result of a Trino query as an iterator on rows.
 
-    This class implements the iterator protocol as a generator type
-    https://docs.python.org/3/library/stdtypes.html#generator-types
+    This class implements the iterator protocol using __next__ so that
+    transient exceptions during iteration do not permanently kill the
+    iterator (unlike a generator, whose frame is finalized after an
+    unhandled exception).
     """
 
     def __init__(self, query, rows: List[Any]):
@@ -830,6 +832,8 @@ class TrinoResult:
         # Initial rows from the first POST request
         self._rows = rows
         self._rownumber = 0
+        self._row_iter: Optional[Iterator[Any]] = None
+        self._next_rows = None
 
     @property
     def rows(self):
@@ -844,15 +848,27 @@ class TrinoResult:
         return self._rownumber
 
     def __iter__(self):
+        return self
+
+    def __next__(self):
+        # Lazy init: prefetch the next batch before exposing current rows.
         # A query only transitions to a FINISHED state when the results are fully consumed:
         # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
-        while not self._query.finished or self._rows is not None:
-            next_rows = self._query.fetch() if not self._query.finished else None
-            for row in self._rows:
-                self._rownumber += 1
-                yield row
+        if self._row_iter is None:
+            self._row_iter = iter(self._rows)
+            self._next_rows = self._query.fetch() if not self._query.finished else None
 
-            self._rows = next_rows
+        while True:
+            try:
+                row = next(self._row_iter)
+                self._rownumber += 1
+                return row
+            except StopIteration:
+                if self._next_rows is None:
+                    raise
+                self._rows = self._next_rows
+                self._row_iter = iter(self._rows)
+                self._next_rows = self._query.fetch() if not self._query.finished else None
 
 
 class TrinoQuery:
