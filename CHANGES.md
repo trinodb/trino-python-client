@@ -6,6 +6,19 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.338.0
+
+* Lazily load spooled result set segments to keep memory usage constant.
+  ([#597](https://github.com/trinodb/trino-python-client/pull/597))
+* Send heartbeats in a separate thread while downloading spooled segments.
+  ([#604](https://github.com/trinodb/trino-python-client/pull/604))
+* Add support for the `NUMBER` type.
+  ([#610](https://github.com/trinodb/trino-python-client/pull/610))
+* Fix spurious warnings and bogus index when reflecting Iceberg tables.
+  ([#520](https://github.com/trinodb/trino-python-client/pull/520))
+* Fix `columns` property to handle lazy spooled result segments.
+  ([#599](https://github.com/trinodb/trino-python-client/pull/599))
+
 ## Release 0.337.0
 
 * Make this package PEP-561 compatible by adding a `py.typed` marker.
