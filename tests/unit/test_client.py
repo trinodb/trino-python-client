@@ -1448,3 +1448,95 @@ def test_decoder_factory_raises_with_message_on_missing_lz4():
             match=f"lz4 is not installed so json\\+lz4 encoding is not supported: {error_message}"
         ):
             factory.create("json+lz4")
+
+
+class _FinishedQuery:
+    """Query stub that is already finished. All rows come from the initial batch."""
+    finished = True
+
+    def fetch(self):
+        return []
+
+
+@pytest.mark.parametrize("consecutive_failures", (1, 2, 3))
+def test_trino_result_resumes_after_transient_error_in_rows_iterator(consecutive_failures):
+    class FlakyIterator:
+        """Fails a given number of times at the third row, succeeds when retried."""
+        def __init__(self, failures):
+            self._rows = iter([[1], [2], [3]])
+            self._served = 0
+            self._remaining_failures = failures
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self._served == 2 and self._remaining_failures > 0:
+                self._remaining_failures -= 1
+                raise IOError("segment download failed")
+            self._served += 1
+            return next(self._rows)
+
+    result = TrinoResult(_FinishedQuery(), FlakyIterator(consecutive_failures))
+    it = iter(result)
+    assert next(it) == [1]
+    assert next(it) == [2]
+    # Each retry surfaces the error again until the underlying iterator recovers
+    for _ in range(consecutive_failures):
+        with pytest.raises(IOError):
+            next(it)
+    # The iterator stays usable and resumes where the failure happened
+    assert next(it) == [3]
+    with pytest.raises(StopIteration):
+        next(it)
+    assert result.rownumber == 3
+
+
+def test_trino_result_reraises_persistent_error_instead_of_stopping():
+    class FailingIterator:
+        def __init__(self):
+            self._count = 0
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            if self._count >= 3:
+                raise IOError("segment download failed")
+            self._count += 1
+            return [self._count]
+
+    result = TrinoResult(_FinishedQuery(), FailingIterator())
+    it = iter(result)
+    assert [next(it), next(it), next(it)] == [[1], [2], [3]]
+    # The error keeps surfacing instead of turning into StopIteration
+    # which dbapi would report as a normally exhausted result set
+    with pytest.raises(IOError):
+        next(it)
+    with pytest.raises(IOError):
+        next(it)
+
+
+def test_trino_result_resumes_after_transient_fetch_error():
+    class FlakyQuery:
+        def __init__(self):
+            self.finished = False
+            self._fetches = 0
+
+        def fetch(self):
+            self._fetches += 1
+            if self._fetches == 1:
+                raise IOError("connection reset")
+            self.finished = True
+            return [[2]]
+
+    result = TrinoResult(FlakyQuery(), [[1]])
+    it = iter(result)
+    # The next batch is prefetched before the first row is served so the
+    # fetch error surfaces before any rows
+    with pytest.raises(IOError):
+        next(it)
+    assert next(it) == [1]
+    assert next(it) == [2]
+    with pytest.raises(StopIteration):
+        next(it)

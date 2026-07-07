@@ -821,8 +821,13 @@ class TrinoResult:
     """
     Represent the result of a Trino query as an iterator on rows.
 
-    This class implements the iterator protocol as a generator type
-    https://docs.python.org/3/library/stdtypes.html#generator-types
+    This class implements the iterator protocol on the instance itself instead
+    of as a generator. A generator that raises an exception is finalized and
+    every subsequent next() raises StopIteration indistinguishable from normal
+    exhaustion. Keeping the iteration state on the instance lets a transient
+    error (e.g. a failed spooled segment download) propagate to the caller
+    while the iterator stays usable so a retried next() resumes where the
+    failure happened instead of silently dropping the remaining rows.
     """
 
     def __init__(self, query, rows: List[Any]):
@@ -830,6 +835,10 @@ class TrinoResult:
         # Initial rows from the first POST request
         self._rows = rows
         self._rownumber = 0
+        # Iterator over the batch of rows currently being served
+        self._current_batch: Optional[Iterator[Any]] = None
+        # Rows prefetched while the current batch is being served
+        self._next_rows: Optional[Any] = None
 
     @property
     def rows(self):
@@ -844,15 +853,28 @@ class TrinoResult:
         return self._rownumber
 
     def __iter__(self):
-        # A query only transitions to a FINISHED state when the results are fully consumed:
-        # The reception of the data is acknowledged by calling the next_uri before exposing the data through dbapi.
-        while not self._query.finished or self._rows is not None:
-            next_rows = self._query.fetch() if not self._query.finished else None
-            for row in self._rows:
-                self._rownumber += 1
-                yield row
+        return self
 
-            self._rows = next_rows
+    def __next__(self):
+        while True:
+            if self._current_batch is None:
+                if self._query.finished and self._rows is None:
+                    raise StopIteration
+                # A query only transitions to a FINISHED state when the results are fully consumed:
+                # The reception of the data is acknowledged by calling the next_uri before exposing the data through
+                # dbapi.
+                self._next_rows = self._query.fetch() if not self._query.finished else None
+                self._current_batch = iter(self._rows)
+
+            try:
+                row = next(self._current_batch)
+            except StopIteration:
+                self._rows = self._next_rows
+                self._next_rows = None
+                self._current_batch = None
+                continue
+            self._rownumber += 1
+            return row
 
 
 class TrinoQuery:
@@ -1362,6 +1384,8 @@ class SegmentIterator:
         self._rows: Iterator[List[List[Any]]] = iter([])
         self._finished = False
         self._current_segment: Optional[DecodableSegment] = None
+        # Segment whose decoding failed. Retried on the next call instead of being acknowledged and skipped.
+        self._pending_segment: Optional[DecodableSegment] = None
         if (request is not None) != bool(heartbeat_interval):
             raise ValueError("request and heartbeat_interval must be both provided or both omitted")
         self._request = request
@@ -1381,29 +1405,36 @@ class SegmentIterator:
                 self._load_next_segment()
 
     def _load_next_segment(self):
-        try:
+        # A segment is acknowledged only after its rows were decoded successfully. If the previous attempt failed
+        # mid-decode (e.g. the spooled segment download failed) the same segment is retried instead of being skipped.
+        if self._pending_segment is None:
             if self._current_segment:
                 segment = self._current_segment.segment
                 if isinstance(segment, SpooledSegment):
                     segment.acknowledge()
+                self._current_segment = None
 
-            self._current_segment = next(self._segments)
-            if self._decoder is None:
-                self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(self._mapper)
-                                               .create(self._current_segment.encoding))
+            try:
+                self._pending_segment = next(self._segments)
+            except StopIteration:
+                self._finished = True
+                return
 
-            if isinstance(self._current_segment.segment, SpooledSegment) and self._request and self._heartbeat_interval:
-                # Downloading a spooled segment may take some time. In the meantime, send heartbeat
-                # requests so the coordinator doesn't think we lost interest and close the query.
-                with _RequestHeartbeat(self._request, self._heartbeat_interval):
-                    rows = self._decoder.decode(self._current_segment.segment)
-            else:
-                rows = self._decoder.decode(self._current_segment.segment)
+        if self._decoder is None:
+            self._decoder = SegmentDecoder(CompressedQueryDataDecoderFactory(self._mapper)
+                                           .create(self._pending_segment.encoding))
 
-            self._rows = iter(rows)
+        if isinstance(self._pending_segment.segment, SpooledSegment) and self._request and self._heartbeat_interval:
+            # Downloading a spooled segment may take some time. In the meantime, send heartbeat
+            # requests so the coordinator doesn't think we lost interest and close the query.
+            with _RequestHeartbeat(self._request, self._heartbeat_interval):
+                rows = self._decoder.decode(self._pending_segment.segment)
+        else:
+            rows = self._decoder.decode(self._pending_segment.segment)
 
-        except StopIteration:
-            self._finished = True
+        self._rows = iter(rows)
+        self._current_segment = self._pending_segment
+        self._pending_segment = None
 
 
 class SegmentDecoder():

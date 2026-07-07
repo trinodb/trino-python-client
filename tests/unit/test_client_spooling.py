@@ -200,3 +200,56 @@ def test_fetch_passes_request_and_interval_to_segment_iterator(heartbeat_interva
 
     assert MockSI.call_args.kwargs["request"] is req
     assert MockSI.call_args.kwargs["heartbeat_interval"] == heartbeat_interval
+
+
+class _FakeSpooledSegment(SpooledSegment):
+    """SpooledSegment that records acknowledgments instead of sending requests."""
+    def __init__(self, name):
+        super().__init__(
+            {
+                "type": "spooled",
+                "uri": f"http://storage/{name}",
+                "ackUri": f"http://storage/{name}/ack",
+                "metadata": {"uncompressedSize": "10", "segmentSize": "10"},
+            },
+            request=None,
+        )
+        self.acknowledge_count = 0
+
+    def acknowledge(self):
+        self.acknowledge_count += 1
+
+
+class _FlakyDecoder:
+    """Decoder that fails the first decode of `failing_segment`, then succeeds."""
+    def __init__(self, rows_by_segment, failing_segment):
+        self._rows_by_segment = rows_by_segment
+        self._failing_segment = failing_segment
+
+    def decode(self, segment):
+        if segment is self._failing_segment:
+            self._failing_segment = None
+            raise IOError("segment download failed")
+        return self._rows_by_segment[segment]
+
+
+@pytest.mark.parametrize("failing_segment_index", (0, 1, 2))
+def test_segment_iterator_retries_failed_segment_without_skipping_it(failing_segment_index):
+    segs = [_FakeSpooledSegment(name) for name in ("s1", "s2", "s3")]
+    segments = [DecodableSegment("json", None, seg) for seg in segs]
+    iterator = SegmentIterator(segments, mapper=None)
+    iterator._decoder = _FlakyDecoder(
+        {seg: [[index + 1]] for index, seg in enumerate(segs)},
+        failing_segment=segs[failing_segment_index],
+    )
+
+    rows = [next(iterator) for _ in range(failing_segment_index)]
+    with pytest.raises(IOError):
+        next(iterator)
+    # The failed segment was neither acknowledged nor skipped. Retrying should deliver its rows.
+    assert segs[failing_segment_index].acknowledge_count == 0
+    rows.extend(iterator)
+    assert rows == [[1], [2], [3]]
+    with pytest.raises(StopIteration):
+        next(iterator)
+    assert [seg.acknowledge_count for seg in segs] == [1, 1, 1]
