@@ -118,6 +118,8 @@ class TrinoDialect(DefaultDialect):
         if url.port:
             kwargs["port"] = url.port
 
+        # url.database (catalog and schema) is the one component SQLAlchemy leaves
+        # url-encoded, so it still needs decoding here.
         db_parts = (url.database or "system").split("/")
         if len(db_parts) == 1:
             kwargs["catalog"] = unquote_plus(db_parts[0])
@@ -127,50 +129,55 @@ class TrinoDialect(DefaultDialect):
         else:
             raise ValueError(f"Unexpected database format {url.database}")
 
+        # SQLAlchemy's make_url already decodes the username, password and query
+        # values, so they are used as-is. Running them through unquote_plus again
+        # double-decodes them and turns a literal '+' into a space. For example a
+        # password supplied as "pass%2Bword", which SQLAlchemy hands over as
+        # "pass+word", would otherwise become "pass word" and fail authentication.
         if url.username:
-            kwargs["user"] = unquote_plus(url.username)
+            kwargs["user"] = url.username
 
         if url.password:
             if not url.username:
                 raise ValueError("Username is required when specify password in connection URL")
-            kwargs["auth"] = BasicAuthentication(unquote_plus(url.username), unquote_plus(url.password))
+            kwargs["auth"] = BasicAuthentication(url.username, url.password)
 
         if "access_token" in url.query:
-            kwargs["auth"] = JWTAuthentication(unquote_plus(url.query["access_token"]))
+            kwargs["auth"] = JWTAuthentication(url.query["access_token"])
 
         if "cert" in url.query and "key" in url.query:
-            kwargs["auth"] = CertificateAuthentication(unquote_plus(url.query['cert']), unquote_plus(url.query['key']))
+            kwargs["auth"] = CertificateAuthentication(url.query['cert'], url.query['key'])
 
         if "externalAuthentication" in url.query:
             kwargs["auth"] = OAuth2Authentication()
 
         if "source" in url.query:
-            kwargs["source"] = unquote_plus(url.query["source"])
+            kwargs["source"] = url.query["source"]
         else:
             kwargs["source"] = "trino-sqlalchemy"
 
         if "session_properties" in url.query:
-            kwargs["session_properties"] = json.loads(unquote_plus(url.query["session_properties"]))
+            kwargs["session_properties"] = json.loads(url.query["session_properties"])
 
         if "http_headers" in url.query:
-            kwargs["http_headers"] = json.loads(unquote_plus(url.query["http_headers"]))
+            kwargs["http_headers"] = json.loads(url.query["http_headers"])
 
         if "extra_credential" in url.query:
             kwargs["extra_credential"] = [
-                tuple(extra_credential) for extra_credential in json.loads(unquote_plus(url.query["extra_credential"]))
+                tuple(extra_credential) for extra_credential in json.loads(url.query["extra_credential"])
             ]
 
         if "client_tags" in url.query:
-            kwargs["client_tags"] = json.loads(unquote_plus(url.query["client_tags"]))
+            kwargs["client_tags"] = json.loads(url.query["client_tags"])
 
         if "legacy_primitive_types" in url.query:
-            kwargs["legacy_primitive_types"] = json.loads(unquote_plus(url.query["legacy_primitive_types"]))
+            kwargs["legacy_primitive_types"] = json.loads(url.query["legacy_primitive_types"])
 
         if "legacy_prepared_statements" in url.query:
-            kwargs["legacy_prepared_statements"] = json.loads(unquote_plus(url.query["legacy_prepared_statements"]))
+            kwargs["legacy_prepared_statements"] = json.loads(url.query["legacy_prepared_statements"])
 
         if "verify" in url.query:
-            kwargs["verify"] = json.loads(unquote_plus(url.query["verify"]))
+            kwargs["verify"] = json.loads(url.query["verify"])
 
         if "roles" in url.query:
             kwargs["roles"] = json.loads(url.query["roles"])
