@@ -287,7 +287,7 @@ class TestTrinoDialect:
         assert result == partition_names
 
     def test_get_partitions_iceberg_table_returns_none(self):
-        # An Iceberg ``$partitions`` table has this exact shape and must be
+        # An Iceberg ``$partitions`` table has this exact shape and will be
         # recognized as metadata rather than treated as partition columns.
         partition_names = ["partition", "record_count", "file_count", "total_size", "data"]
         data_types = ["row(...)", "bigint", "bigint", "bigint", "row(...)"]
