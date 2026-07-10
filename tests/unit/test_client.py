@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import threading
 import time
 import urllib
@@ -1540,3 +1541,78 @@ def test_trino_result_resumes_after_transient_fetch_error():
     assert next(it) == [2]
     with pytest.raises(StopIteration):
         next(it)
+
+
+@httprettified
+def test_execute_drains_spooled_update_query_with_trailing_page():
+    """An update statement whose count row arrives over the spooling protocol still has a
+    trailing page to drain. The rows are a lazy iterator at that point, so the drain loop
+    must chain onto it rather than use list concatenation.
+    """
+    query_id = "20210817_140827_00000_arvdv"
+    statement_path = f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}"
+
+    def statement_uri(token):
+        return f"{statement_path}/{query_id}/{token}"
+
+    columns = [{
+        "name": "rows",
+        "type": "bigint",
+        "typeSignature": {"rawType": "bigint", "arguments": [], "typeArguments": []},
+    }]
+    # The update-count row is delivered as a base64 encoded inline segment.
+    encoded_rows = base64.b64encode(b"[[3]]").decode("utf8")
+
+    post_response = {
+        "id": query_id,
+        "nextUri": statement_uri(1),
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "stats": {"state": "QUEUED"},
+    }
+    spooled_update_response = {
+        "id": query_id,
+        "nextUri": statement_uri(2),
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "updateType": "INSERT",
+        "updateCount": 3,
+        "columns": columns,
+        "data": {
+            "encoding": "json",
+            "segments": [{
+                "type": "inline",
+                "metadata": {"uncompressedSize": "5", "segmentSize": "5"},
+                "data": encoded_rows,
+            }],
+        },
+        "stats": {"state": "FINISHED"},
+    }
+    # Trailing page with no data. It only moves the query to a terminal state.
+    final_response = {
+        "id": query_id,
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "updateType": "INSERT",
+        "updateCount": 3,
+        "columns": columns,
+        "stats": {"state": "FINISHED"},
+    }
+
+    httpretty.register_uri(method=httpretty.POST, uri=statement_path, body=json.dumps(post_response))
+    httpretty.register_uri(method=httpretty.GET, uri=statement_uri(1), body=json.dumps(spooled_update_response))
+    httpretty.register_uri(method=httpretty.GET, uri=statement_uri(2), body=json.dumps(final_response))
+
+    request = TrinoRequest(
+        host="coordinator",
+        port=constants.DEFAULT_TLS_PORT,
+        client_session=ClientSession(user="test", encoding="json"),
+        http_scheme=constants.HTTPS,
+    )
+    query = TrinoQuery(request, query="INSERT INTO some_table VALUES (1), (2), (3)")
+
+    result = query.execute()
+
+    assert query.finished is True
+    assert query.update_type == "INSERT"
+    assert query.update_count == 3
+    assert query.stats["state"] == "FINISHED"
+    # The count row survives draining and the rows stay lazily iterable.
+    assert list(result) == [[3]]

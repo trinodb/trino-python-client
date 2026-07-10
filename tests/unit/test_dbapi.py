@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import threading
 import uuid
 from unittest.mock import patch
@@ -373,3 +374,110 @@ def test_error_when_auth_over_http():
 
 def test_no_error_when_auth_over_https():
     Connection("mytrinoserver.domain", http_scheme=constants.HTTPS, auth=BasicAuthentication("u", "p"))
+
+
+def _statement_uri(query_id, token):
+    return f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/{query_id}/{token}"
+
+
+@httprettified
+def test_cursor_close_does_not_cancel_finished_update_query():
+    """Regression test for https://github.com/trinodb/trino-python-client/issues/601
+
+    An update statement (INSERT/UPDATE/DELETE) reports its affected row count as
+    a single synthetic row while Trino still returns a final nextUri. Closing the
+    cursor without fetching must drain that nextUri instead of issuing a DELETE,
+    otherwise the already-completed statement is reported as USER_CANCELED.
+    """
+    query_id = "20210817_140827_00000_arvdv"
+    statement_path = f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}"
+
+    post_response = {
+        "id": query_id,
+        "nextUri": _statement_uri(query_id, 1),
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "stats": {"state": "QUEUED"},
+    }
+    # The update-count row arrives together with a still-present nextUri.
+    update_response = {
+        "id": query_id,
+        "nextUri": _statement_uri(query_id, 2),
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "updateType": "INSERT",
+        "updateCount": 1000,
+        "columns": [{
+            "name": "rows",
+            "type": "bigint",
+            "typeSignature": {"rawType": "bigint", "arguments": [], "typeArguments": []},
+        }],
+        "data": [[1000]],
+        "stats": {"state": "FINISHED"},
+    }
+    # Final response transitions the query to a terminal state (no nextUri).
+    # Trino keeps repeating updateType/updateCount on the trailing pages.
+    final_response = {
+        "id": query_id,
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "updateType": "INSERT",
+        "updateCount": 1000,
+        "columns": update_response["columns"],
+        "stats": {"state": "FINISHED"},
+    }
+
+    httpretty.register_uri(method=httpretty.POST, uri=statement_path, body=json.dumps(post_response))
+    httpretty.register_uri(method=httpretty.GET, uri=_statement_uri(query_id, 1), body=json.dumps(update_response))
+    httpretty.register_uri(method=httpretty.GET, uri=_statement_uri(query_id, 2), body=json.dumps(final_response))
+    httpretty.register_uri(method=httpretty.DELETE, uri=_statement_uri(query_id, 2), status=204)
+
+    with connect("coordinator", user="test", http_scheme=constants.HTTPS) as conn:
+        cur = conn.cursor()
+        cur.execute("INSERT INTO some_table VALUES (1), (2), (3)")
+        # execute() must have drained the query to a terminal state.
+        assert cur._query.finished is True
+        assert cur.rowcount == 1000
+        cur.close()
+
+    delete_requests = [r for r in httpretty.latest_requests() if r.method == "DELETE"]
+    assert delete_requests == [], "closing a finished update query must not issue a cancel"
+
+
+@httprettified
+def test_cursor_close_cancels_unfinished_query():
+    """Closing a cursor whose result set has not been fully consumed must still
+    cancel the running query so the server can free its resources.
+    """
+    query_id = "20210817_140827_00000_arvdv"
+    statement_path = f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}"
+
+    post_response = {
+        "id": query_id,
+        "nextUri": _statement_uri(query_id, 1),
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "stats": {"state": "QUEUED"},
+    }
+    # A SELECT that returns a first page of data with more still pending.
+    data_response = {
+        "id": query_id,
+        "nextUri": _statement_uri(query_id, 2),
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{query_id}",
+        "columns": [{
+            "name": "x",
+            "type": "bigint",
+            "typeSignature": {"rawType": "bigint", "arguments": [], "typeArguments": []},
+        }],
+        "data": [[1]],
+        "stats": {"state": "RUNNING"},
+    }
+
+    httpretty.register_uri(method=httpretty.POST, uri=statement_path, body=json.dumps(post_response))
+    httpretty.register_uri(method=httpretty.GET, uri=_statement_uri(query_id, 1), body=json.dumps(data_response))
+    httpretty.register_uri(method=httpretty.DELETE, uri=_statement_uri(query_id, 2), status=204)
+
+    with connect("coordinator", user="test", http_scheme=constants.HTTPS) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT x FROM some_table")
+        assert cur._query.finished is False
+        cur.close()
+
+    delete_requests = [r for r in httpretty.latest_requests() if r.method == "DELETE"]
+    assert len(delete_requests) == 1, "closing an unfinished query must cancel it"
