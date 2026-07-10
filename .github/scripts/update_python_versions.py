@@ -26,8 +26,9 @@ import urllib.request
 from typing import Any
 from typing import Callable
 
+# From https://github.com/python/devguide/blob/8996911bc6f85f589efc3dc0111ba19351271553/_tools/generate_release_cycle.py#L44
 RELEASE_CYCLE_URL = (
-    "https://raw.githubusercontent.com/python/devguide/main/include/release-cycle.json"
+    "https://peps.python.org/api/release-cycle.json"
 )
 
 
