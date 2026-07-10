@@ -241,6 +241,53 @@ def test_insert_multiple_statements(trino_connection):
     sqlalchemy_version() < "1.4",
     reason="columns argument to select() must be a Python list or other iterable"
 )
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_insert_is_not_cancelled(trino_connection):
+    """Regression test for https://github.com/trinodb/trino-python-client/issues/601
+
+    The SQLAlchemy dialect closes the cursor after a DML statement without
+    fetching its result. Previously that issued a spurious cancel and the
+    server reported the already-completed INSERT as USER_CANCELED. The rows are
+    inserted either way, so this asserts on the server-side query state.
+    """
+    engine, conn = trino_connection
+    if not engine.dialect.has_schema(conn, "test"):
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
+    metadata = sqla.MetaData()
+    probes = sqla.Table(f"test_issue_601_{uuid.uuid4().hex[:12]}",
+                        metadata,
+                        sqla.Column('id', sqla.Integer),
+                        sqla.Column('name', sqla.String),
+                        schema="test")
+    metadata.create_all(engine)
+
+    insert_query_ids = []
+
+    def capture_insert_query_id(conn_, cursor, statement, parameters, context, executemany):
+        if "INSERT INTO" in statement.upper():
+            insert_query_ids.append(cursor.query_id)
+
+    sqla.event.listen(engine, "after_cursor_execute", capture_insert_query_id)
+    try:
+        conn.execute(probes.insert(), [{"id": i, "name": f"n{i}"} for i in range(100)])
+
+        assert insert_query_ids, "did not observe an INSERT statement being executed"
+        for query_id in insert_query_ids:
+            state, error_code = conn.execute(sqla.text(
+                "SELECT state, error_code FROM system.runtime.queries WHERE query_id = :query_id"
+            ), {"query_id": query_id}).one()
+            assert state == "FINISHED", f"query {query_id} ended in state {state} ({error_code})"
+            assert error_code is None
+    finally:
+        sqla.event.remove(engine, "after_cursor_execute", capture_insert_query_id)
+        metadata.drop_all(engine)
+
+
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="columns argument to select() must be a Python list or other iterable"
+)
 @pytest.mark.parametrize('trino_connection', ['tpch'], indirect=True)
 def test_operators(trino_connection):
     _, conn = trino_connection
