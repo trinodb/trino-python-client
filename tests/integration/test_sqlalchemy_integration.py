@@ -671,6 +671,34 @@ def test_get_table_comment(trino_connection):
         metadata.drop_all(engine)
 
 
+@pytest.mark.skipif(
+    trino_version() < 395,
+    reason="Memory connector supports column comments since Trino 395"
+)
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_get_columns_with_comments(trino_connection):
+    engine, conn = trino_connection
+
+    if not engine.dialect.has_schema(conn, "test"):
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
+
+    table_name = "test.table_with_column_comments"
+    try:
+        conn.execute(sqla.text(
+            f"CREATE TABLE {table_name} ("
+            "id INTEGER COMMENT 'this is the id column', "
+            "name VARCHAR"
+            ")"
+        ))
+        columns = sqla.inspect(engine).get_columns(table_name='table_with_column_comments', schema="test")
+        columns_by_name = {column['name']: column for column in columns}
+        assert columns_by_name['id']['comment'] == 'this is the id column'
+        assert columns_by_name['name']['comment'] is None
+    finally:
+        conn.execute(sqla.text(f"DROP TABLE IF EXISTS {table_name}"))
+
+
 @pytest.mark.parametrize('trino_connection', ['memory/test'], indirect=True)
 @pytest.mark.parametrize('schema', [None, 'test'])
 def test_get_table_names(trino_connection, schema):

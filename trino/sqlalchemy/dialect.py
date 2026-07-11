@@ -190,7 +190,8 @@ class TrinoDialect(DefaultDialect):
                 "column_name",
                 "data_type",
                 "column_default",
-                UPPER("is_nullable") AS "is_nullable"
+                UPPER("is_nullable") AS "is_nullable",
+                "comment"
             FROM "information_schema"."columns"
             WHERE "table_schema" = :schema
               AND "table_name" = :table
@@ -205,6 +206,7 @@ class TrinoDialect(DefaultDialect):
                 type=datatype.parse_sqltype(record.data_type),
                 nullable=record.is_nullable == "YES",
                 default=record.column_default,
+                comment=record.comment,
             )
             columns.append(column)
         return columns
