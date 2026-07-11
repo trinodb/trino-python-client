@@ -253,3 +253,77 @@ def test_segment_iterator_retries_failed_segment_without_skipping_it(failing_seg
     with pytest.raises(StopIteration):
         next(iterator)
     assert [seg.acknowledge_count for seg in segs] == [1, 1, 1]
+
+
+def _spooled_segment_with_headers(coordinator_host, custom_headers):
+    segment_to = {
+        "type": "spooled",
+        "uri": "https://coordinator/v1/spooled/download/seg1",
+        "ackUri": "https://coordinator/v1/spooled/ack/seg1",
+        "headers": {"X-Trino-Spooling-Token": ["token-abc"]},
+        "metadata": {"segmentSize": "1", "uncompressedSize": "1"},
+    }
+    request = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="https",
+    )
+    return SpooledSegment(
+        segment_to,
+        request,
+        coordinator_host=coordinator_host,
+        custom_headers=custom_headers,
+    )
+
+
+def test_send_spooling_request_forwards_custom_headers_to_coordinator():
+    custom_headers = {"X-Auth-Gateway-Token": "user-token"}
+    segment = _spooled_segment_with_headers(coordinator_host="coordinator", custom_headers=custom_headers)
+
+    recorded = {}
+
+    def fake_get(uri, headers=None, **kwargs):
+        recorded["headers"] = headers
+        return mock.Mock(ok=True)
+
+    segment._request._get = fake_get
+    segment._send_spooling_request(segment.uri)
+
+    assert recorded["headers"]["X-Auth-Gateway-Token"] == "user-token"
+    assert recorded["headers"]["X-Trino-Spooling-Token"] == "token-abc"
+
+
+def test_send_spooling_request_does_not_forward_custom_headers_to_external_storage():
+    custom_headers = {"X-Auth-Gateway-Token": "user-token"}
+    segment = _spooled_segment_with_headers(coordinator_host="coordinator", custom_headers=custom_headers)
+
+    recorded = {}
+
+    def fake_get(uri, headers=None, **kwargs):
+        recorded["headers"] = headers
+        return mock.Mock(ok=True)
+
+    segment._request._get = fake_get
+    external_uri = "https://s3.amazonaws.com/bucket/seg1?X-Amz-Signature=abc"
+    segment._send_spooling_request(external_uri)
+
+    assert "X-Auth-Gateway-Token" not in recorded["headers"]
+    assert recorded["headers"]["X-Trino-Spooling-Token"] == "token-abc"
+
+
+def test_send_spooling_request_segment_header_takes_precedence_over_custom_header():
+    # Custom header uses the same name as the segment protocol header; the segment header must win.
+    custom_headers = {"X-Trino-Spooling-Token": "should-not-be-used"}
+    segment = _spooled_segment_with_headers(coordinator_host="coordinator", custom_headers=custom_headers)
+
+    recorded = {}
+
+    def fake_get(uri, headers=None, **kwargs):
+        recorded["headers"] = headers
+        return mock.Mock(ok=True)
+
+    segment._request._get = fake_get
+    segment._send_spooling_request(segment.uri)
+
+    assert recorded["headers"]["X-Trino-Spooling-Token"] == "token-abc"
