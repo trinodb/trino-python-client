@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import threading
 from collections.abc import Mapping
 from collections.abc import Sequence
 from textwrap import dedent
@@ -423,15 +424,35 @@ class TrinoDialect(DefaultDialect):
 
     @classmethod
     def _get_server_version_info(cls, connection: Connection) -> Any:
-        def get_server_version_info(_):
-            query = "SELECT version()"
-            try:
-                res = connection.execute(sql.text(query))
-                version = res.scalar()
-                return tuple([version])
-            except exc.ProgrammingError as e:
-                logger.debug(f"Failed to get server version: {e.orig.message}")
+        lock = threading.Lock()
+        resolving = threading.local()
+
+        def get_server_version_info(self):
+            if "_trino_server_version_info" in self.__dict__:
+                return self.__dict__["_trino_server_version_info"]
+            # The version query goes through the same SQLAlchemy machinery as any other query. A caller
+            # that reads this property before every execute re-enters the getter while that query is
+            # still in flight. Recursing there would never terminate, so the re-entrant read returns
+            # None instead. Reads from other threads are not re-entrant. Those wait on the lock and
+            # get the real value.
+            if getattr(resolving, "in_progress", False):
                 return None
+            with lock:
+                if "_trino_server_version_info" in self.__dict__:
+                    return self.__dict__["_trino_server_version_info"]
+                resolving.in_progress = True
+                query = "SELECT version()"
+                try:
+                    res = connection.execute(sql.text(query))
+                    version = res.scalar()
+                    value = tuple([version])
+                except exc.ProgrammingError as e:
+                    logger.debug("Failed to get server version: %s", e)
+                    value = None
+                finally:
+                    resolving.in_progress = False
+                self.__dict__["_trino_server_version_info"] = value
+                return value
 
         # Make server_version_info lazy in order to only make HTTP calls if user explicitly requests it.
         cls.server_version_info = property(get_server_version_info, lambda instance, value: None)

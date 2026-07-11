@@ -818,18 +818,27 @@ def test_get_view_names_raises(trino_connection):
 @pytest.mark.skipif(trino_version() == 351, reason="version() not supported in older Trino versions")
 def test_version_is_lazy(trino_connection):
     _, conn = trino_connection
+    # The suite can run against a reused, long-lived cluster. Count queries relative to
+    # what the server already has in its history.
+    baseline = _num_queries_containing_string(conn, "SELECT version()")
     result = conn.execute(sqla.text("SELECT 1"))
     result.fetchall()
     num_queries = _num_queries_containing_string(conn, "SELECT version()")
-    assert num_queries == 0
+    assert num_queries == baseline
     version_info = conn.dialect.server_version_info
     assert isinstance(version_info, tuple)
     num_queries = _num_queries_containing_string(conn, "SELECT version()")
-    assert num_queries == 1
+    assert num_queries == baseline + 1
+    # Reading server_version_info again should be served from the cache and must
+    # not issue another SELECT version() query.
+    version_info = conn.dialect.server_version_info
+    assert isinstance(version_info, tuple)
+    num_queries = _num_queries_containing_string(conn, "SELECT version()")
+    assert num_queries == baseline + 1
 
 
 def _num_queries_containing_string(connection, query_string):
-    statement = sqla.text("select query from system.runtime.queries order by query_id desc offset 1 limit 1")
+    statement = sqla.text("select query from system.runtime.queries")
     result = connection.execute(statement)
     rows = result.fetchall()
     return len(list(filter(lambda rec: query_string in rec[0], rows)))
