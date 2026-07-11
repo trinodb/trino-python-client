@@ -54,6 +54,30 @@ rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
 `trino.dbapi.Cursor.arraysize` accordingly.
 
+**Monitoring query progress**
+
+Since queries can take a while to complete, it is useful to be able to monitor
+their progress (e.g. to log the query ID and its state) while they are still
+running, rather than only after all rows have been fetched. Pass a
+`stats_callback` to `Connection.cursor()` to have it invoked with the query
+stats every time the client polls the coordinator:
+
+```python
+def log_progress(stats):
+    print(stats["queryId"], stats.get("state"))
+
+cur = conn.cursor(stats_callback=log_progress)
+cur.execute("SELECT * FROM system.runtime.nodes")
+rows = cur.fetchall()
+```
+
+The callback fires once as soon as the query is submitted, so the query ID and
+initial state are available while the query is still running, and again after
+every subsequent poll of the coordinator. Each invocation receives a copy of
+the query's current stats dictionary (the same dictionary returned by
+`Cursor.stats`), so mutating it has no effect on the client. Any exception
+raised by the callback propagates to the caller of `execute()`/`fetch()`.
+
 ### SQLAlchemy
 
 **Prerequisite**

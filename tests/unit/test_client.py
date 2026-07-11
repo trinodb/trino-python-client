@@ -1244,6 +1244,44 @@ def test_trino_query_response_headers(sample_get_response_data):
         assert isinstance(result, TrinoResult)
 
 
+def test_stats_callback_cannot_mutate_query_stats():
+    received = []
+
+    def stats_callback(stats):
+        received.append(stats)
+        stats["state"] = "MUTATED"
+        stats["rootStage"]["subStages"][0]["stageId"] = "999"
+
+    query = TrinoQuery(
+        request=TrinoRequest(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(user="test"),
+            http_scheme="http",
+        ),
+        query="SELECT 1",
+        stats_callback=stats_callback,
+    )
+    query._stats = {
+        "queryId": "q1",
+        "state": "RUNNING",
+        "rootStage": {"stageId": "0", "subStages": [{"stageId": "1"}]},
+    }
+
+    query._report_stats()
+
+    assert received == [{
+        "queryId": "q1",
+        "state": "MUTATED",
+        "rootStage": {"stageId": "0", "subStages": [{"stageId": "999"}]},
+    }]
+    assert query.stats == {
+        "queryId": "q1",
+        "state": "RUNNING",
+        "rootStage": {"stageId": "0", "subStages": [{"stageId": "1"}]},
+    }
+
+
 def test_delay_exponential_without_jitter():
     max_delay = 1200.0
     get_delay = _DelayExponential(base=5, jitter=False, max_delay=max_delay)
