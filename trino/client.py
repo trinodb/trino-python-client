@@ -678,6 +678,10 @@ class TrinoRequest:
         # Update the request headers with the additional_http_headers
         http_headers.update(additional_http_headers or {})
 
+        # The Trino protocol expects UTF-8 encoded SQL text. Send the charset
+        # explicitly to match the Trino JDBC client. Users may still override it.
+        http_headers.setdefault(constants.HEADER_CONTENT_TYPE, constants.CONTENT_TYPE_TEXT_UTF8)
+
         http_response = self._post(
             self.statement_url,
             data=data,

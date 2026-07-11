@@ -169,11 +169,60 @@ def test_request_headers(mock_get_and_post):
 
     req.post("URL")
     _, post_kwargs = post.call_args
-    assert_headers(post_kwargs["headers"])
+    post_headers = post_kwargs["headers"]
+    assert post_headers[constants.HEADER_CONTENT_TYPE] == constants.CONTENT_TYPE_TEXT_UTF8
+    # Content-Type is specific to POST requests. Strip it before reusing the
+    # shared assertions (which count the common headers present on both).
+    del post_headers[constants.HEADER_CONTENT_TYPE]
+    assert_headers(post_headers)
 
     req.get("URL")
     _, get_kwargs = get.call_args
-    assert_headers(get_kwargs["headers"])
+    get_headers = get_kwargs["headers"]
+    assert constants.HEADER_CONTENT_TYPE not in get_headers
+    assert_headers(get_headers)
+
+
+def test_post_sets_content_type_charset(mock_get_and_post):
+    _, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http",
+    )
+
+    req.post("SELECT 1")
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_CONTENT_TYPE] == constants.CONTENT_TYPE_TEXT_UTF8
+
+
+def test_post_content_type_can_be_overridden(mock_get_and_post):
+    _, post = mock_get_and_post
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http",
+    )
+
+    req.post("SELECT 1", additional_http_headers={constants.HEADER_CONTENT_TYPE: "application/xyz"})
+    _, post_kwargs = post.call_args
+    assert post_kwargs["headers"][constants.HEADER_CONTENT_TYPE] == "application/xyz"
 
 
 def test_request_session_properties_headers(mock_get_and_post):
@@ -232,6 +281,7 @@ def test_additional_request_post_headers(mock_get_and_post):
 
     combined_headers = req.http_headers
     combined_headers.update(additional_headers)
+    combined_headers.setdefault(constants.HEADER_CONTENT_TYPE, constants.CONTENT_TYPE_TEXT_UTF8)
 
     req.post(sql, additional_headers)
 
