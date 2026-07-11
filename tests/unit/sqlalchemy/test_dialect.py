@@ -314,3 +314,46 @@ def test_trino_connection_oauth2_auth():
     _, cparams = dialect.create_connect_args(url)
 
     assert isinstance(cparams['auth'], OAuth2Authentication)
+
+
+def test_server_version_info_does_not_recurse_and_is_cached():
+    # Regression test for https://github.com/trinodb/trino-python-client/issues/559
+    #
+    # aws-xray-sdk reads `dialect.server_version_info` before every execute. Since
+    # computing that property itself issues a `SELECT version()` query through
+    # `connection.execute`, a naive implementation causes aws-xray to read the
+    # property again while the query is in flight, recursing forever.
+    dialect = TrinoDialect()
+
+    class FakeResult:
+        def __init__(self, value):
+            self._value = value
+
+        def scalar(self):
+            return self._value
+
+    class FakeConnection:
+        def __init__(self, dialect):
+            self.dialect = dialect
+            self.execute_count = 0
+
+        def execute(self, *args, **kwargs):
+            # Mimic aws-xray-sdk's re-entrant read of server_version_info before
+            # every execute call.
+            self.dialect.server_version_info
+            self.execute_count += 1
+            return FakeResult("455")
+
+    fake_conn = FakeConnection(dialect)
+
+    dialect._get_server_version_info(fake_conn)
+
+    version_info = dialect.server_version_info
+    assert version_info == ("455",)
+    assert fake_conn.execute_count == 1
+
+    # Subsequent reads should be served from the cache and must not trigger
+    # another query.
+    assert dialect.server_version_info == ("455",)
+    assert dialect.server_version_info == ("455",)
+    assert fake_conn.execute_count == 1
