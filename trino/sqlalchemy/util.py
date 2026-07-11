@@ -6,12 +6,36 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 from urllib.parse import quote_plus
+from urllib.parse import urlparse
 
 from sqlalchemy import exc
 
 
 def _rfc_1738_quote(text):
     return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
+
+
+def _assert_valid_host(host: str) -> None:
+    # Parse with a leading "//" so a bare hostname is treated as the authority
+    # rather than a path. `urlparse(host).scheme` catches an embedded scheme.
+    try:
+        parsed = urlparse("//" + host)
+        invalid = bool(
+            urlparse(host).scheme
+            or parsed.port is not None
+            or parsed.path
+            or parsed.username
+            or parsed.password
+        )
+    except ValueError:
+        # A malformed port or IPv6 literal raises here.
+        invalid = True
+    if invalid:
+        raise exc.ArgumentError(
+            f"host must be a hostname only, without a scheme, port, path, or credentials. Got {host!r}. "
+            "For example, use 'example.com' instead of 'https://example.com' and pass the port via the "
+            "'port' argument."
+        )
 
 
 def _url(
@@ -55,6 +79,8 @@ def _url(
 
     if not host:
         raise exc.ArgumentError("host must be specified.")
+
+    _assert_valid_host(host)
 
     trino_url += host
 
