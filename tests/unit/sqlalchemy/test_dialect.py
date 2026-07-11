@@ -1,3 +1,5 @@
+import threading
+import time
 from typing import Any
 from typing import Dict
 from typing import List
@@ -349,3 +351,109 @@ def test_url_rejects_non_hostname_host(host):
 def test_url_accepts_bare_hostname(host):
     # A valid host must round-trip through make_url without error.
     assert make_url(trino_url(host=host, port=443, user="user")).host is not None
+
+
+def test_server_version_info_does_not_recurse_and_is_cached():
+    # Regression test for https://github.com/trinodb/trino-python-client/issues/559
+    #
+    # aws-xray-sdk reads `dialect.server_version_info` before every execute. Since
+    # computing that property itself issues a `SELECT version()` query through
+    # `connection.execute`, a naive implementation causes aws-xray to read the
+    # property again while the query is in flight, recursing forever.
+    dialect = TrinoDialect()
+
+    class FakeResult:
+        def __init__(self, value):
+            self._value = value
+
+        def scalar(self):
+            return self._value
+
+    class FakeConnection:
+        def __init__(self, dialect):
+            self.dialect = dialect
+            self.execute_count = 0
+
+        def execute(self, *args, **kwargs):
+            # Mimic aws-xray-sdk's re-entrant read of server_version_info before
+            # every execute call.
+            self.dialect.server_version_info
+            self.execute_count += 1
+            return FakeResult("455")
+
+    fake_conn = FakeConnection(dialect)
+
+    dialect._get_server_version_info(fake_conn)
+
+    version_info = dialect.server_version_info
+    assert version_info == ("455",)
+    assert fake_conn.execute_count == 1
+
+    # Subsequent reads should be served from the cache and must not trigger
+    # another query.
+    assert dialect.server_version_info == ("455",)
+    assert dialect.server_version_info == ("455",)
+    assert fake_conn.execute_count == 1
+
+
+def test_server_version_info_is_resolved_for_concurrent_readers():
+    # The re-entrancy guard must be scoped to the thread doing the lookup. A reader on another
+    # thread has to wait for the real version instead of observing the in-flight placeholder.
+    dialect = TrinoDialect()
+    query_in_flight = threading.Event()
+    release_query = threading.Event()
+
+    class FakeResult:
+        def __init__(self, value):
+            self._value = value
+
+        def scalar(self):
+            return self._value
+
+    class FakeConnection:
+        def __init__(self):
+            self.execute_count = 0
+
+        def execute(self, *args, **kwargs):
+            self.execute_count += 1
+            query_in_flight.set()
+            release_query.wait(timeout=10)
+            return FakeResult("455")
+
+    fake_conn = FakeConnection()
+    dialect._get_server_version_info(fake_conn)
+
+    results = {}
+
+    def read(name):
+        results[name] = dialect.server_version_info
+
+    first = threading.Thread(target=read, args=("first",))
+    second = threading.Thread(target=read, args=("second",))
+
+    first.start()
+    assert query_in_flight.wait(timeout=10)
+    second.start()
+    # Give the second thread a chance to reach the getter while the query is still in flight.
+    time.sleep(0.1)
+    release_query.set()
+
+    first.join(timeout=10)
+    second.join(timeout=10)
+
+    assert results == {"first": ("455",), "second": ("455",)}
+    assert fake_conn.execute_count == 1
+
+
+def test_server_version_info_handles_orig_without_message_attribute():
+    # Only TrinoQueryError exposes `.message`. The DBAPI error wrapped by SQLAlchemy could be
+    # any exception. Failing to read the version must not raise AttributeError from the log call.
+    dialect = TrinoDialect()
+
+    class FailingConnection:
+        def execute(self, *args, **kwargs):
+            raise exc.ProgrammingError("SELECT version()", None, Exception("boom"))
+
+    dialect._get_server_version_info(FailingConnection())
+
+    assert dialect.server_version_info is None
