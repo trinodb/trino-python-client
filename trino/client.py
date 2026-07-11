@@ -1063,7 +1063,12 @@ class TrinoQuery:
                 segments.append(InlineSegment(inline_segment))
             elif segment_type == SegmentType.SPOOLED:
                 spooled_segment = cast(_SpooledSegmentTO, segment)
-                segments.append(SpooledSegment(spooled_segment, self._request.unauthenticated()))
+                segments.append(SpooledSegment(
+                    spooled_segment,
+                    self._request.unauthenticated(),
+                    coordinator_host=self._request._host,
+                    custom_headers=dict(self._request._client_session.headers),
+                ))
             else:
                 raise ValueError(f"Unsupported segment type: {segment_type}")
 
@@ -1238,10 +1243,14 @@ class SpooledSegment(Segment):
         self,
         segment: _SpooledSegmentTO,
         request: TrinoRequest,
+        coordinator_host: Optional[str] = None,
+        custom_headers: Optional[Dict[str, str]] = None,
     ) -> None:
         super().__init__(segment)
         self._segment = cast(_SpooledSegmentTO, segment)
         self._request = request
+        self._coordinator_host = coordinator_host
+        self._custom_headers = custom_headers or {}
 
     @property
     def data(self) -> bytes:
@@ -1274,12 +1283,18 @@ class SpooledSegment(Segment):
         executor.submit(acknowledge_request)
 
     def _send_spooling_request(self, uri: str, **kwargs) -> requests.Response:
-        headers_with_single_value = {}
+        headers: Dict[str, str] = {}
+        # Forward user-supplied custom headers (e.g. auth gateway headers) only when the
+        # request targets the Trino coordinator, never to external storage (e.g. S3 presigned
+        # URLs) where such headers can break the request. The per-segment protocol headers
+        # returned by the coordinator always take precedence.
+        if self._coordinator_host is not None and urllib.parse.urlsplit(uri).hostname == self._coordinator_host:
+            headers.update(self._custom_headers)
         for key, values in self.headers.items():
             if len(values) > 1:
                 raise ValueError(f"Header '{key}' contains multiple values: {values}")
-            headers_with_single_value[key] = values[0]
-        return self._request._get(uri, headers=headers_with_single_value, **kwargs)
+            headers[key] = values[0]
+        return self._request._get(uri, headers=headers, **kwargs)
 
     def __repr__(self):
         return (
