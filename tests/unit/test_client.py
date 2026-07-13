@@ -813,6 +813,28 @@ def test_trino_connection_error(monkeypatch, error_code, error_type, error_messa
     assert error_message in str(error)
 
 
+def test_trino_process_empty_200_response_error():
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http",
+    )
+
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 200
+    http_resp._content = b""
+    with pytest.raises(trino.exceptions.TrinoConnectionError) as error:
+        req.process(http_resp)
+    assert "received empty response from server (status 200)" in str(error.value)
+
+
 def test_extra_credential(mock_get_and_post):
     _, post = mock_get_and_post
 
