@@ -423,15 +423,23 @@ class TrinoDialect(DefaultDialect):
 
     @classmethod
     def _get_server_version_info(cls, connection: Connection) -> Any:
-        def get_server_version_info(_):
+        def get_server_version_info(self):
+            if "_trino_server_version_info" in self.__dict__:
+                return self.__dict__["_trino_server_version_info"]
+            # Seed the cache before running the query so that a re-entrant read
+            # triggered while the version query is in flight returns immediately
+            # instead of recursing infinitely.
+            self.__dict__["_trino_server_version_info"] = None
             query = "SELECT version()"
             try:
                 res = connection.execute(sql.text(query))
                 version = res.scalar()
-                return tuple([version])
+                value = tuple([version])
             except exc.ProgrammingError as e:
                 logger.debug(f"Failed to get server version: {e.orig.message}")
-                return None
+                value = None
+            self.__dict__["_trino_server_version_info"] = value
+            return value
 
         # Make server_version_info lazy in order to only make HTTP calls if user explicitly requests it.
         cls.server_version_info = property(get_server_version_info, lambda instance, value: None)
