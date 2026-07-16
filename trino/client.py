@@ -1010,6 +1010,16 @@ class TrinoQuery:
                 except StopIteration:
                     self._result.rows = []
 
+        # Update statements (INSERT/UPDATE/DELETE/DDL/...) report their affected
+        # row count as a single synthetic row, but Trino still returns a final
+        # nextUri that must be consumed for the query to reach a terminal state.
+        # Unlike a SELECT there is no result set to stream, so drain the remaining
+        # pages now. Otherwise closing the cursor without fetching would issue a
+        # DELETE against an already-completed statement, which Trino reports as
+        # USER_CANCELED (see https://github.com/trinodb/trino-python-client/issues/601).
+        while self._update_type is not None and not self.finished and not self.cancelled:
+            self._result.rows += self.fetch()
+
         return self._result
 
     def _update_state(self, status):

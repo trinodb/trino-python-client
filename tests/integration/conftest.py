@@ -43,7 +43,7 @@ def get_local_port():
 @pytest.fixture(scope="session")
 def run_trino():
     host = os.environ.get("TRINO_RUNNING_HOST", TRINO_HOST)
-    port = os.environ.get("TRINO_RUNNING_PORT", DEFAULT_PORT)
+    port = int(os.environ.get("TRINO_RUNNING_PORT", DEFAULT_PORT))
 
     # Is there any local Trino available
     if is_trino_available(host, port):

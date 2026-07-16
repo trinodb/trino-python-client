@@ -226,6 +226,38 @@ def test_execute_many(legacy_prepared_statements, run_trino):
         cur.execute("DROP TABLE IF EXISTS memory.default.test_execute_many")
 
 
+def test_update_query_close_without_fetch_is_not_cancelled(trino_connection):
+    """Regression test for https://github.com/trinodb/trino-python-client/issues/601
+
+    A consumer (e.g. the SQLAlchemy dialect) that executes an INSERT and closes
+    the cursor without fetching the result must not cause the already-completed
+    query to be reported as USER_CANCELED by the server.
+    """
+    cur = trino_connection.cursor()
+    cur.execute("CREATE TABLE IF NOT EXISTS memory.default.test_issue_601 (key int)")
+    cur.fetchall()
+    try:
+        cur = trino_connection.cursor()
+        cur.execute("INSERT INTO memory.default.test_issue_601 VALUES (1), (2), (3)")
+        # Emulate a consumer that reads the row count but never fetches the rows.
+        assert cur.rowcount == 3
+        insert_query_id = cur.query_id
+        cur.close()
+
+        state_cur = trino_connection.cursor()
+        state_cur.execute(
+            "SELECT state, error_code FROM system.runtime.queries "
+            f"WHERE query_id = '{insert_query_id}'"
+        )
+        state, error_code = state_cur.fetchall()[0]
+        assert state == "FINISHED"
+        assert error_code is None
+    finally:
+        cur = trino_connection.cursor()
+        cur.execute("DROP TABLE IF EXISTS memory.default.test_issue_601")
+        cur.fetchall()
+
+
 @pytest.mark.parametrize(
     "legacy_prepared_statements",
     [
