@@ -4,6 +4,7 @@ from typing import List
 from unittest import mock
 
 import pytest
+from sqlalchemy import exc
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.engine.url import URL
 
@@ -314,3 +315,34 @@ def test_trino_connection_oauth2_auth():
     _, cparams = dialect.create_connect_args(url)
 
     assert isinstance(cparams['auth'], OAuth2Authentication)
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "https://trino.example.com",  # scheme prefix (the common mistake)
+        "http://trino.example.com",
+        "trino.example.com:443",      # port embedded in host
+        "trino.example.com/path",     # path embedded in host
+        "user@trino.example.com",     # credentials embedded in host
+        "::1",                        # unbracketed IPv6 literal
+    ],
+)
+def test_url_rejects_non_hostname_host(host):
+    with pytest.raises(exc.ArgumentError, match="host must be a hostname only"):
+        trino_url(host=host, port=443, user="user")
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "trino.example.com",
+        "localhost",
+        "192.168.0.1",
+        "[::1]",              # bracketed IPv6 literal
+        "host_with.dots-and_underscores",
+    ],
+)
+def test_url_accepts_bare_hostname(host):
+    # A valid host must round-trip through make_url without error.
+    assert make_url(trino_url(host=host, port=443, user="user")).host is not None
