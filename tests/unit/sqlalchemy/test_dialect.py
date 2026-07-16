@@ -271,6 +271,86 @@ def test_trino_connection_basic_auth():
     assert cparams['auth']._password == password
 
 
+@pytest.mark.parametrize(
+    "userinfo, expected_user, expected_password",
+    [
+        # A literal '+' in the userinfo must stay a '+'. The userinfo is not
+        # form-encoded, so '+' does not mean space there.
+        ("user+name:pass+word", "user+name", "pass+word"),
+        # '%2B' is the percent-encoding of '+'. SQLAlchemy decodes it to '+', and
+        # the dialect must not decode it a second time into a space.
+        ("user%2Bname:pass%2Bword", "user+name", "pass+word"),
+        # A percent-encoded space really is a space.
+        ("user%20name:pass%20word", "user name", "pass word"),
+    ],
+)
+def test_trino_connection_basic_auth_with_plus_in_credentials(userinfo, expected_user, expected_password):
+    # SQLAlchemy's make_url already decodes the userinfo, so the dialect must not run
+    # it through unquote_plus again (that would turn a literal '+' into a space).
+    dialect = TrinoDialect()
+    url = make_url(f"trino://{userinfo}@host")
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams['user'] == expected_user
+    assert isinstance(cparams['auth'], BasicAuthentication)
+    assert cparams['auth']._username == expected_user
+    assert cparams['auth']._password == expected_password
+
+
+def test_trino_connection_query_params_preserve_plus():
+    # Regression for the same double-decode on the other unquote_plus call sites.
+    # SQLAlchemy already decodes the query values, so a '+' round-tripped through the
+    # trino URL builder must survive. The catalog and schema are the exception: they
+    # come from url.database, which SQLAlchemy leaves url-encoded, so they are still
+    # decoded in the dialect.
+    dialect = TrinoDialect()
+    url = make_url(trino_url(
+        host="host",
+        user="us+er",
+        password="pa+ss",
+        catalog="ca+t",
+        schema="sc+h",
+        source="so+urce",
+        session_properties={"prop": "1+1"},
+        http_headers={"x-trino": "a+b"},
+        extra_credential=[("cred", "va+lue")],
+        client_tags=["ta+g"],
+        roles={"system": "ro+le"},
+    ))
+    _, cparams = dialect.create_connect_args(url)
+
+    assert cparams['user'] == 'us+er'
+    assert cparams['auth']._password == 'pa+ss'
+    assert cparams['catalog'] == 'ca+t'
+    assert cparams['schema'] == 'sc+h'
+    assert cparams['source'] == 'so+urce'
+    assert cparams['session_properties'] == {"prop": "1+1"}
+    assert cparams['http_headers'] == {"x-trino": "a+b"}
+    assert cparams['extra_credential'] == [("cred", "va+lue")]
+    assert cparams['client_tags'] == ["ta+g"]
+    assert cparams['roles'] == {"system": "ro+le"}
+
+
+def test_trino_connection_jwt_auth_preserves_plus():
+    # '%2B' in the token is decoded to '+' by SQLAlchemy and must not be decoded again.
+    dialect = TrinoDialect()
+    url = make_url("trino://host/?access_token=tok%2Ben")
+    _, cparams = dialect.create_connect_args(url)
+
+    assert isinstance(cparams['auth'], JWTAuthentication)
+    assert cparams['auth'].token == 'tok+en'
+
+
+def test_trino_connection_certificate_auth_preserves_plus():
+    dialect = TrinoDialect()
+    url = make_url("trino://host/?cert=ce%2Brt&key=ke%2By")
+    _, cparams = dialect.create_connect_args(url)
+
+    assert isinstance(cparams['auth'], CertificateAuthentication)
+    assert cparams['auth']._cert == 'ce+rt'
+    assert cparams['auth']._key == 'ke+y'
+
+
 def test_trino_connection_jwt_auth():
     dialect = TrinoDialect()
     access_token = 'sample-token'
