@@ -9,6 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
+
 import pytest
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
@@ -25,6 +27,7 @@ from sqlalchemy.sql import column
 from sqlalchemy.sql import table
 
 from tests.unit.conftest import sqlalchemy_version
+from trino.sqlalchemy.datatype import TIMESTAMP
 from trino.sqlalchemy.dialect import TrinoDialect
 
 metadata = MetaData()
@@ -204,6 +207,24 @@ def test_try_cast(dialect):
     statement = select(try_cast(table_without_catalog.c.id, String))
     query = statement.compile(dialect=dialect)
     assert str(query) == 'SELECT try_cast("table".id as VARCHAR) AS id \nFROM "table"'
+
+
+def test_timestamp_literal_processor(dialect):
+    ts_col = column("ts", TIMESTAMP())
+    tbl = table("t", ts_col)
+    dt = datetime.datetime(2026, 6, 17, 9, 57, 43, 244000)
+    stmt = select(tbl).where(ts_col == dt)
+    query = stmt.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    assert "TIMESTAMP '2026-06-17 09:57:43.244'" in str(query)
+
+
+def test_timestamp_literal_processor_no_microseconds(dialect):
+    ts_col = column("ts", TIMESTAMP())
+    tbl = table("t", ts_col)
+    dt = datetime.datetime(2026, 6, 17, 9, 57, 43)
+    stmt = select(tbl).where(ts_col == dt)
+    query = stmt.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    assert "TIMESTAMP '2026-06-17 09:57:43'" in str(query)
 
 
 def test_catalogs_create_table_with_pk(dialect):
