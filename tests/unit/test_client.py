@@ -879,6 +879,28 @@ def test_trino_connection_error(monkeypatch, error_code, error_type, error_messa
     assert error_message in str(error)
 
 
+def test_trino_process_empty_200_response_error():
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(
+            user="test",
+            source="test",
+            catalog="test",
+            schema="test",
+            properties={},
+        ),
+        http_scheme="http",
+    )
+
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 200
+    http_resp._content = b""
+    with pytest.raises(trino.exceptions.TrinoConnectionError) as error:
+        req.process(http_resp)
+    assert "received empty response from server (status 200)" in str(error.value)
+
+
 def test_extra_credential(mock_get_and_post):
     _, post = mock_get_and_post
 
@@ -1091,6 +1113,32 @@ def test_429_error_retry(monkeypatch):
 
     req.get("URL")
     assert post_retry.retry_count == 3
+
+
+def test_empty_200_response_retry(monkeypatch):
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 200
+    http_resp._content = b""
+
+    post_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
+
+    attempts = 3
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        max_attempts=attempts,
+    )
+
+    req.post("SELECT 1")
+    assert post_retry.retry_count == attempts
+
+    req.get("URL")
+    assert get_retry.retry_count == attempts
 
 
 @pytest.mark.parametrize("status_code", [
