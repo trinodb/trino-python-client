@@ -55,6 +55,7 @@ from email.utils import parsedate_to_datetime
 from enum import Enum
 from time import sleep
 from typing import Any
+from typing import Callable
 from typing import cast
 from typing import Dict
 from typing import List
@@ -889,7 +890,8 @@ class TrinoQuery:
             request: TrinoRequest,
             query: str,
             legacy_primitive_types: bool = False,
-            fetch_mode: Literal["mapped", "segments"] = "mapped"
+            fetch_mode: Literal["mapped", "segments"] = "mapped",
+            stats_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ) -> None:
         self._query_id: Optional[str] = None
         self._stats: Dict[Any, Any] = {}
@@ -907,6 +909,7 @@ class TrinoQuery:
         self._legacy_primitive_types = legacy_primitive_types
         self._row_mapper: Optional[RowMapper] = None
         self._fetch_mode = fetch_mode
+        self._stats_callback = stats_callback
 
     @property
     def query_id(self) -> Optional[str]:
@@ -984,6 +987,7 @@ class TrinoQuery:
         self._stats.update({"queryId": self.query_id})
         self._update_state(status)
         self._warnings = getattr(status, "warnings", [])
+        self._report_stats()
         if status.next_uri is None:
             self._finished = True
 
@@ -1023,6 +1027,11 @@ class TrinoQuery:
         if status.columns:
             self._columns = status.columns
 
+    def _report_stats(self) -> None:
+        if self._stats_callback is not None:
+            # Pass a copy so the callback cannot mutate internal query state.
+            self._stats_callback(dict(self._stats))
+
     def fetch(self) -> Union[List[Union[List[Any], Any]], Iterator[List[Any]]]:
         """Continue fetching data for the current query_id"""
         try:
@@ -1031,6 +1040,7 @@ class TrinoQuery:
             raise trino.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
         status = self._request.process(response)
         self._update_state(status)
+        self._report_stats()
         if status.next_uri is None:
             self._finished = True
 

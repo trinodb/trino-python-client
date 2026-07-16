@@ -26,6 +26,7 @@ from itertools import islice
 from threading import Lock
 from time import time
 from typing import Any
+from typing import Callable
 from typing import Dict
 from typing import List
 from typing import NamedTuple
@@ -297,7 +298,11 @@ class Connection:
             self.request_timeout,
         )
 
-    def cursor(self, cursor_style: str = "row", legacy_primitive_types: bool = None):
+    def cursor(
+            self,
+            cursor_style: str = "row",
+            legacy_primitive_types: bool = None,
+            stats_callback: Optional[Callable[[Dict[str, Any]], None]] = None):
         """Return a new :py:class:`Cursor` object using the connection."""
         if self.isolation_level != IsolationLevel.AUTOCOMMIT:
             if self.transaction is None:
@@ -320,7 +325,8 @@ class Connection:
                 legacy_primitive_types
                 if legacy_primitive_types is not None
                 else self.legacy_primitive_types
-            )
+            ),
+            stats_callback=stats_callback
         )
 
     def _use_legacy_prepared_statements(self):
@@ -395,7 +401,8 @@ class Cursor:
             self,
             connection,
             request,
-            legacy_primitive_types: bool = False):
+            legacy_primitive_types: bool = False,
+            stats_callback: Optional[Callable[[Dict[str, Any]], None]] = None):
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -407,6 +414,7 @@ class Cursor:
         self._iterator = None
         self._query = None
         self._legacy_primitive_types = legacy_primitive_types
+        self._stats_callback = stats_callback
 
     def __iter__(self):
         return self._iterator
@@ -510,7 +518,11 @@ class Cursor:
         params
     ):
         sql = 'EXECUTE ' + statement_name + ' USING ' + ','.join(map(self._format_prepared_param, params))
-        return trino.client.TrinoQuery(self._request, query=sql, legacy_primitive_types=self._legacy_primitive_types)
+        return trino.client.TrinoQuery(
+            self._request,
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            stats_callback=self._stats_callback)
 
     def _execute_immediate_statement(self, statement: str, params):
         """
@@ -522,7 +534,10 @@ class Cursor:
         sql = "EXECUTE IMMEDIATE '" + statement.replace("'", "''") + \
               "' USING " + ",".join(map(self._format_prepared_param, params))
         return trino.client.TrinoQuery(
-            self.connection._create_request(), query=sql, legacy_primitive_types=self._legacy_primitive_types)
+            self.connection._create_request(),
+            query=sql,
+            legacy_primitive_types=self._legacy_primitive_types,
+            stats_callback=self._stats_callback)
 
     def _format_prepared_param(self, param):
         """
@@ -645,7 +660,8 @@ class Cursor:
 
         else:
             self._query = trino.client.TrinoQuery(self._request, query=operation,
-                                                  legacy_primitive_types=self._legacy_primitive_types)
+                                                  legacy_primitive_types=self._legacy_primitive_types,
+                                                  stats_callback=self._stats_callback)
             self._iterator = iter(self._query.execute())
         return self
 
@@ -764,8 +780,10 @@ class SegmentCursor(Cursor):
             self,
             connection,
             request,
-            legacy_primitive_types: bool = False):
-        super().__init__(connection, request, legacy_primitive_types=legacy_primitive_types)
+            legacy_primitive_types: bool = False,
+            stats_callback: Optional[Callable[[Dict[str, Any]], None]] = None):
+        super().__init__(
+            connection, request, legacy_primitive_types=legacy_primitive_types, stats_callback=stats_callback)
         if self.connection._client_session.encoding is None:
             raise ValueError("SegmentCursor can only be used if encoding is set on the connection")
 
@@ -776,7 +794,8 @@ class SegmentCursor(Cursor):
 
         self._query = trino.client.TrinoQuery(self._request, query=operation,
                                               legacy_primitive_types=self._legacy_primitive_types,
-                                              fetch_mode="segments")
+                                              fetch_mode="segments",
+                                              stats_callback=self._stats_callback)
         self._iterator = iter(self._query.execute())
         return self
 

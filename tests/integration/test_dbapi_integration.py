@@ -102,6 +102,24 @@ def test_select_query(trino_connection):
     assert cur.stats is not None
 
 
+def test_stats_callback_invoked_while_query_is_running(trino_connection):
+    captured_stats = []
+    cur = trino_connection.cursor(stats_callback=captured_stats.append)
+    # A larger result set spans multiple pages, so the client polls the
+    # coordinator several times and the callback is invoked more than once.
+    cur.execute("SELECT * FROM tpch.sf1.customer LIMIT 5000")
+    rows = cur.fetchall()
+
+    assert len(rows) == 5000
+    # The callback fires once as soon as the query is submitted and again on
+    # every subsequent poll, so it is invoked while the query is still running.
+    assert len(captured_stats) >= 2
+    # The query id is exposed through the callback for every invocation.
+    assert all(stats["queryId"] == cur.query_id for stats in captured_stats)
+    # The final invocation reflects the terminal state of the query.
+    assert captured_stats[-1]["state"] == "FINISHED"
+
+
 def test_select_query_result_iteration(trino_connection):
     cur0 = trino_connection.cursor()
     cur0.execute("SELECT custkey FROM tpch.sf1.customer LIMIT 10")
