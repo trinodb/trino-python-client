@@ -19,6 +19,7 @@ decide to convert then to a list of tuples.
 """
 import datetime
 import math
+import re
 import uuid
 from collections import OrderedDict
 from decimal import Decimal
@@ -82,6 +83,13 @@ threadsafety = 2
 paramstyle = "qmark"
 
 logger = trino.logging.get_logger(__name__)
+
+_INSERT_VALUES_RE = re.compile(
+    r"\A(\s*INSERT\s+INTO\s+.+\bVALUES)\s*\([^)]+\)\s*\Z",
+    re.IGNORECASE | re.DOTALL,
+)
+
+_EXECUTEMANY_BATCH_SIZE = 100
 
 
 class TimeBoundLRUCache:
@@ -161,6 +169,7 @@ class Connection:
         client_tags=None,
         legacy_primitive_types=False,
         legacy_prepared_statements=None,
+        experimental_batch_executemany=False,
         roles=None,
         timezone=None,
         encoding: Union[str, List[str]] = _USE_DEFAULT_ENCODING,
@@ -244,6 +253,7 @@ class Connection:
         self._transaction = None
         self.legacy_primitive_types = legacy_primitive_types
         self.legacy_prepared_statements = legacy_prepared_statements
+        self.experimental_batch_executemany = experimental_batch_executemany
 
     @property
     def isolation_level(self):
@@ -320,7 +330,8 @@ class Connection:
                 legacy_primitive_types
                 if legacy_primitive_types is not None
                 else self.legacy_primitive_types
-            )
+            ),
+            experimental_batch_executemany=self.experimental_batch_executemany,
         )
 
     def _use_legacy_prepared_statements(self):
@@ -395,7 +406,8 @@ class Cursor:
             self,
             connection,
             request,
-            legacy_primitive_types: bool = False):
+            legacy_primitive_types: bool = False,
+            experimental_batch_executemany: bool = False):
         if not isinstance(connection, Connection):
             raise ValueError(
                 "connection must be a Connection object: {}".format(type(connection))
@@ -407,6 +419,7 @@ class Cursor:
         self._iterator = None
         self._query = None
         self._legacy_primitive_types = legacy_primitive_types
+        self._experimental_batch_executemany = experimental_batch_executemany
 
     def __iter__(self):
         return self._iterator
@@ -665,15 +678,38 @@ class Cursor:
 
         Return values are not defined.
         """
+        if not seq_of_params:
+            self.execute(operation)
+            return self
+
+        match = _INSERT_VALUES_RE.match(operation.strip())
+        if match and self._experimental_batch_executemany:
+            return self._executemany_batch_insert(match.group(1), seq_of_params)
+
         for parameters in seq_of_params[:-1]:
             self.execute(operation, parameters)
             self.fetchall()
             if self._query.update_type is None:
                 raise NotSupportedError("Query must return update type")
-        if seq_of_params:
-            self.execute(operation, seq_of_params[-1])
-        else:
-            self.execute(operation)
+        self.execute(operation, seq_of_params[-1])
+        return self
+
+    def _executemany_batch_insert(self, prefix, seq_of_params):
+        for i in range(0, len(seq_of_params), _EXECUTEMANY_BATCH_SIZE):
+            batch = seq_of_params[i:i + _EXECUTEMANY_BATCH_SIZE]
+            value_rows = []
+            for params in batch:
+                formatted = ", ".join(self._format_prepared_param(p) for p in params)
+                value_rows.append("(%s)" % formatted)
+            sql = "%s %s" % (prefix, ", ".join(value_rows))
+            self._query = trino.client.TrinoQuery(
+                self._request, query=sql,
+                legacy_primitive_types=self._legacy_primitive_types)
+            self._iterator = iter(self._query.execute())
+            if self._query.update_type is None:
+                raise NotSupportedError("Query must return update type")
+            if i + _EXECUTEMANY_BATCH_SIZE < len(seq_of_params):
+                self.fetchall()
         return self
 
     def fetchone(self) -> Optional[List[Any]]:
@@ -764,8 +800,10 @@ class SegmentCursor(Cursor):
             self,
             connection,
             request,
-            legacy_primitive_types: bool = False):
-        super().__init__(connection, request, legacy_primitive_types=legacy_primitive_types)
+            legacy_primitive_types: bool = False,
+            experimental_batch_executemany: bool = False):
+        super().__init__(connection, request, legacy_primitive_types=legacy_primitive_types,
+                         experimental_batch_executemany=experimental_batch_executemany)
         if self.connection._client_session.encoding is None:
             raise ValueError("SegmentCursor can only be used if encoding is set on the connection")
 
