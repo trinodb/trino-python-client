@@ -1522,11 +1522,11 @@ class CompressedQueryDataDecoder(QueryDataDecoder):
             return self._delegate.decode(data, metadata)
 
         # Data is compressed
-        expected_compressed_size = metadata["segmentSize"]
+        expected_compressed_size = int(metadata["segmentSize"])
         if not len(data) == expected_compressed_size:
             raise RuntimeError(f"Expected to read {expected_compressed_size} bytes but got {len(data)}")
         decompressed_data = self.decompress(data, metadata)
-        expected_uncompressed_size = metadata["uncompressedSize"]
+        expected_uncompressed_size = int(metadata["uncompressedSize"])
         if not len(decompressed_data) == expected_uncompressed_size:
             raise RuntimeError(
                 "Decompressed size does not match expected segment size, "
