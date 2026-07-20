@@ -1306,7 +1306,6 @@ def test_select_query_stats(trino_connection):
     completed_splits = cur.stats["completedSplits"]
     cpu_time_millis = cur.stats["cpuTimeMillis"]
     processed_bytes = cur.stats["processedBytes"]
-    processed_rows = cur.stats["processedRows"]
     wall_time_millis = cur.stats["wallTimeMillis"]
 
     while cur.fetchone() is not None:
@@ -1314,14 +1313,17 @@ def test_select_query_stats(trino_connection):
         assert completed_splits <= cur.stats["completedSplits"]
         assert cpu_time_millis <= cur.stats["cpuTimeMillis"]
         assert processed_bytes <= cur.stats["processedBytes"]
-        assert processed_rows <= cur.stats["processedRows"]
         assert wall_time_millis <= cur.stats["wallTimeMillis"]
+        # No similar assertion for "processedRows" as it may decrease across responses.
+        # For example, when multiple Trino workers execute a LIMIT query, tasks for some workers
+        # may be cancelled once the row count reaches the limit, which can cause processedRows.
+        # to decrease in a subsequent response (it's an aggregation over active tasks).
+        assert "processedRows" in cur.stats
 
         query_id = cur.stats["queryId"]
         completed_splits = cur.stats["completedSplits"]
         cpu_time_millis = cur.stats["cpuTimeMillis"]
         processed_bytes = cur.stats["processedBytes"]
-        processed_rows = cur.stats["processedRows"]
         wall_time_millis = cur.stats["wallTimeMillis"]
 
 
