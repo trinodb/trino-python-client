@@ -123,6 +123,9 @@ def start_development_server(port=None, trino_version=TRINO_VERSION):
         # Wait for logs indicating the service has started
         wait_for_logs(trino, "SERVER STARTED", timeout=60)
 
+        if (wrapped := trino.get_wrapped_container()) and (image := wrapped.image):
+            print(f"Trino image tags: {image.tags}, digest: {image.id}")
+
         # Otherwise some tests fail with No nodes available
         time.sleep(2)
 
