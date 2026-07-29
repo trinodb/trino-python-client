@@ -1535,11 +1535,20 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
     cur.fetchall()
 
     api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
-    query_info = requests.post(api_url + "/ui/login", data={
-        "username": "admin",
-        "password": "",
-        "redirectPath": api_url + '/ui/api/query/' + cur._query.query_id
-    }).json()
+
+    if trino_version() >= 483:
+        session = requests.Session()
+        resp = session.post(api_url + "/ui/auth/login", json={
+            "username": "admin", "password": ""
+        })
+        assert resp.ok, f"POST request to /ui/auth/login failed: {resp.status_code} {resp.reason}"
+        query_info = session.get(api_url + "/ui/api/query/" + cur._query.query_id).json()
+    else:
+        query_info = requests.post(api_url + "/ui/login", data={
+            "username": "admin",
+            "password": "",
+            "redirectPath": api_url + '/ui/api/query/' + cur._query.query_id
+        }).json()
 
     query_client_tags = query_info['session']['clientTags']
     return query_client_tags
