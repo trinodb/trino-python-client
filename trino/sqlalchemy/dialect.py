@@ -234,9 +234,14 @@ class TrinoDialect(DefaultDialect):
             SELECT * FROM {schema}."{table_name}$partitions"
         """
         ).strip()
+
         res = connection.execute(sql.text(query))
-        partition_names = [desc[0] for desc in res.cursor.description]
-        data_types = [desc[1] for desc in res.cursor.description]
+        try:
+            partition_names = [desc[0] for desc in res.cursor.description]
+            data_types = [desc[1] for desc in res.cursor.description]
+        finally:
+            res.close()
+
         # Compare the column names and types to the shape of an Iceberg $partitions table
         if (partition_names == ['partition', 'record_count', 'file_count', 'total_size', 'data']
                 and data_types[0].startswith('row(')

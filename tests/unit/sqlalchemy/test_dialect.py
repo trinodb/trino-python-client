@@ -308,6 +308,74 @@ class TestTrinoDialect:
         isolation_level = self.dialect.get_isolation_level(dbapi_conn)
         assert isolation_level == "SERIALIZABLE"
 
+    class _FakeCursor:
+        def __init__(self, description):
+            self.description = description
+
+    class _FakeResult:
+        """Hand-written fake standing in for a SQLAlchemy CursorResult."""
+
+        def __init__(self, partition_names, data_types):
+            self.cursor = TestTrinoDialect._FakeCursor(list(zip(partition_names, data_types)))
+            self.close_calls = 0
+
+        def close(self):
+            self.close_calls += 1
+
+    @staticmethod
+    def _partitions_connection(partition_names, data_types):
+        result = TestTrinoDialect._FakeResult(partition_names, data_types)
+        connection = mock.Mock()
+        connection.execute.return_value = result
+        return connection, result
+
+    def test_get_partitions_hive_table_returns_partition_names(self):
+        partition_names = ["year", "month"]
+        data_types = ["integer", "integer"]
+        connection, result = self._partitions_connection(partition_names, data_types)
+
+        returned = self.dialect._get_partitions(connection, "some_table", "some_schema")
+
+        assert returned == partition_names
+        assert result.close_calls == 1
+
+    def test_get_partitions_iceberg_table_returns_none(self):
+        # This is the exact shape of an Iceberg $partitions table.
+        partition_names = ["partition", "record_count", "file_count", "total_size", "data"]
+        data_types = ["row(...)", "bigint", "bigint", "bigint", "row(...)"]
+        connection, result = self._partitions_connection(partition_names, data_types)
+
+        returned = self.dialect._get_partitions(connection, "some_table", "some_schema")
+
+        assert returned is None
+        assert result.close_calls == 1
+
+    def test_get_partitions_closes_result_even_on_error(self):
+        connection = mock.Mock()
+        result = mock.Mock()
+        result.cursor.description = None  # triggers a TypeError while iterating
+        connection.execute.return_value = result
+
+        with pytest.raises(TypeError):
+            self.dialect._get_partitions(connection, "some_table", "some_schema")
+
+        result.close.assert_called_once()
+
+    def test_get_partitions_defaults_schema_when_not_given(self):
+        partition_names = ["year"]
+        data_types = ["integer"]
+        connection, _ = self._partitions_connection(partition_names, data_types)
+
+        with mock.patch.object(
+            self.dialect, "_get_default_schema_name", return_value="default_schema"
+        ) as get_default_schema:
+            self.dialect._get_partitions(connection, "some_table")
+
+        get_default_schema.assert_called_once_with(connection)
+        # The defaulted schema must appear in the query.
+        query = str(connection.execute.call_args[0][0])
+        assert "default_schema" in query
+
 
 def test_trino_connection_basic_auth():
     dialect = TrinoDialect()
