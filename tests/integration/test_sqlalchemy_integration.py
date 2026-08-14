@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License
 import math
+import time
 import uuid
 from decimal import Decimal
 
@@ -788,6 +789,34 @@ def _num_queries_containing_string(connection, query_string):
     return len(list(filter(lambda rec: query_string in rec[0], rows)))
 
 
+def _assert_no_lingering_query(cur, query_substring, timeout_seconds=10):
+    # Cancellation moves a query to a terminal state asynchronously, so poll.
+    non_terminal_states = {"QUEUED", "PLANNING", "STARTING", "RUNNING", "FINISHING", "WAITING_FOR_RESOURCES"}
+    deadline = time.time() + timeout_seconds
+    last_state = None
+    while time.time() < deadline:
+        # The "?" is rendered as a literal into this statement's own text. The second
+        # predicate excludes it, or the query would always match its own running row.
+        cur.execute(
+            "SELECT state FROM system.runtime.queries "
+            "WHERE query LIKE ? AND query NOT LIKE '%system.runtime.queries%' "
+            "ORDER BY created DESC LIMIT 1",
+            (f"%{query_substring}%",),
+        )
+        rows = cur.fetchall()
+        if rows:
+            last_state = rows[0][0]
+            if last_state not in non_terminal_states:
+                return
+        time.sleep(0.5)
+    if last_state is None:
+        pytest.fail(f"no query matching {query_substring!r} appeared in system.runtime.queries")
+    pytest.fail(
+        f"query matching {query_substring!r} did not reach a terminal state within "
+        f"{timeout_seconds}s (last observed state: {last_state})"
+    )
+
+
 @pytest.mark.skipif(trino_version() == 351, reason="Dynamic catalogs not supported")
 def test_get_indexes_returns_empty_for_iceberg_table(run_trino):
     host, port = run_trino
@@ -824,6 +853,7 @@ def test_get_indexes_returns_empty_for_iceberg_table(run_trino):
         )
         indexes = sqla.inspect(engine).get_indexes(table_name, schema=schema_name)
         assert indexes == []
+        _assert_no_lingering_query(cur, f'{table_name}$partitions')
     finally:
         cur = conn.cursor()
         cur.execute(f"DROP TABLE IF EXISTS {catalog_name}.{schema_name}.{table_name}")
@@ -873,6 +903,7 @@ def test_get_indexes_returns_partitions_for_hive_table(run_trino):
         assert len(indexes) == 1
         assert indexes[0]["name"] == "partition"
         assert indexes[0]["column_names"] == ["name", "region"]
+        _assert_no_lingering_query(cur, f'{table_name}$partitions')
     finally:
         cur = conn.cursor()
         cur.execute(f"DROP TABLE IF EXISTS {catalog_name}.{schema_name}.{table_name}")
