@@ -177,6 +177,10 @@ class TrinoDialect(DefaultDialect):
         if "legacy_prepared_statements" in url.query:
             kwargs["legacy_prepared_statements"] = json.loads(url.query["legacy_prepared_statements"])
 
+        if "experimental_batch_executemany" in url.query:
+            kwargs["experimental_batch_executemany"] = json.loads(
+                unquote_plus(url.query["experimental_batch_executemany"]))
+
         if "verify" in url.query:
             kwargs["verify"] = json.loads(url.query["verify"])
 
