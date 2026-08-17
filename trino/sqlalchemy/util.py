@@ -56,7 +56,8 @@ def _url(
     cert: Optional[str] = None,
     key: Optional[str] = None,
     verify: Optional[bool] = None,
-    roles: Optional[Dict[str, str]] = None
+    roles: Optional[Dict[str, str]] = None,
+    allow_insecure_auth: Optional[bool] = None,
 ) -> str:
     """
     Composes a SQLAlchemy connection string from the given database connection
@@ -133,5 +134,8 @@ def _url(
 
     if roles is not None:
         trino_url += f"&roles={quote_plus(json.dumps(roles))}"
+
+    if allow_insecure_auth is not None:
+        trino_url += f"&allow_insecure_auth={json.dumps(allow_insecure_auth)}"
 
     return trino_url

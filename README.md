@@ -469,6 +469,30 @@ conn = connect(
 )
 ```
 
+### Authentication over insecure transport
+
+By default, the client refuses to send authentication credentials (for example `BasicAuthentication`) over an
+unencrypted `http://` connection, raising a `TrinoAuthError`. This is intentional as it avoids credentials being sent
+in plaintext.
+
+If the connection is already encrypted below the application layer (for example the client only ever talks to a
+Trino coordinator through an mTLS-terminating service mesh sidecar on `localhost`), this check gets in the way even
+though the underlying transport is secure. In that case, set `allow_insecure_auth` to `True` to opt out of the
+check. Depending on the coordinator's configuration, you may additionally need to set
+`http-server.authentication.allow-insecure-over-http=true` on the coordinator.
+
+```python
+from trino.dbapi import connect
+from trino.auth import BasicAuthentication
+
+conn = connect(
+    user="<username>",
+    auth=BasicAuthentication("<username>", "<password>"),
+    http_scheme="http",
+    allow_insecure_auth=True
+)
+```
+
 ## Spooled protocol
 
 The client spooling protocol requires [a Trino server with spooling protocol support](https://trino.io/docs/current/client/client-protocol.html#spooling-protocol).
