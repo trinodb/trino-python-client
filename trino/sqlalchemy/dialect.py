@@ -180,6 +180,9 @@ class TrinoDialect(DefaultDialect):
         if "verify" in url.query:
             kwargs["verify"] = json.loads(url.query["verify"])
 
+        if "allow_insecure_auth" in url.query:
+            kwargs["allow_insecure_auth"] = json.loads(url.query["allow_insecure_auth"])
+
         if "roles" in url.query:
             kwargs["roles"] = json.loads(url.query["roles"])
 

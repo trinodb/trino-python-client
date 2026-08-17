@@ -376,6 +376,26 @@ def test_no_error_when_auth_over_https():
     Connection("mytrinoserver.domain", http_scheme=constants.HTTPS, auth=BasicAuthentication("u", "p"))
 
 
+def test_error_when_auth_over_http_mentions_allow_insecure_auth():
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="allow_insecure_auth=True"):
+        Connection("mytrinoserver.domain", http_scheme=constants.HTTP, auth=BasicAuthentication("u", "p"))
+
+
+def test_no_error_when_auth_over_http_with_allow_insecure_auth():
+    connection = Connection(
+        "mytrinoserver.domain",
+        http_scheme=constants.HTTP,
+        auth=BasicAuthentication("u", "p"),
+        allow_insecure_auth=True,
+    )
+    assert connection.http_scheme == constants.HTTP
+    # Ensure the flag doesn't just suppress the constructor check, but also
+    # doesn't prevent building a request object that would actually be used
+    # to send the (insecure) authenticated requests.
+    request = connection._create_request()
+    assert request._http_scheme == constants.HTTP
+
+
 def _statement_uri(query_id, token):
     return f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/{query_id}/{token}"
 

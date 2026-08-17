@@ -10,6 +10,7 @@ from sqlalchemy import exc
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.engine.url import URL
 
+import trino.exceptions
 from trino.auth import BasicAuthentication
 from trino.auth import OAuth2Authentication
 from trino.dbapi import Connection
@@ -222,6 +223,27 @@ class TestTrinoDialect:
                     legacy_prepared_statements=False,
                 ),
             ),
+            (
+                make_url(trino_url(
+                    user="user",
+                    password="pass",
+                    host="localhost",
+                    allow_insecure_auth=True,
+                )),
+                'trino://user:***@localhost:8080/'
+                '?allow_insecure_auth=true'
+                '&source=trino-sqlalchemy',
+                list(),
+                dict(
+                    host="localhost",
+                    port=8080,
+                    catalog="system",
+                    user="user",
+                    auth=BasicAuthentication("user", "pass"),
+                    source="trino-sqlalchemy",
+                    allow_insecure_auth=True,
+                ),
+            ),
         ],
     )
     def test_create_connect_args(
@@ -247,6 +269,31 @@ class TestTrinoDialect:
         url = make_url("trino://abc@localhost/catalog/schema/foobar")
         with pytest.raises(ValueError, match="Unexpected database format catalog/schema/foobar"):
             self.dialect.create_connect_args(url)
+
+    def test_create_connect_args_allow_insecure_auth_permits_connection_over_http(self):
+        # Default port (8080) resolves to http_scheme="http" in Connection; without
+        # allow_insecure_auth this would raise TrinoAuthError.
+        url = make_url(trino_url(user="user", password="pass", host="localhost", allow_insecure_auth=True))
+        args, kwargs = self.dialect.create_connect_args(url)
+        assert kwargs["allow_insecure_auth"] is True
+
+        Connection(*args, **kwargs)
+
+    def test_create_connect_args_allow_insecure_auth_false_raises_over_http(self):
+        url = make_url(trino_url(user="user", password="pass", host="localhost", allow_insecure_auth=False))
+        args, kwargs = self.dialect.create_connect_args(url)
+        assert kwargs["allow_insecure_auth"] is False
+
+        with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+            Connection(*args, **kwargs)
+
+    def test_create_connect_args_without_allow_insecure_auth_raises_over_http(self):
+        url = make_url(trino_url(user="user", password="pass", host="localhost"))
+        args, kwargs = self.dialect.create_connect_args(url)
+        assert "allow_insecure_auth" not in kwargs
+
+        with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+            Connection(*args, **kwargs)
 
     def test_get_default_isolation_level(self):
         isolation_level = self.dialect.get_default_isolation_level(mock.Mock())
