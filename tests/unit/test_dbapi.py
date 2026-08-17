@@ -31,8 +31,10 @@ from tests.unit.oauth_test_utils import TOKEN_RESOURCE
 from trino import constants
 from trino.auth import BasicAuthentication
 from trino.auth import OAuth2Authentication
+from trino.dbapi import Binary
 from trino.dbapi import connect
 from trino.dbapi import Connection
+from trino.dbapi import Cursor
 
 
 @patch("trino.dbapi.trino.client")
@@ -501,3 +503,45 @@ def test_cursor_close_cancels_unfinished_query():
 
     delete_requests = [r for r in httpretty.latest_requests() if r.method == "DELETE"]
     assert len(delete_requests) == 1, "closing an unfinished query must cancel it"
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (b"", b""),
+        (b"hello", b"hello"),
+        (b"\xff\xfe\x00\x01", b"\xff\xfe\x00\x01"),
+        (bytearray(b"abc"), b"abc"),
+        (memoryview(b"xyz"), b"xyz"),
+        ("hello", b"hello"),
+    ]
+)
+def test_binary(value, expected):
+    # Binary() previously called .encode() unconditionally, which raised
+    # AttributeError for bytes/bytearray/memoryview input.
+    result = Binary(value)
+    assert isinstance(result, bytes)
+    assert result == expected
+
+
+@pytest.mark.parametrize("value", [1, None, 1.5, [b"a"]])
+def test_binary_rejects_non_bytes_non_str(value):
+    with pytest.raises(TypeError):
+        Binary(value)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (b"", "X''"),
+        (b"hello", "X'68656c6c6f'"),
+        (b"\xca\xfe\xba\xbe", "X'cafebabe'"),
+        (bytearray(b"abc"), "X'616263'"),
+        (memoryview(b"abc"), "X'616263'"),
+    ]
+)
+def test_format_prepared_param_binary(value, expected):
+    cursor = Cursor.__new__(Cursor)
+    assert cursor._format_prepared_param(value) == expected
+    # Round trip through Binary(), as SQLAlchemy's _Binary.bind_processor does.
+    assert cursor._format_prepared_param(Binary(value)) == expected

@@ -15,16 +15,21 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import func
 from sqlalchemy import insert
 from sqlalchemy import Integer
+from sqlalchemy import LargeBinary
+from sqlalchemy import literal
 from sqlalchemy import MetaData
 from sqlalchemy import select
 from sqlalchemy import String
 from sqlalchemy import Table
+from sqlalchemy.exc import CompileError
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import column
 from sqlalchemy.sql import table
+from sqlalchemy.sql.sqltypes import VARBINARY as GenericVARBINARY
 
 from tests.unit.conftest import sqlalchemy_version
+from trino.sqlalchemy.datatype import VARBINARY
 from trino.sqlalchemy.dialect import TrinoDialect
 
 metadata = MetaData()
@@ -225,3 +230,39 @@ def test_catalogs_create_table_with_unique(dialect):
         statement = CreateTable(table_with_unique)
         query = statement.compile(dialect=dialect)
         assert 'unique' not in str(query).lower()
+
+
+@pytest.mark.parametrize(
+    'value,expected',
+    [
+        (b'', "X''"),
+        (b'hello', "X'68656c6c6f'"),
+        (b'\xca\xfe\xba\xbe', "X'cafebabe'"),
+        (b'\xff\xfe\x00\x01', "X'fffe0001'"),
+        (bytearray(b'abc'), "X'616263'"),
+        (memoryview(b'abc'), "X'616263'"),
+    ]
+)
+@pytest.mark.parametrize('type_', [VARBINARY(), GenericVARBINARY(), LargeBinary()])
+def test_varbinary_literal_binds(dialect, value, expected, type_):
+    expression = literal(value, type_=type_)
+    query = expression.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+    assert str(query) == expected
+
+
+def test_varbinary_literal_binds_rejects_non_bytes(dialect):
+    expression = literal("not-bytes", type_=VARBINARY())
+    with pytest.raises(CompileError):
+        expression.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
+
+
+def test_varbinary_create_table():
+    metadata = MetaData()
+    table_with_binary = Table(
+        'table_with_binary',
+        metadata,
+        Column('data', LargeBinary),
+    )
+    statement = CreateTable(table_with_binary)
+    query = statement.compile(dialect=TrinoDialect())
+    assert 'data VARBINARY' in str(query)
