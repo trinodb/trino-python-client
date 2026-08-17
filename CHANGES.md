@@ -6,6 +6,52 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.339.0
+
+* Add support for returning column comments from SQLAlchemy `get_columns`.
+  ([#581](https://github.com/trinodb/trino-python-client/issues/581))
+* Fix infinite recursion when reading `server_version_info` on the SQLAlchemy
+  dialect while a query issued through the same connection is already in
+  flight, for example when used with `aws-xray-sdk`.
+  ([#559](https://github.com/trinodb/trino-python-client/issues/559))
+* Fix `trino.sqlalchemy.URL()` to validate the `host` argument and raise a
+  clear error instead of producing a malformed connection URL.
+  ([#579](https://github.com/trinodb/trino-python-client/issues/579))
+* Fix `INSERT`/`UPDATE`/`DELETE` queries incorrectly being left as cancelled
+  on the server when the cursor is closed immediately after reading the row
+  count.
+  ([#601](https://github.com/trinodb/trino-python-client/issues/601))
+* Fix crash and retry instead when the server returns an HTTP 200 response
+  with an empty body.
+  ([#596](https://github.com/trinodb/trino-python-client/issues/596))
+* Fix result iteration to raise transient errors, such as network errors
+  while downloading spooled segments, to the caller instead of silently
+  truncating the results.
+  ([#598](https://github.com/trinodb/trino-python-client/issues/598))
+* Fix custom HTTP headers passed to `connect()` not being forwarded on
+  requests used to fetch and acknowledge spooled result segments from the
+  coordinator.
+  ([#620](https://github.com/trinodb/trino-python-client/pull/620))
+* Send a `charset` in the `Content-Type` header of statement requests so
+  that proxies such as Trino Gateway can parse the submitted SQL.
+  ([#600](https://github.com/trinodb/trino-python-client/issues/600))
+* Fix SQLAlchemy connections corrupting a `+` character in the username,
+  password, or query parameter values.
+  ([#611](https://github.com/trinodb/trino-python-client/issues/611))
+* Add a `stats_callback` argument to `Connection.cursor()` that is invoked
+  with the current query stats after every response from the coordinator,
+  starting right after the query is submitted so the query ID is available
+  while the query is still running.
+  ([#578](https://github.com/trinodb/trino-python-client/issues/578))
+
+### Breaking Changes
+
+* Raise an error when authentication credentials would be sent over an
+  insecure HTTP connection instead of silently sending them. Use `https://`
+  in the host URL, or pass `http_scheme='https'`, to keep using
+  authentication.
+  ([#593](https://github.com/trinodb/trino-python-client/pull/593))
+
 ## Release 0.338.0
 
 * Lazily load spooled result set segments to keep memory usage constant.
