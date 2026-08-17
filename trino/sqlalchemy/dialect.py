@@ -33,6 +33,7 @@ from sqlalchemy.sql import sqltypes
 
 from .datatype import JSONIndexType
 from .datatype import JSONPathType
+from .datatype import VARBINARY
 from trino import dbapi as trino_dbapi
 from trino import logging
 from trino.auth import BasicAuthentication
@@ -49,6 +50,10 @@ logger = logging.get_logger(__name__)
 colspecs = {
     sqltypes.JSON.JSONIndexType: JSONIndexType,
     sqltypes.JSON.JSONPathType: JSONPathType,
+    # Applies to sqltypes.LargeBinary, sqltypes.VARBINARY and sqltypes.BINARY, all of which
+    # derive from sqltypes._Binary. Ensures a Trino-compatible X'...' literal is rendered
+    # instead of the default implementation, which assumes the value is UTF-8 decodable text.
+    sqltypes._Binary: VARBINARY,
 }
 
 

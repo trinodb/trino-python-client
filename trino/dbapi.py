@@ -566,8 +566,8 @@ class Cursor:
         if isinstance(param, str):
             return ("'%s'" % param.replace("'", "''"))
 
-        if isinstance(param, (bytes, bytearray)):
-            return "X'%s'" % param.hex()
+        if isinstance(param, (bytes, bytearray, memoryview)):
+            return "X'%s'" % bytes(param).hex()
 
         if isinstance(param, datetime.datetime) and param.tzinfo is None:
             datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
@@ -811,8 +811,12 @@ def TimeFromTicks(ticks):
     return datetime.time(*datetime.localtime(ticks)[3:6])
 
 
-def Binary(string):
-    return string.encode("utf-8")
+def Binary(value):
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return bytes(value)
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    raise TypeError(f"Binary() expects bytes, bytearray, memoryview or str, got {type(value).__name__}")
 
 
 class DBAPITypeObject:
