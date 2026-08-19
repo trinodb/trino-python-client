@@ -33,7 +33,6 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Union
 from urllib.parse import urlparse
-from zoneinfo import ZoneInfo
 
 import trino.client
 import trino.exceptions
@@ -52,6 +51,7 @@ from trino.exceptions import NotSupportedError
 from trino.exceptions import OperationalError
 from trino.exceptions import ProgrammingError
 from trino.exceptions import Warning
+from trino.temporal import format_temporal_literal
 from trino.transaction import IsolationLevel
 from trino.transaction import NO_TRANSACTION
 from trino.transaction import Transaction
@@ -569,35 +569,8 @@ class Cursor:
         if isinstance(param, (bytes, bytearray)):
             return "X'%s'" % param.hex()
 
-        if isinstance(param, datetime.datetime) and param.tzinfo is None:
-            datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
-            return "TIMESTAMP '%s'" % datetime_str
-
-        if isinstance(param, datetime.datetime) and param.tzinfo is not None:
-            datetime_str = param.strftime("%Y-%m-%d %H:%M:%S.%f")
-            # named timezones
-            if isinstance(param.tzinfo, ZoneInfo):
-                return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.key)
-            # offset-based timezones
-            return "TIMESTAMP '%s %s'" % (datetime_str, param.tzinfo.tzname(param))
-
-        # We can't calculate the offset for a time without a point in time
-        if isinstance(param, datetime.time) and param.tzinfo is None:
-            time_str = param.strftime("%H:%M:%S.%f")
-            return "TIME '%s'" % time_str
-
-        if isinstance(param, datetime.time) and param.tzinfo is not None:
-            time_str = param.strftime("%H:%M:%S.%f")
-            # named timezones
-            if isinstance(param.tzinfo, ZoneInfo):
-                utc_offset = datetime.datetime.now(tz=param.tzinfo).strftime('%z')
-                return "TIME '%s %s:%s'" % (time_str, utc_offset[:3], utc_offset[3:])
-            # offset-based timezones
-            return "TIME '%s %s'" % (time_str, param.strftime('%Z')[3:])
-
-        if isinstance(param, datetime.date):
-            date_str = param.strftime("%Y-%m-%d")
-            return "DATE '%s'" % date_str
+        if isinstance(param, (datetime.datetime, datetime.time, datetime.date)):
+            return format_temporal_literal(param)
 
         if isinstance(param, list):
             return "ARRAY[%s]" % ','.join(map(self._format_prepared_param, param))
