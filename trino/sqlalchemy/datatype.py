@@ -9,6 +9,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import datetime
 import re
 from collections.abc import Iterator
 from typing import Any
@@ -22,10 +23,15 @@ from typing import Union
 import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy import util
+from sqlalchemy.exc import CompileError
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlalchemy.types import JSON
+
+from trino.temporal import format_date_literal
+from trino.temporal import format_time_literal
+from trino.temporal import format_timestamp_literal
 
 SQLType = Union[TypeEngine, Type[TypeEngine]]
 
@@ -66,12 +72,42 @@ class ROW(TypeEngine):
         return list
 
 
+def _temporal_literal_processor(type_name, render, accepted_type, rejected_type=None):
+    # The rendered literal carries a zone suffix if and only if the value is
+    # timezone-aware. The type's timezone flag plays no part. The DBAPI
+    # parameter path (trino.dbapi) behaves the same way.
+    def process(value):
+        if not isinstance(value, accepted_type) or (rejected_type is not None and isinstance(value, rejected_type)):
+            raise CompileError(
+                f"Don't know how to literal-quote value {value!r} of type {type(value)} for {type_name}"
+            )
+        try:
+            return render(value)
+        except ValueError as e:
+            raise CompileError(str(e))
+
+    return process
+
+
+class DATE(sqltypes.DATE):
+    __visit_name__ = "DATE"
+
+    def literal_processor(self, dialect):
+        # datetime.datetime subclasses datetime.date, rendering it as a DATE
+        # literal would silently drop the time part, so reject it.
+        return _temporal_literal_processor(
+            "DATE", format_date_literal, datetime.date, rejected_type=datetime.datetime)
+
+
 class TIME(sqltypes.TIME):
     __visit_name__ = "TIME"
 
     def __init__(self, precision=None, timezone=False):
         super(TIME, self).__init__(timezone=timezone)
         self.precision = precision
+
+    def literal_processor(self, dialect):
+        return _temporal_literal_processor("TIME", format_time_literal, datetime.time)
 
 
 class TIMESTAMP(sqltypes.TIMESTAMP):
@@ -80,6 +116,9 @@ class TIMESTAMP(sqltypes.TIMESTAMP):
     def __init__(self, precision=None, timezone=False):
         super(TIMESTAMP, self).__init__(timezone=timezone)
         self.precision = precision
+
+    def literal_processor(self, dialect):
+        return _temporal_literal_processor("TIMESTAMP", format_timestamp_literal, datetime.datetime)
 
 
 class JSON(TypeDecorator):
@@ -159,7 +198,7 @@ _type_map = {
     "varbinary": sqltypes.VARBINARY,
     "json": JSON,
     # === Date and time ===
-    "date": sqltypes.DATE,
+    "date": DATE,
     "time": TIME,
     "time with time zone": TIME,
     "timestamp": TIMESTAMP,

@@ -570,7 +570,10 @@ class Cursor:
             return "X'%s'" % param.hex()
 
         if isinstance(param, (datetime.datetime, datetime.time, datetime.date)):
-            return format_temporal_literal(param)
+            try:
+                return format_temporal_literal(param)
+            except ValueError as e:
+                raise trino.exceptions.NotSupportedError(str(e))
 
         if isinstance(param, list):
             return "ARRAY[%s]" % ','.join(map(self._format_prepared_param, param))
