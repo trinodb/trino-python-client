@@ -52,6 +52,8 @@ from trino.client import _retry_with
 from trino.client import _RetryWithExponentialBackoff
 from trino.client import ClientSession
 from trino.client import CompressedQueryDataDecoderFactory
+from trino.client import port_for_scheme
+from trino.client import scheme_for_port
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
 from trino.client import TrinoResult
@@ -367,6 +369,19 @@ def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
     parsed_url = urlparse(post_args[0])
 
     assert parsed_url.scheme == constants.HTTPS
+
+
+def test_scheme_and_port_inference_are_inverses():
+    assert scheme_for_port(constants.DEFAULT_TLS_PORT) == constants.HTTPS
+    assert scheme_for_port(constants.DEFAULT_PORT) == constants.HTTP
+    assert scheme_for_port(None) == constants.HTTP
+    assert scheme_for_port(9999) == constants.HTTP
+
+    assert port_for_scheme(constants.HTTPS) == constants.DEFAULT_TLS_PORT
+    assert port_for_scheme(constants.HTTP) == constants.DEFAULT_PORT
+
+    for port in (constants.DEFAULT_PORT, constants.DEFAULT_TLS_PORT):
+        assert port_for_scheme(scheme_for_port(port)) == port
 
 
 def test_https_scheme(mock_get_and_post):

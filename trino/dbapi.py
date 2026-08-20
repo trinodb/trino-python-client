@@ -150,16 +150,13 @@ def _resolve_endpoint(
         scheme = parsed_host.scheme
     elif http_scheme:
         scheme = http_scheme
-    elif port == constants.DEFAULT_TLS_PORT:
-        scheme = constants.HTTPS
     else:
-        scheme = constants.HTTP
+        scheme = trino.client.scheme_for_port(port)
 
-    default_port = constants.DEFAULT_TLS_PORT if scheme == constants.HTTPS else constants.DEFAULT_PORT
     resolved_port = (
         parsed_host.port if parsed_host.port is not None
         else port if port is not None
-        else default_port
+        else trino.client.port_for_scheme(scheme)
     )
     return scheme, hostname, resolved_port
 

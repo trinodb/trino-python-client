@@ -379,6 +379,20 @@ def get_roles_values(headers: CaseInsensitiveDict[str], header: str) -> List[Tup
     ]
 
 
+def scheme_for_port(port: Optional[int]) -> str:
+    if port == constants.DEFAULT_TLS_PORT:
+        return constants.HTTPS
+
+    return constants.HTTP
+
+
+def port_for_scheme(scheme: str) -> int:
+    if scheme == constants.HTTPS:
+        return constants.DEFAULT_TLS_PORT
+
+    return constants.DEFAULT_PORT
+
+
 @dataclass
 class TrinoStatus:
     id: str
@@ -508,10 +522,7 @@ class TrinoRequest:
         self._next_uri: Optional[str] = None
 
         if http_scheme is None:
-            if self._port == constants.DEFAULT_TLS_PORT:
-                self._http_scheme = constants.HTTPS
-            else:
-                self._http_scheme = constants.HTTP
+            self._http_scheme = scheme_for_port(self._port)
         else:
             self._http_scheme = http_scheme
 
