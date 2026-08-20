@@ -31,6 +31,7 @@ from typing import Dict
 from typing import List
 from typing import NamedTuple
 from typing import Optional
+from typing import Tuple
 from typing import Union
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
@@ -133,6 +134,36 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
+def _resolve_endpoint(
+    host: str, port: Optional[int], http_scheme: Optional[str]
+) -> Tuple[str, str, int]:
+    """Resolve the scheme, hostname and port to connect to.
+
+    The scheme and the port can each arrive in the host argument or in their
+    own argument, and the host argument wins. A missing port is inferred from
+    the scheme and a missing scheme is inferred from the port.
+    """
+    parsed_host = urlparse(host, allow_fragments=False)
+    hostname = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
+
+    if parsed_host.scheme:
+        scheme = parsed_host.scheme
+    elif http_scheme:
+        scheme = http_scheme
+    elif port == constants.DEFAULT_TLS_PORT:
+        scheme = constants.HTTPS
+    else:
+        scheme = constants.HTTP
+
+    default_port = constants.DEFAULT_TLS_PORT if scheme == constants.HTTPS else constants.DEFAULT_PORT
+    resolved_port = (
+        parsed_host.port if parsed_host.port is not None
+        else port if port is not None
+        else default_port
+    )
+    return scheme, hostname, resolved_port
+
+
 class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
@@ -168,8 +199,7 @@ class Connection:
         heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
         allow_insecure_auth: bool = False,
     ):
-        # Automatically assign http_schema, port based on hostname
-        parsed_host = urlparse(host, allow_fragments=False)
+        self.http_scheme, self.host, self.port = _resolve_endpoint(host, port, http_scheme)
 
         if encoding is _USE_DEFAULT_ENCODING:
             encoding = [
@@ -178,7 +208,6 @@ class Connection:
                 if (enc.split("+")[1] if "+" in enc else None) not in trino.client.CODECS_UNAVAILABLE
             ]
 
-        self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.user = user
         self.source = source
         self.catalog = catalog
@@ -207,18 +236,6 @@ class Connection:
             self._http_session = http_session
         self.http_headers = http_headers
 
-        # Set http_scheme
-        if parsed_host.scheme:
-            self.http_scheme = parsed_host.scheme
-        elif http_scheme:
-            self.http_scheme = http_scheme
-        elif port == constants.DEFAULT_TLS_PORT:
-            self.http_scheme = constants.HTTPS
-        elif port == constants.DEFAULT_PORT:
-            self.http_scheme = constants.HTTP
-        else:
-            self.http_scheme = constants.HTTP
-
         if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
             raise trino.exceptions.TrinoAuthError(
                 "TLS/SSL is required for authentication. "
@@ -229,15 +246,6 @@ class Connection:
                 "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
                 "has HTTPS enabled."
             )
-
-        # Infer connection port: `hostname` takes precedence over explicit `port` argument
-        # If none is given, use default based on HTTP protocol
-        default_port = constants.DEFAULT_TLS_PORT if self.http_scheme == constants.HTTPS else constants.DEFAULT_PORT
-        self.port = (
-            parsed_host.port if parsed_host.port is not None
-            else port if port is not None
-            else default_port
-        )
 
         self.auth = auth
         self.extra_credential = extra_credential
