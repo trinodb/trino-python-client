@@ -277,41 +277,25 @@ def test_role_is_set_when_specified(mock_client):
     assert passed_role["roles"] == roles
 
 
-def test_hostname_parsing():
-    https_server_with_port = Connection("https://mytrinoserver.domain:9999")
-    assert https_server_with_port.host == "mytrinoserver.domain"
-    assert https_server_with_port.port == 9999
-    assert https_server_with_port.http_scheme == constants.HTTPS
-
-    https_server_without_port = Connection("https://mytrinoserver.domain")
-    assert https_server_without_port.host == "mytrinoserver.domain"
-    assert https_server_without_port.port == constants.DEFAULT_TLS_PORT
-    assert https_server_without_port.http_scheme == constants.HTTPS
-
-    http_server_with_port = Connection("http://mytrinoserver.domain:9999")
-    assert http_server_with_port.host == "mytrinoserver.domain"
-    assert http_server_with_port.port == 9999
-    assert http_server_with_port.http_scheme == constants.HTTP
-
-    http_server_without_port = Connection("http://mytrinoserver.domain")
-    assert http_server_without_port.host == "mytrinoserver.domain"
-    assert http_server_without_port.port == constants.DEFAULT_PORT
-    assert http_server_without_port.http_scheme == constants.HTTP
-
-    http_server_with_path = Connection("http://mytrinoserver.domain/some_path")
-    assert http_server_with_path.host == "mytrinoserver.domain/some_path"
-    assert http_server_with_path.port == constants.DEFAULT_PORT
-    assert http_server_with_path.http_scheme == constants.HTTP
-
-    only_hostname = Connection("mytrinoserver.domain")
-    assert only_hostname.host == "mytrinoserver.domain"
-    assert only_hostname.port == constants.DEFAULT_PORT
-    assert only_hostname.http_scheme == constants.HTTP
-
-    only_hostname_with_path = Connection("mytrinoserver.domain/some_path")
-    assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
-    assert only_hostname_with_path.port == constants.DEFAULT_PORT
-    assert only_hostname_with_path.http_scheme == constants.HTTP
+@pytest.mark.parametrize(
+    "host, expected_host, expected_port, expected_scheme",
+    [
+        ("https://mytrinoserver.domain:9999", "mytrinoserver.domain", 9999, constants.HTTPS),
+        ("https://mytrinoserver.domain", "mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTPS),
+        ("http://mytrinoserver.domain:9999", "mytrinoserver.domain", 9999, constants.HTTP),
+        ("http://mytrinoserver.domain", "mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTP),
+        ("http://mytrinoserver.domain/some_path", "mytrinoserver.domain/some_path",
+         constants.DEFAULT_PORT, constants.HTTP),
+        ("mytrinoserver.domain", "mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTP),
+        ("mytrinoserver.domain/some_path", "mytrinoserver.domain/some_path",
+         constants.DEFAULT_PORT, constants.HTTP),
+    ],
+)
+def test_hostname_parsing(host, expected_host, expected_port, expected_scheme):
+    connection = Connection(host)
+    assert connection.host == expected_host
+    assert connection.port == expected_port
+    assert connection.http_scheme == expected_scheme
 
 
 def test_description_is_none_when_cursor_is_not_executed():
