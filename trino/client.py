@@ -1439,7 +1439,12 @@ class _RequestHeartbeat:
         self._thread.start()
 
     def stop(self) -> None:
+        # Wait for an in-flight HEAD to finish. The caller issues its own request on the same
+        # requests.Session right after this returns, and that session is not thread safe.
         self._stop_event.set()
+        if self._thread is not None:
+            self._thread.join()
+            self._thread = None
 
     def _run(self) -> None:
         """

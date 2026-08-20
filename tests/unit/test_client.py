@@ -1321,8 +1321,9 @@ def test_heartbeat_sends_head_to_next_uri():
     hb.start()
     for _ in range(2):
         assert req.heartbeats.acquire(timeout=5)
+    thread = hb._thread
     hb.stop()
-    _assert_heartbeat_thread_exits(hb._thread)
+    assert not thread.is_alive()
     assert len(req.head_calls) >= 2
     assert all(url == req.next_uri for url in req.head_calls)
 
@@ -1375,9 +1376,12 @@ def test_heartbeat_stop_is_immediate():
     req = _ScriptedHeadRequest(itertools.repeat(200))
     hb = _RequestHeartbeat(req, interval=30)
     hb.start()
+    thread = hb._thread
+    started = time.monotonic()
     hb.stop()
-    # The join proves stop interrupts the 30s wait
-    _assert_heartbeat_thread_exits(hb._thread)
+    # stop interrupts the 30s wait instead of waiting it out
+    assert time.monotonic() - started < 5
+    assert not thread.is_alive()
     assert req.head_calls == []
 
 
@@ -1502,6 +1506,68 @@ def test_query_heartbeat_exits_when_query_is_garbage_collected():
     del query
     gc.collect()
     _assert_heartbeat_thread_exits(thread)
+
+
+class _OverlappingHeartbeatRequest(_HeartbeatRecordingRequest):
+    """
+    Keeps every heartbeat HEAD in flight for HEAD_DURATION and records, for each GET the
+    caller makes, whether a HEAD was still running when that GET started.
+
+    A recorded overlap means fetch issued its GET without waiting for the heartbeat.
+    """
+
+    # Long enough that a fetch which fails to wait for the heartbeat starts its GET while the
+    # HEAD is still running. A fetch which does wait cannot observe the overlap however long
+    # this is, so the value only trades test runtime against the chance of missing a regression.
+    HEAD_DURATION = 0.5
+
+    def __init__(self, pages, heartbeat_interval):
+        super().__init__(pages, heartbeat_interval)
+        # Set for as long as a HEAD is in flight
+        self._head_in_flight = threading.Event()
+        # Set once the first HEAD has started. The base class semaphore reports finished
+        # heartbeats, and this test has to act while one is still running.
+        self.head_started = threading.Event()
+        # One entry per GET, True when a HEAD was in flight as that GET started
+        self.overlaps = []
+
+    def head(self, url):
+        self._head_in_flight.set()
+        self.head_started.set()
+        try:
+            time.sleep(self.HEAD_DURATION)
+            return super().head(url)
+        finally:
+            self._head_in_flight.clear()
+
+    def get(self, url):
+        self.overlaps.append(self._head_in_flight.is_set())
+        return super().get(url)
+
+
+def test_fetch_waits_for_an_in_flight_heartbeat():
+    request = _OverlappingHeartbeatRequest(
+        pages=[
+            _heartbeat_page(next_uri=_HEARTBEAT_URI_2, data=[[1]]),
+            _heartbeat_page(data=[[2]]),
+        ],
+        heartbeat_interval=0.02,
+    )
+    request._next_uri = _HEARTBEAT_URI_1
+    query = TrinoQuery(request, query="SELECT 1")
+
+    # The first fetch reads page one and leaves the heartbeat running in the gap that follows
+    query.fetch()
+    assert request.head_started.wait(timeout=5), "the heartbeat never sent a HEAD"
+
+    # A HEAD is in flight right now. The second fetch stops the heartbeat, and it must wait
+    # for that HEAD to finish before issuing its own GET on the shared session.
+    query.fetch()
+    assert query.finished
+
+    # Once stop has joined the heartbeat thread, the HEAD is guaranteed to have cleared the
+    # in-flight flag, so a fetch that waits records False no matter how the two threads ran.
+    assert request.overlaps == [False, False], "a GET started while a heartbeat HEAD was in flight"
 
 
 def test_execute_starts_heartbeat_when_first_response_has_rows():
