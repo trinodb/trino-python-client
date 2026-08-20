@@ -371,6 +371,16 @@ def test_enabling_https_automatically_when_using_port_443(mock_get_and_post):
     assert parsed_url.scheme == constants.HTTPS
 
 
+def test_trino_request_accepts_a_bracketed_ipv6_host():
+    # Connection always passes an unbracketed literal, so this covers direct construction.
+    req = TrinoRequest(
+        host="[::1]",
+        port=8080,
+        client_session=ClientSession(user="test"),
+    )
+    assert req.statement_url == "http://[::1]:8080/v1/statement"
+
+
 def test_scheme_and_port_inference_are_inverses():
     assert scheme_for_port(constants.DEFAULT_TLS_PORT) == constants.HTTPS
     assert scheme_for_port(constants.DEFAULT_PORT) == constants.HTTP

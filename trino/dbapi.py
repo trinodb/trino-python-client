@@ -18,6 +18,7 @@ Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
 import datetime
+import ipaddress
 import math
 import uuid
 from collections import OrderedDict
@@ -30,10 +31,11 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import NamedTuple
+from typing import NoReturn
 from typing import Optional
 from typing import Tuple
 from typing import Union
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import trino.client
@@ -134,24 +136,67 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
+def _parse_host(host: str) -> Tuple[Optional[str], str, Optional[int]]:
+    """Split a host argument into its scheme, hostname and port.
+
+    Accepts a full URL, a hostname on its own or a hostname with a port.
+    Returns None for a missing scheme or port. The caller fills in the
+    defaults.
+
+    Does not check the hostname itself. An unresolvable name fails later, when
+    requests connects.
+    """
+    def fail(reason: str) -> NoReturn:
+        raise ValueError(f"Invalid 'host' argument {host!r}: {reason}.")
+
+    # Without "//" urlsplit reads a scheme-less argument as a path and returns
+    # hostname=None. The prefix forces the authority form. urlsplit does not
+    # validate the hostname it hands back.
+    parts = urlsplit(host if "://" in host else "//" + host, allow_fragments=True)
+    try:
+        hostname, port = parts.hostname, parts.port
+    except ValueError:
+        # urlsplit cannot read an unbracketed IPv6 literal. URLs require
+        # the brackets because ::1 is otherwise ambiguous with host:port.
+        try:
+            ipaddress.ip_address(host)
+            return None, host, None
+        except ValueError:
+            pass
+        # urlsplit raises the same error for an out-of-range port and a
+        # non-numeric one. Report the range either way.
+        fail("expected a port number")
+
+    if parts.path:
+        fail("a path is not allowed")
+    if parts.username is not None or parts.password is not None:
+        fail("credentials are not allowed, pass the 'user' and 'auth' arguments instead")
+    if parts.query or parts.fragment:
+        fail("a query or fragment is not allowed")
+    if not hostname:
+        fail("the hostname is empty")
+    return (parts.scheme or None), hostname, port
+
+
 def _resolve_endpoint(
     host: str, port: Optional[int], http_scheme: Optional[str]
 ) -> Tuple[str, str, int]:
     """Resolve the scheme, hostname and port to connect to.
 
     The scheme and the port can each arrive in the host argument or in their
-    own argument, and the host argument wins. A missing port is inferred from
-    the scheme and a missing scheme is inferred from the port.
+    own argument. A missing port is inferred from the scheme and a missing
+    scheme is inferred from the port.
     """
-    parsed_host = urlparse(host, allow_fragments=False)
-    hostname = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
+    host_scheme, hostname, host_port = _parse_host(host)
 
-    if parsed_host.scheme:
+    given_port = host_port if host_port is not None else port
+
+    if host_scheme:
         try:
-            scheme = trino.client.normalize_http_scheme(parsed_host.scheme)
+            scheme = trino.client.normalize_http_scheme(host_scheme)
         except ValueError:
             raise ValueError(
-                f"Invalid scheme {parsed_host.scheme!r} in host {host!r}, "
+                f"Invalid scheme {host_scheme!r} in host {host!r}, "
                 f"expected {constants.HTTP!r} or {constants.HTTPS!r}."
             ) from None
         if http_scheme is not None and trino.client.normalize_http_scheme(http_scheme) != scheme:
@@ -162,14 +207,11 @@ def _resolve_endpoint(
     elif http_scheme is not None:
         scheme = trino.client.normalize_http_scheme(http_scheme)
     else:
-        scheme = trino.client.scheme_for_port(port)
+        scheme = trino.client.scheme_for_port(given_port)
 
-    resolved_port = (
-        parsed_host.port if parsed_host.port is not None
-        else port if port is not None
-        else trino.client.port_for_scheme(scheme)
-    )
-    return scheme, hostname, resolved_port
+    if given_port is None:
+        given_port = trino.client.port_for_scheme(scheme)
+    return scheme, hostname, given_port
 
 
 class Connection:
@@ -215,7 +257,6 @@ class Connection:
                 for enc in trino.client.ENCODINGS
                 if (enc.split("+")[1] if "+" in enc else None) not in trino.client.CODECS_UNAVAILABLE
             ]
-
         self.user = user
         self.source = source
         self.catalog = catalog

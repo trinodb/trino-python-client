@@ -402,6 +402,14 @@ def normalize_http_scheme(http_scheme: str) -> str:
     return scheme
 
 
+def _authority(host: str, port: int) -> str:
+    # host holds an address only, so a colon means an IPv6 literal. A URL needs
+    # brackets around one.
+    if ":" in host:
+        return f"[{host}]:{port}"
+    return f"{host}:{port}"
+
+
 @dataclass
 class TrinoStatus:
     id: str
@@ -526,7 +534,9 @@ class TrinoRequest:
         verify: bool = True,
     ) -> None:
         self._client_session = client_session
-        self._host = host
+        # Store an IPv6 literal unbracketed, to match the parsed hostnames it
+        # is compared against. _authority brackets it for request URLs.
+        self._host = host[1:-1] if host.startswith("[") and host.endswith("]") else host
         self._port = port
         self._next_uri: Optional[str] = None
 
@@ -681,8 +691,8 @@ class TrinoRequest:
         self._head = with_retry(self._http_session.head)
 
     def get_url(self, path: str) -> str:
-        return "{protocol}://{host}:{port}{path}".format(
-            protocol=self._http_scheme, host=self._host, port=self._port, path=path
+        return "{protocol}://{authority}{path}".format(
+            protocol=self._http_scheme, authority=_authority(self._host, self._port), path=path
         )
 
     @property

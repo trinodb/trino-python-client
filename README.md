@@ -29,7 +29,12 @@ $ pip install trino
 
 Use the DBAPI interface to query Trino:
 
-if `host` is a valid url, the port and http schema will be automatically determined. For example `https://my-trino-server:9999` will assign the `http_schema` property to `https` and port to `9999`.
+`host` accepts a full URL, a hostname on its own, or a `hostname:port`. For
+example `https://my-trino-server:9999` sets `http_scheme` to `https` and `port`
+to `9999`. A scheme or port in `host` that contradicts the `http_scheme` or
+`port` argument is an error. A missing scheme is inferred from the port, and a
+missing port from the scheme. Wrap an IPv6 literal in brackets when it carries
+a port, as in `[::1]:8080`.
 
 ```python
 from trino.dbapi import connect
