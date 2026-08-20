@@ -9,11 +9,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import itertools
 import json
-import time
+import threading
 from unittest import mock
 
 import pytest
+import requests
 
 from trino.client import _RequestHeartbeat
 from trino.client import ClientSession
@@ -24,103 +26,105 @@ from trino.client import TrinoQuery
 from trino.client import TrinoRequest
 
 
-def _mock_trino_request():
-    req = TrinoRequest(
-        host="coordinator",
-        port=8080,
-        client_session=ClientSession(user="test"),
-        http_scheme="http",
-    )
-    req._next_uri = "http://coordinator/v1/statement/q/1"
-    return req
+_NEXT_URI = "http://coordinator/v1/statement/q/1"
 
 
-def _head_response(status_code):
-    return mock.Mock(status_code=status_code, ok=(200 <= status_code < 300))
+class _RecordingHeartbeatRequest(TrinoRequest):
+    """Serves scripted HEAD responses (status codes or exceptions) and records the calls."""
+
+    def __init__(self, responses, next_uri=_NEXT_URI):
+        super().__init__(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(user="test"),
+            http_scheme="http",
+        )
+        self._next_uri = next_uri
+        self._responses = iter(responses)
+        self.head_calls = []
+        # One permit per HEAD request, lets tests wait for heartbeats without sleeping
+        self.heartbeats = threading.Semaphore(0)
+
+    def head(self, url):
+        self.head_calls.append(url)
+        item = next(self._responses)
+        self.heartbeats.release()
+        if isinstance(item, Exception):
+            raise item
+        response = requests.Response()
+        response.status_code = item
+        return response
 
 
-@pytest.fixture
-def ensure_max_failures_3():
-    # Some tests assume _RequestHeartbeart.MAX_FAILURES is set to 3
-    with mock.patch.object(_RequestHeartbeat, "MAX_FAILURES", 3):
-        yield
+def _join_heartbeat(hb):
+    hb._thread.join(timeout=5)
+    assert not hb._thread.is_alive()
 
 
 def test_heartbeat_sends_head_to_next_uri():
-    req = _mock_trino_request()
-    with mock.patch.object(req, "head", return_value=_head_response(200)) as mock_head:
-        hb = _RequestHeartbeat(req, interval=0.01)
-        hb.start()
-        time.sleep(0.1)
-        hb.stop()
-    assert mock_head.call_count >= 2
-    mock_head.assert_called_with(req.next_uri)
+    req = _RecordingHeartbeatRequest(itertools.repeat(200))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    for _ in range(2):
+        assert req.heartbeats.acquire(timeout=5)
+    hb.stop()
+    _join_heartbeat(hb)
+    assert len(req.head_calls) >= 2
+    assert all(url == req.next_uri for url in req.head_calls)
 
 
 @pytest.mark.parametrize("status_code", (404, 405))
 def test_heartbeat_stops_on_404_405(status_code):
-    req = _mock_trino_request()
-    with mock.patch.object(req, "head", return_value=_head_response(status_code)) as mock_head:
-        hb = _RequestHeartbeat(req, interval=0.01)
-        hb.start()
-        time.sleep(0.1)
-        hb.stop()
-    # 404/405 means the server does not support heartbeat requests; they should stop after the first one
-    assert mock_head.call_count == 1
+    # 404/405 means the server does not support heartbeat requests; stop after the first one
+    req = _RecordingHeartbeatRequest([status_code])
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _join_heartbeat(hb)
+    assert req.head_calls == [req.next_uri]
 
 
-def test_heartbeat_stops_after_max_failures_non_2xx(ensure_max_failures_3):
-    req = _mock_trino_request()
-    with mock.patch.object(req, "head", return_value=_head_response(500)) as mock_head:
-        hb = _RequestHeartbeat(req, interval=0.01)
-        hb.start()
-        time.sleep(0.1)
-        hb.stop()
-    assert mock_head.call_count == _RequestHeartbeat.MAX_FAILURES
+def test_heartbeat_stops_after_max_failures_non_2xx():
+    req = _RecordingHeartbeatRequest(itertools.repeat(500))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _join_heartbeat(hb)
+    assert len(req.head_calls) == _RequestHeartbeat.MAX_FAILURES
 
 
-def test_heartbeat_stops_after_max_failures_on_exception(ensure_max_failures_3):
-    req = _mock_trino_request()
-    with mock.patch.object(req, "head", side_effect=Exception("network error")) as mock_head:
-        hb = _RequestHeartbeat(req, interval=0.01)
-        hb.start()
-        time.sleep(0.1)
-        hb.stop()
-    assert mock_head.call_count == _RequestHeartbeat.MAX_FAILURES
+def test_heartbeat_stops_after_max_failures_on_exception():
+    req = _RecordingHeartbeatRequest(itertools.repeat(Exception("network error")))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _join_heartbeat(hb)
+    assert len(req.head_calls) == _RequestHeartbeat.MAX_FAILURES
 
 
-def test_heartbeat_resets_failure_count_on_success(ensure_max_failures_3):
-    req = _mock_trino_request()
-    # Failure counter resets on 200 so the heartbeat keeps running past initial failures
-    responses = [_head_response(500), _head_response(500)] + [_head_response(200)] * 20
-    with mock.patch.object(req, "head", side_effect=responses) as mock_head:
-        hb = _RequestHeartbeat(req, interval=0.01)
-        hb.start()
-        time.sleep(0.1)
-        hb.stop()
-    assert mock_head.call_count > _RequestHeartbeat.MAX_FAILURES
+def test_heartbeat_resets_failure_count_on_success():
+    # A 200 resets the failure counter, only consecutive failures stop the heartbeat
+    failures = _RequestHeartbeat.MAX_FAILURES
+    req = _RecordingHeartbeatRequest([500] * (failures - 1) + [200] + [500] * failures)
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _join_heartbeat(hb)
+    assert len(req.head_calls) == 2 * failures
 
 
 def test_heartbeat_skips_when_next_uri_is_none():
-    req = _mock_trino_request()
-    req._next_uri = None
-    with mock.patch.object(req, "head") as mock_head:
-        hb = _RequestHeartbeat(req, interval=0.01)
-        hb.start()
-        time.sleep(0.1)
-        hb.stop()
-    mock_head.assert_not_called()
+    req = _RecordingHeartbeatRequest(itertools.repeat(200), next_uri=None)
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _join_heartbeat(hb)
+    assert req.head_calls == []
 
 
 def test_heartbeat_stop_is_immediate():
-    req = _mock_trino_request()
-    with mock.patch.object(req, "head", return_value=_head_response(200)):
-        hb = _RequestHeartbeat(req, interval=30)
-        start = time.monotonic()
-        hb.start()
-        hb.stop()
-        elapsed = time.monotonic() - start
-    assert elapsed < 1.0
+    req = _RecordingHeartbeatRequest(itertools.repeat(200))
+    hb = _RequestHeartbeat(req, interval=30)
+    hb.start()
+    hb.stop()
+    # The join proves stop interrupts the 30s wait
+    _join_heartbeat(hb)
+    assert req.head_calls == []
 
 
 def _spooled_fetch_response():
