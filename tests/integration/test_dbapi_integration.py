@@ -2099,6 +2099,26 @@ def test_heartbeat_head_requests_during_spooled_download(run_trino):
     _assert_heartbeats_sent(session, query_id)
 
 
+def test_heartbeat_head_requests_while_caller_is_slow(run_trino):
+    host, port = run_trino
+    session = _HeadCountingSession()
+    conn = trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test",
+        max_attempts=1, encoding=None, heartbeat_interval=0.2,
+        http_session=session,
+    )
+
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tpch.tiny.lineitem")
+    query_id = cur.query_id
+    # Hold the first batch without asking for more rows
+    t.sleep(1.0)
+    cur.fetchall()
+    cur.close()
+
+    _assert_heartbeats_sent(session, query_id)
+
+
 def get_cursor(legacy_prepared_statements, run_trino):
     host, port = run_trino
 

@@ -18,7 +18,6 @@ import pytest
 from trino.client import _RequestHeartbeat
 from trino.client import ClientSession
 from trino.client import DecodableSegment
-from trino.client import InlineSegment
 from trino.client import SegmentIterator
 from trino.client import SpooledSegment
 from trino.client import TrinoQuery
@@ -50,8 +49,10 @@ def ensure_max_failures_3():
 def test_heartbeat_sends_head_to_next_uri():
     req = _mock_trino_request()
     with mock.patch.object(req, "head", return_value=_head_response(200)) as mock_head:
-        with _RequestHeartbeat(req, interval=0.01):
-            time.sleep(0.1)
+        hb = _RequestHeartbeat(req, interval=0.01)
+        hb.start()
+        time.sleep(0.1)
+        hb.stop()
     assert mock_head.call_count >= 2
     mock_head.assert_called_with(req.next_uri)
 
@@ -60,8 +61,10 @@ def test_heartbeat_sends_head_to_next_uri():
 def test_heartbeat_stops_on_404_405(status_code):
     req = _mock_trino_request()
     with mock.patch.object(req, "head", return_value=_head_response(status_code)) as mock_head:
-        with _RequestHeartbeat(req, interval=0.01):
-            time.sleep(0.1)
+        hb = _RequestHeartbeat(req, interval=0.01)
+        hb.start()
+        time.sleep(0.1)
+        hb.stop()
     # 404/405 means the server does not support heartbeat requests; they should stop after the first one
     assert mock_head.call_count == 1
 
@@ -69,16 +72,20 @@ def test_heartbeat_stops_on_404_405(status_code):
 def test_heartbeat_stops_after_max_failures_non_2xx(ensure_max_failures_3):
     req = _mock_trino_request()
     with mock.patch.object(req, "head", return_value=_head_response(500)) as mock_head:
-        with _RequestHeartbeat(req, interval=0.01):
-            time.sleep(0.1)
+        hb = _RequestHeartbeat(req, interval=0.01)
+        hb.start()
+        time.sleep(0.1)
+        hb.stop()
     assert mock_head.call_count == _RequestHeartbeat.MAX_FAILURES
 
 
 def test_heartbeat_stops_after_max_failures_on_exception(ensure_max_failures_3):
     req = _mock_trino_request()
     with mock.patch.object(req, "head", side_effect=Exception("network error")) as mock_head:
-        with _RequestHeartbeat(req, interval=0.01):
-            time.sleep(0.1)
+        hb = _RequestHeartbeat(req, interval=0.01)
+        hb.start()
+        time.sleep(0.1)
+        hb.stop()
     assert mock_head.call_count == _RequestHeartbeat.MAX_FAILURES
 
 
@@ -87,8 +94,10 @@ def test_heartbeat_resets_failure_count_on_success(ensure_max_failures_3):
     # Failure counter resets on 200 so the heartbeat keeps running past initial failures
     responses = [_head_response(500), _head_response(500)] + [_head_response(200)] * 20
     with mock.patch.object(req, "head", side_effect=responses) as mock_head:
-        with _RequestHeartbeat(req, interval=0.01):
-            time.sleep(0.1)
+        hb = _RequestHeartbeat(req, interval=0.01)
+        hb.start()
+        time.sleep(0.1)
+        hb.stop()
     assert mock_head.call_count > _RequestHeartbeat.MAX_FAILURES
 
 
@@ -96,8 +105,10 @@ def test_heartbeat_skips_when_next_uri_is_none():
     req = _mock_trino_request()
     req._next_uri = None
     with mock.patch.object(req, "head") as mock_head:
-        with _RequestHeartbeat(req, interval=0.01):
-            time.sleep(0.1)
+        hb = _RequestHeartbeat(req, interval=0.01)
+        hb.start()
+        time.sleep(0.1)
+        hb.stop()
     mock_head.assert_not_called()
 
 
@@ -106,59 +117,10 @@ def test_heartbeat_stop_is_immediate():
     with mock.patch.object(req, "head", return_value=_head_response(200)):
         hb = _RequestHeartbeat(req, interval=30)
         start = time.monotonic()
-        with hb:
-            pass
+        hb.start()
+        hb.stop()
         elapsed = time.monotonic() - start
     assert elapsed < 1.0
-
-
-def _spooled_iterator(request, heartbeat_interval, rows=None):
-    """SegmentIterator with one SpooledSegment and a pre-set mock decoder."""
-    segment = DecodableSegment("json", None, mock.Mock(spec=SpooledSegment))
-    mapper = mock.Mock()
-    it = SegmentIterator([segment], mapper, request=request, heartbeat_interval=heartbeat_interval)
-    it._decoder = mock.Mock()
-    it._decoder.decode.return_value = rows if rows is not None else [[1, 2]]
-    return it
-
-
-@pytest.mark.parametrize(
-    "trino_request, interval",
-    [(None, 1.0), (_mock_trino_request(), None), (_mock_trino_request(), 0.0)]
-)
-def test_iterator_value_error_when_only_request_or_heartbeat_interval_specified(trino_request, interval):
-    with pytest.raises(ValueError):
-        _ = _spooled_iterator(trino_request, interval)
-
-
-def test_heartbeat_starts_during_spooled_segment_download():
-    req = _mock_trino_request()
-    iterator = _spooled_iterator(req, heartbeat_interval=30.0)
-    with mock.patch("trino.client._RequestHeartbeat") as MockHB:
-        next(iterator)
-    MockHB.assert_called_once_with(req, 30.0)
-    # Make sure MockHB instance is used as a context manager
-    MockHB.return_value.__enter__.assert_called_once()
-    MockHB.return_value.__exit__.assert_called_once()
-
-
-def test_no_heartbeat_for_inline_segment():
-    segment = DecodableSegment("json", None, mock.Mock(spec=InlineSegment))
-    mapper = mock.Mock()
-    iterator = SegmentIterator([segment], mapper, request=_mock_trino_request(), heartbeat_interval=30.0)
-    iterator._decoder = mock.Mock()
-    iterator._decoder.decode.return_value = [[1, 2]]
-    with mock.patch("trino.client._RequestHeartbeat") as MockHB:
-        next(iterator)
-    MockHB.assert_not_called()
-
-
-@pytest.mark.parametrize("interval", (None, 0.0))
-def test_no_heartbeat_when_interval_none_or_zero(interval):
-    iterator = _spooled_iterator(request=None, heartbeat_interval=interval)
-    with mock.patch("trino.client._RequestHeartbeat") as MockHB:
-        next(iterator)
-    MockHB.assert_not_called()
 
 
 def _spooled_fetch_response():
@@ -185,21 +147,17 @@ def _spooled_fetch_response():
     return resp
 
 
-@pytest.mark.parametrize("heartbeat_interval", (30.0, None))
-def test_fetch_passes_request_and_interval_to_segment_iterator(heartbeat_interval):
-    session = ClientSession(user="test", encoding="json", heartbeat_interval=heartbeat_interval)
+def test_fetch_returns_segment_iterator():
+    session = ClientSession(user="test", encoding="json")
     req = TrinoRequest(host="coordinator", port=8080, client_session=session, http_scheme="http")
     req._next_uri = "http://coordinator/v1/statement/q1/1"
     query = TrinoQuery(req, query="SELECT 1")
     query._row_mapper = mock.Mock()
 
     with mock.patch.object(req, "get", return_value=_spooled_fetch_response()):
-        with mock.patch("trino.client.SegmentIterator") as MockSI:
-            MockSI.return_value = iter([])
-            query.fetch()
+        result = query.fetch()
 
-    assert MockSI.call_args.kwargs["request"] is req
-    assert MockSI.call_args.kwargs["heartbeat_interval"] == heartbeat_interval
+    assert isinstance(result, SegmentIterator)
 
 
 class _FakeSpooledSegment(SpooledSegment):
