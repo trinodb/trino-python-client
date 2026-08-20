@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 
 from sqlalchemy import exc
 
+from trino import constants
+
 
 def _rfc_1738_quote(text):
     return re.sub(r"[:@/]", lambda m: "%%%X" % ord(m.group(0)), text)
@@ -40,7 +42,7 @@ def _assert_valid_host(host: str) -> None:
 
 def _url(
     host: str,
-    port: Optional[int] = 8080,
+    port: Optional[int] = constants.DEFAULT_PORT,
     user: Optional[str] = None,
     password: Optional[str] = None,
     catalog: Optional[str] = None,
