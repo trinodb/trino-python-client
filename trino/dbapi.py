@@ -154,6 +154,11 @@ def _resolve_endpoint(
                 f"Invalid scheme {parsed_host.scheme!r} in host {host!r}, "
                 f"expected {constants.HTTP!r} or {constants.HTTPS!r}."
             ) from None
+        if http_scheme is not None and trino.client.normalize_http_scheme(http_scheme) != scheme:
+            raise ValueError(
+                f"The scheme in host {host!r} contradicts http_scheme={http_scheme!r}. "
+                "Drop one of the two, or make them agree."
+            )
     elif http_scheme is not None:
         scheme = trino.client.normalize_http_scheme(http_scheme)
     else:
@@ -242,8 +247,7 @@ class Connection:
         if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
             raise trino.exceptions.TrinoAuthError(
                 "TLS/SSL is required for authentication. "
-                "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
-                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
+                "To use HTTPS, specify 'https://' in the host URL or pass http_scheme='https'. "
                 "If your connection is encrypted below the application layer (for example behind an mTLS "
                 "service mesh sidecar), pass allow_insecure_auth=True and ensure "
                 "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "

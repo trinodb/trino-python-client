@@ -342,6 +342,23 @@ def test_invalid_scheme_in_host_is_rejected(host):
         Connection(host, user="test")
 
 
+@pytest.mark.parametrize(
+    "host, http_scheme",
+    [
+        ("https://mytrinoserver.domain", constants.HTTP),
+        ("http://mytrinoserver.domain", constants.HTTPS),
+    ],
+)
+def test_conflicting_scheme_in_host_and_http_scheme_is_rejected(host, http_scheme):
+    with pytest.raises(ValueError, match="contradicts http_scheme"):
+        Connection(host, http_scheme=http_scheme)
+
+
+def test_agreeing_scheme_in_host_and_http_scheme_is_accepted():
+    connection = Connection("https://mytrinoserver.domain", http_scheme="HTTPS")
+    assert connection.http_scheme == constants.HTTPS
+
+
 def test_uppercase_http_scheme_still_requires_tls_for_authentication():
     with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
         Connection("mytrinoserver.domain", user="test", auth=BasicAuthentication("test", "pass"), http_scheme="HTTP")
