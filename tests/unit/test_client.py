@@ -11,6 +11,7 @@
 # limitations under the License.
 import base64
 import gc
+import itertools
 import threading
 import time
 import urllib
@@ -49,6 +50,7 @@ from trino import constants
 from trino.auth import _OAuth2KeyRingTokenCache
 from trino.auth import _OAuth2TokenBearer
 from trino.client import _DelayExponential
+from trino.client import _RequestHeartbeat
 from trino.client import _retry_with
 from trino.client import _RetryWithExponentialBackoff
 from trino.client import ClientSession
@@ -1281,6 +1283,102 @@ def test_stats_callback_cannot_mutate_query_stats():
         "state": "RUNNING",
         "rootStage": {"stageId": "0", "subStages": [{"stageId": "1"}]},
     }
+
+
+_HEARTBEAT_NEXT_URI = "http://coordinator/v1/statement/q/1"
+
+
+class _ScriptedHeadRequest(TrinoRequest):
+    """Serves scripted HEAD responses (status codes or exceptions) and records the calls."""
+
+    def __init__(self, responses, next_uri=_HEARTBEAT_NEXT_URI):
+        super().__init__(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(user="test"),
+            http_scheme="http",
+        )
+        self._next_uri = next_uri
+        self._responses = iter(responses)
+        self.head_calls = []
+        # One permit per HEAD request, lets tests wait for heartbeats without sleeping
+        self.heartbeats = threading.Semaphore(0)
+
+    def head(self, url):
+        self.head_calls.append(url)
+        item = next(self._responses)
+        self.heartbeats.release()
+        if isinstance(item, Exception):
+            raise item
+        response = requests.Response()
+        response.status_code = item
+        return response
+
+
+def test_heartbeat_sends_head_to_next_uri():
+    req = _ScriptedHeadRequest(itertools.repeat(200))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    for _ in range(2):
+        assert req.heartbeats.acquire(timeout=5)
+    hb.stop()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) >= 2
+    assert all(url == req.next_uri for url in req.head_calls)
+
+
+@pytest.mark.parametrize("status_code", (404, 405))
+def test_heartbeat_stops_on_404_405(status_code):
+    # 404/405 means the server does not support heartbeat requests; stop after the first one
+    req = _ScriptedHeadRequest([status_code])
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert req.head_calls == [req.next_uri]
+
+
+def test_heartbeat_stops_after_max_failures_non_2xx():
+    req = _ScriptedHeadRequest(itertools.repeat(500))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) == _RequestHeartbeat.MAX_FAILURES
+
+
+def test_heartbeat_stops_after_max_failures_on_exception():
+    req = _ScriptedHeadRequest(itertools.repeat(Exception("network error")))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) == _RequestHeartbeat.MAX_FAILURES
+
+
+def test_heartbeat_resets_failure_count_on_success():
+    # A 200 resets the failure counter, only consecutive failures stop the heartbeat
+    failures = _RequestHeartbeat.MAX_FAILURES
+    req = _ScriptedHeadRequest([500] * (failures - 1) + [200] + [500] * failures)
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) == 2 * failures
+
+
+def test_heartbeat_skips_when_next_uri_is_none():
+    req = _ScriptedHeadRequest(itertools.repeat(200), next_uri=None)
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert req.head_calls == []
+
+
+def test_heartbeat_stop_is_immediate():
+    req = _ScriptedHeadRequest(itertools.repeat(200))
+    hb = _RequestHeartbeat(req, interval=30)
+    hb.start()
+    hb.stop()
+    # The join proves stop interrupts the 30s wait
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert req.head_calls == []
 
 
 class _HeartbeatRecordingRequest(TrinoRequest):
