@@ -320,11 +320,36 @@ def test_description_is_none_when_cursor_is_not_executed():
         ("mytrinoserver.domain", None, constants.HTTPS, constants.HTTPS),
         # Default
         ("mytrinoserver.domain", None, None, constants.HTTP),
+        # The scheme argument is case-insensitive
+        ("mytrinoserver.domain", None, "HTTPS", constants.HTTPS),
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, "Http", constants.HTTP),
     ],
 )
 def test_setting_http_scheme(host, port, http_scheme_input_argument, http_scheme_set):
     connection = Connection(host, port, http_scheme=http_scheme_input_argument)
     assert connection.http_scheme == http_scheme_set
+
+
+@pytest.mark.parametrize("http_scheme", ["", "ftp", "gopher", "htp"])
+def test_invalid_http_scheme_argument_is_rejected(http_scheme):
+    with pytest.raises(ValueError, match="Invalid http_scheme"):
+        Connection("mytrinoserver.domain", user="test", http_scheme=http_scheme)
+
+
+@pytest.mark.parametrize("host", ["ftp://mytrinoserver.domain", "gopher://mytrinoserver.domain"])
+def test_invalid_scheme_in_host_is_rejected(host):
+    with pytest.raises(ValueError, match="in host"):
+        Connection(host, user="test")
+
+
+def test_uppercase_http_scheme_still_requires_tls_for_authentication():
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection("mytrinoserver.domain", user="test", auth=BasicAuthentication("test", "pass"), http_scheme="HTTP")
+
+
+def test_uppercase_https_scheme_infers_tls_port():
+    connection = Connection("mytrinoserver.domain", user="test", http_scheme="HTTPS")
+    assert connection.port == constants.DEFAULT_TLS_PORT
 
 
 @patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed", "zstd": "Not installed"})

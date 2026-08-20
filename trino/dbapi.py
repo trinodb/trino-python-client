@@ -147,9 +147,15 @@ def _resolve_endpoint(
     hostname = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
 
     if parsed_host.scheme:
-        scheme = parsed_host.scheme
-    elif http_scheme:
-        scheme = http_scheme
+        try:
+            scheme = trino.client.normalize_http_scheme(parsed_host.scheme)
+        except ValueError:
+            raise ValueError(
+                f"Invalid scheme {parsed_host.scheme!r} in host {host!r}, "
+                f"expected {constants.HTTP!r} or {constants.HTTPS!r}."
+            ) from None
+    elif http_scheme is not None:
+        scheme = trino.client.normalize_http_scheme(http_scheme)
     else:
         scheme = trino.client.scheme_for_port(port)
 

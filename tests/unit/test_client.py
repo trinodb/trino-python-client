@@ -384,6 +384,17 @@ def test_scheme_and_port_inference_are_inverses():
         assert port_for_scheme(scheme_for_port(port)) == port
 
 
+@pytest.mark.parametrize("http_scheme", ["", "ftp", "gopher"])
+def test_invalid_http_scheme_is_rejected(http_scheme):
+    with pytest.raises(ValueError, match="Invalid http_scheme"):
+        TrinoRequest(
+            host="coordinator",
+            port=constants.DEFAULT_PORT,
+            client_session=ClientSession(user="test"),
+            http_scheme=http_scheme,
+        )
+
+
 def test_https_scheme(mock_get_and_post):
     _, post = mock_get_and_post
 

@@ -393,6 +393,15 @@ def port_for_scheme(scheme: str) -> int:
     return constants.DEFAULT_PORT
 
 
+def normalize_http_scheme(http_scheme: str) -> str:
+    scheme = http_scheme.lower()
+    if scheme not in (constants.HTTP, constants.HTTPS):
+        raise ValueError(
+            f"Invalid http_scheme {http_scheme!r}, expected {constants.HTTP!r} or {constants.HTTPS!r}"
+        )
+    return scheme
+
+
 @dataclass
 class TrinoStatus:
     id: str
@@ -524,7 +533,7 @@ class TrinoRequest:
         if http_scheme is None:
             self._http_scheme = scheme_for_port(self._port)
         else:
-            self._http_scheme = http_scheme
+            self._http_scheme = normalize_http_scheme(http_scheme)
 
         if http_session is not None:
             self._http_session = http_session
