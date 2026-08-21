@@ -404,10 +404,28 @@ def test_uppercase_http_scheme_still_requires_tls_for_authentication():
         Connection("mytrinoserver.domain", user="test", auth=BasicAuthentication("test", "pass"), http_scheme="HTTP")
 
 
-@pytest.mark.parametrize("host", ["mytrinoserver.domain:x", "mytrinoserver.domain:-1"])
-def test_unreadable_port_in_host_is_rejected(host):
-    with pytest.raises(ValueError, match="expected a port number"):
-        Connection(host, user="test")
+@pytest.mark.parametrize(
+    "host, port, expected_message",
+    [
+        # Out of range, whether it arrived in host or in port
+        ("mytrinoserver.domain", -1, "Invalid port"),
+        ("mytrinoserver.domain", 65536, "Invalid port"),
+        ("mytrinoserver.domain", 99999, "Invalid port"),
+        ("mytrinoserver.domain:65536", None, "expected a port in 0-65535"),
+        ("mytrinoserver.domain:-1", None, "expected a port in 0-65535"),
+        ("mytrinoserver.domain:x", None, "expected a port in 0-65535"),
+        # Given twice and disagreeing
+        ("mytrinoserver.domain:9999", 8080, "contradicts port=8080"),
+    ],
+)
+def test_invalid_port_is_rejected(host, port, expected_message):
+    with pytest.raises(ValueError, match=expected_message):
+        Connection(host, port, user="test")
+
+
+def test_port_in_host_agreeing_with_port_argument_is_accepted():
+    connection = Connection("mytrinoserver.domain:8080", 8080, user="test")
+    assert connection.port == 8080
 
 
 @patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed", "zstd": "Not installed"})

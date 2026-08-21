@@ -141,7 +141,7 @@ def _parse_host(host: str) -> Tuple[Optional[str], str, Optional[int]]:
 
     Accepts a full URL, a hostname on its own or a hostname with a port.
     Returns None for a missing scheme or port. The caller fills in the
-    defaults.
+    defaults and checks the port range.
 
     Does not check the hostname itself. An unresolvable name fails later, when
     requests connects.
@@ -165,7 +165,7 @@ def _parse_host(host: str) -> Tuple[Optional[str], str, Optional[int]]:
             pass
         # urlsplit raises the same error for an out-of-range port and a
         # non-numeric one. Report the range either way.
-        fail("expected a port number")
+        fail(f"expected a port in {constants.MIN_PORT}-{constants.MAX_PORT}")
 
     if parts.path:
         fail("a path is not allowed")
@@ -184,12 +184,22 @@ def _resolve_endpoint(
     """Resolve the scheme, hostname and port to connect to.
 
     The scheme and the port can each arrive in the host argument or in their
-    own argument. A missing port is inferred from the scheme and a missing
-    scheme is inferred from the port.
+    own argument. Passing both raises unless they agree. A missing port is
+    inferred from the scheme and a missing scheme is inferred from the port.
     """
     host_scheme, hostname, host_port = _parse_host(host)
 
+    if host_port is not None and port is not None and host_port != port:
+        raise ValueError(
+            f"The port in host {host!r} contradicts port={port!r}. "
+            "Drop one of the two, or make them agree."
+        )
+
     given_port = host_port if host_port is not None else port
+    if given_port is not None and not constants.MIN_PORT <= given_port <= constants.MAX_PORT:
+        raise ValueError(
+            f"Invalid port {given_port!r}, expected {constants.MIN_PORT}-{constants.MAX_PORT}."
+        )
 
     if host_scheme:
         try:
