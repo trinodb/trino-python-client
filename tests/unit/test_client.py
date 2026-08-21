@@ -10,6 +10,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import gc
+import itertools
 import threading
 import time
 import urllib
@@ -48,6 +50,7 @@ from trino import constants
 from trino.auth import _OAuth2KeyRingTokenCache
 from trino.auth import _OAuth2TokenBearer
 from trino.client import _DelayExponential
+from trino.client import _RequestHeartbeat
 from trino.client import _retry_with
 from trino.client import _RetryWithExponentialBackoff
 from trino.client import ClientSession
@@ -1280,6 +1283,307 @@ def test_stats_callback_cannot_mutate_query_stats():
         "state": "RUNNING",
         "rootStage": {"stageId": "0", "subStages": [{"stageId": "1"}]},
     }
+
+
+_HEARTBEAT_NEXT_URI = "http://coordinator/v1/statement/q/1"
+
+
+class _ScriptedHeadRequest(TrinoRequest):
+    """Serves scripted HEAD responses (status codes or exceptions) and records the calls."""
+
+    def __init__(self, responses, next_uri=_HEARTBEAT_NEXT_URI):
+        super().__init__(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(user="test"),
+            http_scheme="http",
+        )
+        self._next_uri = next_uri
+        self._responses = iter(responses)
+        self.head_calls = []
+        # One permit per HEAD request, lets tests wait for heartbeats without sleeping
+        self.heartbeats = threading.Semaphore(0)
+
+    def head(self, url):
+        self.head_calls.append(url)
+        item = next(self._responses)
+        self.heartbeats.release()
+        if isinstance(item, Exception):
+            raise item
+        response = requests.Response()
+        response.status_code = item
+        return response
+
+
+def test_heartbeat_sends_head_to_next_uri():
+    req = _ScriptedHeadRequest(itertools.repeat(200))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    for _ in range(2):
+        assert req.heartbeats.acquire(timeout=5)
+    thread = hb._thread
+    hb.stop()
+    assert not thread.is_alive()
+    assert len(req.head_calls) >= 2
+    assert all(url == req.next_uri for url in req.head_calls)
+
+
+@pytest.mark.parametrize("status_code", (404, 405))
+def test_heartbeat_stops_on_404_405(status_code):
+    # 404/405 means the server does not support heartbeat requests; stop after the first one
+    req = _ScriptedHeadRequest([status_code])
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert req.head_calls == [req.next_uri]
+
+
+def test_heartbeat_stops_after_max_failures_non_2xx():
+    req = _ScriptedHeadRequest(itertools.repeat(500))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) == _RequestHeartbeat.MAX_FAILURES
+
+
+def test_heartbeat_stops_after_max_failures_on_exception():
+    req = _ScriptedHeadRequest(itertools.repeat(Exception("network error")))
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) == _RequestHeartbeat.MAX_FAILURES
+
+
+def test_heartbeat_resets_failure_count_on_success():
+    # A 200 resets the failure counter, only consecutive failures stop the heartbeat
+    failures = _RequestHeartbeat.MAX_FAILURES
+    req = _ScriptedHeadRequest([500] * (failures - 1) + [200] + [500] * failures)
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert len(req.head_calls) == 2 * failures
+
+
+def test_heartbeat_skips_when_next_uri_is_none():
+    req = _ScriptedHeadRequest(itertools.repeat(200), next_uri=None)
+    hb = _RequestHeartbeat(req, interval=0.01)
+    hb.start()
+    _assert_heartbeat_thread_exits(hb._thread)
+    assert req.head_calls == []
+
+
+def test_heartbeat_stop_is_immediate():
+    req = _ScriptedHeadRequest(itertools.repeat(200))
+    hb = _RequestHeartbeat(req, interval=30)
+    hb.start()
+    thread = hb._thread
+    started = time.monotonic()
+    hb.stop()
+    # stop interrupts the 30s wait instead of waiting it out
+    assert time.monotonic() - started < 5
+    assert not thread.is_alive()
+    assert req.head_calls == []
+
+
+class _HeartbeatRecordingRequest(TrinoRequest):
+    """Serves canned response pages and records heartbeat HEAD calls."""
+
+    def __init__(self, pages, heartbeat_interval):
+        super().__init__(
+            host="coordinator",
+            port=8080,
+            client_session=ClientSession(user="test", heartbeat_interval=heartbeat_interval),
+            http_scheme="http",
+        )
+        self._pages = iter(pages)
+        self.head_calls = []
+        # One permit per heartbeat HEAD request, lets tests wait for heartbeats without sleeping
+        self.heartbeats = threading.Semaphore(0)
+
+    def _canned_response(self, payload, status_code=200):
+        response = requests.Response()
+        response.status_code = status_code
+        if payload is not None:
+            body = json.dumps(payload)
+            response._content = body if isinstance(body, bytes) else body.encode("utf-8")
+        return response
+
+    def post(self, sql, additional_http_headers=None):
+        return self._canned_response(next(self._pages))
+
+    def get(self, url):
+        return self._canned_response(next(self._pages))
+
+    def head(self, url):
+        self.head_calls.append(url)
+        self.heartbeats.release()
+        return self._canned_response(None)
+
+    def delete(self, url):
+        return self._canned_response(None, status_code=204)
+
+
+def _heartbeat_page(next_uri=None, data=None):
+    page = {
+        "id": "q1",
+        "infoUri": "http://coordinator/query.html?q1",
+        "stats": {"state": "RUNNING"},
+        "columns": [{"name": "x", "type": "integer", "typeSignature": {"rawType": "integer", "arguments": []}}],
+    }
+    if next_uri is not None:
+        page["nextUri"] = next_uri
+    if data is not None:
+        page["data"] = data
+    return page
+
+
+_HEARTBEAT_URI_1 = "http://coordinator/v1/statement/executing/q1/1"
+_HEARTBEAT_URI_2 = "http://coordinator/v1/statement/executing/q1/2"
+
+
+def _heartbeat_query(heartbeat_interval=0.02):
+    request = _HeartbeatRecordingRequest(
+        pages=[
+            _heartbeat_page(next_uri=_HEARTBEAT_URI_2, data=[[1]]),
+            _heartbeat_page(data=[[2]]),
+        ],
+        heartbeat_interval=heartbeat_interval,
+    )
+    request._next_uri = _HEARTBEAT_URI_1
+    return TrinoQuery(request, query="SELECT 1"), request
+
+
+def _await_heartbeats(request, count):
+    for _ in range(count):
+        assert request.heartbeats.acquire(timeout=5), "expected a heartbeat HEAD request"
+
+
+def _assert_heartbeat_thread_exits(thread):
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+
+
+def test_query_heartbeat_covers_gap_between_fetches():
+    query, request = _heartbeat_query()
+
+    query.fetch()
+    assert query._heartbeat is not None
+    _await_heartbeats(request, 2)
+    assert all(uri == _HEARTBEAT_URI_2 for uri in request.head_calls)
+
+    thread = query._heartbeat._thread
+    query.fetch()
+    assert query.finished
+    assert query._heartbeat is None
+    _assert_heartbeat_thread_exits(thread)
+
+
+@pytest.mark.parametrize("heartbeat_interval", (None, 0.0))
+def test_query_heartbeat_disabled_when_interval_none_or_zero(heartbeat_interval):
+    query, request = _heartbeat_query(heartbeat_interval=heartbeat_interval)
+
+    query.fetch()
+    assert query._heartbeat is None
+    assert request.head_calls == []
+
+
+def test_query_heartbeat_stops_on_cancel():
+    query, request = _heartbeat_query()
+
+    query.fetch()
+    thread = query._heartbeat._thread
+    query.cancel()
+    assert query.cancelled
+    assert query._heartbeat is None
+    _assert_heartbeat_thread_exits(thread)
+
+
+def test_query_heartbeat_exits_when_query_is_garbage_collected():
+    query, request = _heartbeat_query()
+
+    query.fetch()
+    thread = query._heartbeat._thread
+    del query
+    gc.collect()
+    _assert_heartbeat_thread_exits(thread)
+
+
+class _OverlappingHeartbeatRequest(_HeartbeatRecordingRequest):
+    """
+    Keeps every heartbeat HEAD in flight for HEAD_DURATION and records, for each GET the
+    caller makes, whether a HEAD was still running when that GET started.
+
+    A recorded overlap means fetch issued its GET without waiting for the heartbeat.
+    """
+
+    # Long enough that a fetch which fails to wait for the heartbeat starts its GET while the
+    # HEAD is still running. A fetch which does wait cannot observe the overlap however long
+    # this is, so the value only trades test runtime against the chance of missing a regression.
+    HEAD_DURATION = 0.5
+
+    def __init__(self, pages, heartbeat_interval):
+        super().__init__(pages, heartbeat_interval)
+        # Set for as long as a HEAD is in flight
+        self._head_in_flight = threading.Event()
+        # Set once the first HEAD has started. The base class semaphore reports finished
+        # heartbeats, and this test has to act while one is still running.
+        self.head_started = threading.Event()
+        # One entry per GET, True when a HEAD was in flight as that GET started
+        self.overlaps = []
+
+    def head(self, url):
+        self._head_in_flight.set()
+        self.head_started.set()
+        try:
+            time.sleep(self.HEAD_DURATION)
+            return super().head(url)
+        finally:
+            self._head_in_flight.clear()
+
+    def get(self, url):
+        self.overlaps.append(self._head_in_flight.is_set())
+        return super().get(url)
+
+
+def test_fetch_waits_for_an_in_flight_heartbeat():
+    request = _OverlappingHeartbeatRequest(
+        pages=[
+            _heartbeat_page(next_uri=_HEARTBEAT_URI_2, data=[[1]]),
+            _heartbeat_page(data=[[2]]),
+        ],
+        heartbeat_interval=0.02,
+    )
+    request._next_uri = _HEARTBEAT_URI_1
+    query = TrinoQuery(request, query="SELECT 1")
+
+    # The first fetch reads page one and leaves the heartbeat running in the gap that follows
+    query.fetch()
+    assert request.head_started.wait(timeout=5), "the heartbeat never sent a HEAD"
+
+    # A HEAD is in flight right now. The second fetch stops the heartbeat, and it must wait
+    # for that HEAD to finish before issuing its own GET on the shared session.
+    query.fetch()
+    assert query.finished
+
+    # Once stop has joined the heartbeat thread, the HEAD is guaranteed to have cleared the
+    # in-flight flag, so a fetch that waits records False no matter how the two threads ran.
+    assert request.overlaps == [False, False], "a GET started while a heartbeat HEAD was in flight"
+
+
+def test_execute_starts_heartbeat_when_first_response_has_rows():
+    request = _HeartbeatRecordingRequest(
+        pages=[_heartbeat_page(next_uri=_HEARTBEAT_URI_1, data=[[1]])],
+        heartbeat_interval=0.02,
+    )
+    query = TrinoQuery(request, query="SELECT 1")
+
+    query.execute()
+    assert query._heartbeat is not None
+    _await_heartbeats(request, 2)
+
+    thread = query._heartbeat._thread
+    query._stop_heartbeat()
+    _assert_heartbeat_thread_exits(thread)
 
 
 def test_delay_exponential_without_jitter():
