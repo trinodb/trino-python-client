@@ -23,6 +23,7 @@ from trino.client import SegmentIterator
 from trino.client import SpooledSegment
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
+from trino.dbapi import Connection
 
 
 def _mock_trino_request():
@@ -327,3 +328,35 @@ def test_send_spooling_request_segment_header_takes_precedence_over_custom_heade
     segment._send_spooling_request(segment.uri)
 
     assert recorded["headers"]["X-Trino-Spooling-Token"] == "token-abc"
+
+
+def test_send_spooling_request_forwards_custom_headers_for_a_mixed_case_host():
+    # Connection lowercases the host so it matches the hostname urlsplit
+    # parses out of the segment URI. Storing it as given misses the comparison
+    # and drops the custom headers.
+    custom_headers = {"X-Auth-Gateway-Token": "user-token"}
+    connection = Connection("https://MyHost.Domain", user="test", http_headers=custom_headers)
+    request = connection._create_request()
+    segment = SpooledSegment(
+        {
+            "type": "spooled",
+            "uri": "https://MyHost.Domain/v1/spooled/download/seg1",
+            "ackUri": "https://MyHost.Domain/v1/spooled/ack/seg1",
+            "headers": {"X-Trino-Spooling-Token": ["token-abc"]},
+            "metadata": {"segmentSize": "1", "uncompressedSize": "1"},
+        },
+        request,
+        coordinator_host=request._host,
+        custom_headers=dict(request._client_session.headers),
+    )
+
+    recorded = {}
+
+    def fake_get(uri, headers=None, **kwargs):
+        recorded["headers"] = headers
+        return mock.Mock(ok=True)
+
+    segment._request._get = fake_get
+    segment._send_spooling_request(segment.uri)
+
+    assert recorded["headers"]["X-Auth-Gateway-Token"] == "user-token"

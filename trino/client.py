@@ -379,6 +379,37 @@ def get_roles_values(headers: CaseInsensitiveDict[str], header: str) -> List[Tup
     ]
 
 
+def scheme_for_port(port: Optional[int]) -> str:
+    if port == constants.DEFAULT_TLS_PORT:
+        return constants.HTTPS
+
+    return constants.HTTP
+
+
+def port_for_scheme(scheme: str) -> int:
+    if scheme == constants.HTTPS:
+        return constants.DEFAULT_TLS_PORT
+
+    return constants.DEFAULT_PORT
+
+
+def normalize_http_scheme(http_scheme: str) -> str:
+    scheme = http_scheme.lower()
+    if scheme not in (constants.HTTP, constants.HTTPS):
+        raise ValueError(
+            f"Invalid http_scheme {http_scheme!r}, expected {constants.HTTP!r} or {constants.HTTPS!r}"
+        )
+    return scheme
+
+
+def _authority(host: str, port: int) -> str:
+    # host holds an address only, so a colon means an IPv6 literal. A URL needs
+    # brackets around one.
+    if ":" in host:
+        return f"[{host}]:{port}"
+    return f"{host}:{port}"
+
+
 @dataclass
 class TrinoStatus:
     id: str
@@ -503,17 +534,16 @@ class TrinoRequest:
         verify: bool = True,
     ) -> None:
         self._client_session = client_session
-        self._host = host
+        # Store an IPv6 literal unbracketed, to match the parsed hostnames it
+        # is compared against. _authority brackets it for request URLs.
+        self._host = host[1:-1] if host.startswith("[") and host.endswith("]") else host
         self._port = port
         self._next_uri: Optional[str] = None
 
         if http_scheme is None:
-            if self._port == constants.DEFAULT_TLS_PORT:
-                self._http_scheme = constants.HTTPS
-            else:
-                self._http_scheme = constants.HTTP
+            self._http_scheme = scheme_for_port(self._port)
         else:
-            self._http_scheme = http_scheme
+            self._http_scheme = normalize_http_scheme(http_scheme)
 
         if http_session is not None:
             self._http_session = http_session
@@ -661,8 +691,8 @@ class TrinoRequest:
         self._head = with_retry(self._http_session.head)
 
     def get_url(self, path: str) -> str:
-        return "{protocol}://{host}:{port}{path}".format(
-            protocol=self._http_scheme, host=self._host, port=self._port, path=path
+        return "{protocol}://{authority}{path}".format(
+            protocol=self._http_scheme, authority=_authority(self._host, self._port), path=path
         )
 
     @property

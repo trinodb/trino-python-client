@@ -277,70 +277,155 @@ def test_role_is_set_when_specified(mock_client):
     assert passed_role["roles"] == roles
 
 
-def test_hostname_parsing():
-    https_server_with_port = Connection("https://mytrinoserver.domain:9999")
-    assert https_server_with_port.host == "mytrinoserver.domain"
-    assert https_server_with_port.port == 9999
-    assert https_server_with_port.http_scheme == constants.HTTPS
+@pytest.mark.parametrize(
+    "host, expected_port, expected_scheme",
+    [
+        ("https://mytrinoserver.domain:9999", 9999, constants.HTTPS),
+        ("https://mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTPS),
+        ("http://mytrinoserver.domain:9999", 9999, constants.HTTP),
+        ("http://mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTP),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTP),
+        ("mytrinoserver.domain:9999", 9999, constants.HTTP),
+        ("mytrinoserver.domain:443", constants.DEFAULT_TLS_PORT, constants.HTTPS),
+    ],
+)
+def test_hostname_parsing(host, expected_port, expected_scheme):
+    connection = Connection(host)
+    assert connection.host == "mytrinoserver.domain"
+    assert connection.port == expected_port
+    assert connection.http_scheme == expected_scheme
 
-    https_server_without_port = Connection("https://mytrinoserver.domain")
-    assert https_server_without_port.host == "mytrinoserver.domain"
-    assert https_server_without_port.port == constants.DEFAULT_TLS_PORT
-    assert https_server_without_port.http_scheme == constants.HTTPS
 
-    http_server_with_port = Connection("http://mytrinoserver.domain:9999")
-    assert http_server_with_port.host == "mytrinoserver.domain"
-    assert http_server_with_port.port == 9999
-    assert http_server_with_port.http_scheme == constants.HTTP
+def test_hostname_is_lowercased():
+    assert Connection("MyTrinoServer.Domain").host == "mytrinoserver.domain"
+    assert Connection("https://MyTrinoServer.Domain").host == "mytrinoserver.domain"
 
-    http_server_without_port = Connection("http://mytrinoserver.domain")
-    assert http_server_without_port.host == "mytrinoserver.domain"
-    assert http_server_without_port.port == constants.DEFAULT_PORT
-    assert http_server_without_port.http_scheme == constants.HTTP
 
-    http_server_with_path = Connection("http://mytrinoserver.domain/some_path")
-    assert http_server_with_path.host == "mytrinoserver.domain/some_path"
-    assert http_server_with_path.port == constants.DEFAULT_PORT
-    assert http_server_with_path.http_scheme == constants.HTTP
+@pytest.mark.parametrize(
+    "host, expected_message",
+    [
+        ("http://mytrinoserver.domain/some_path", "a path is not allowed"),
+        ("https://mytrinoserver.domain:9999/some_path", "a path is not allowed"),
+        ("mytrinoserver.domain/some_path", "a path is not allowed"),
+        ("http://mytrinoserver.domain/", "a path is not allowed"),
+        ("mytrinoserver.domain/", "a path is not allowed"),
+        ("user@mytrinoserver.domain", "credentials are not allowed"),
+        ("https://user:password@mytrinoserver.domain", "credentials are not allowed"),
+        ("mytrinoserver.domain?key=value", "a query or fragment is not allowed"),
+        ("mytrinoserver.domain#fragment", "a query or fragment is not allowed"),
+        ("", "the hostname is empty"),
+        ("http://", "the hostname is empty"),
+        ("https://:8080", "the hostname is empty"),
+    ],
+)
+def test_invalid_host_is_rejected(host, expected_message):
+    with pytest.raises(ValueError, match=f"Invalid 'host' argument .*: {expected_message}"):
+        Connection(host)
 
-    only_hostname = Connection("mytrinoserver.domain")
-    assert only_hostname.host == "mytrinoserver.domain"
-    assert only_hostname.port == constants.DEFAULT_PORT
-    assert only_hostname.http_scheme == constants.HTTP
 
-    only_hostname_with_path = Connection("mytrinoserver.domain/some_path")
-    assert only_hostname_with_path.host == "mytrinoserver.domain/some_path"
-    assert only_hostname_with_path.port == constants.DEFAULT_PORT
-    assert only_hostname_with_path.http_scheme == constants.HTTP
+@pytest.mark.parametrize(
+    "host, expected_host, expected_port, expected_url",
+    [
+        ("http://[::1]:8080", "::1", 8080, "http://[::1]:8080/v1/statement"),
+        ("[::1]", "::1", constants.DEFAULT_PORT, "http://[::1]:8080/v1/statement"),
+        ("[::1]:9999", "::1", 9999, "http://[::1]:9999/v1/statement"),
+        ("::1", "::1", constants.DEFAULT_PORT, "http://[::1]:8080/v1/statement"),
+        ("https://[::1]", "::1", constants.DEFAULT_TLS_PORT, "https://[::1]:443/v1/statement"),
+        ("[2001:db8::1]:9999", "2001:db8::1", 9999, "http://[2001:db8::1]:9999/v1/statement"),
+    ],
+)
+def test_ipv6_hostname_parsing(host, expected_host, expected_port, expected_url):
+    connection = Connection(host)
+    # Stored unbracketed, bracketed only in the URL.
+    assert connection.host == expected_host
+    assert connection.port == expected_port
+    assert connection._create_request().statement_url == expected_url
 
 
 def test_description_is_none_when_cursor_is_not_executed():
     connection = Connection("sample_trino_cluster:443")
     with connection.cursor() as cursor:
-        assert hasattr(cursor, 'description')
+        assert cursor.description is None
 
 
 @pytest.mark.parametrize(
-    "host, port, http_scheme_input_argument, http_scheme_set",
+    "host, port, http_scheme, expected_http_scheme, expected_port",
     [
-        # Infer from hostname
-        ("https://mytrinoserver.domain:9999", None, None, constants.HTTPS),
-        ("http://mytrinoserver.domain:9999", None, None, constants.HTTP),
-        # Infer from port
-        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, None, constants.HTTPS),
-        ("mytrinoserver.domain", constants.DEFAULT_PORT, None, constants.HTTP),
-        # http_scheme parameter has higher precedence than port parameter
-        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTP, constants.HTTP),
-        ("mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTPS, constants.HTTPS),
-        # Set explicitly by http_scheme parameter
-        ("mytrinoserver.domain", None, constants.HTTPS, constants.HTTPS),
-        # Default
-        ("mytrinoserver.domain", None, None, constants.HTTP),
+        # Decided by a scheme in host, which the http_scheme argument may repeat
+        ("https://mytrinoserver.domain", None, None, constants.HTTPS, constants.DEFAULT_TLS_PORT),
+        ("http://mytrinoserver.domain", None, None, constants.HTTP, constants.DEFAULT_PORT),
+        ("https://mytrinoserver.domain", None, "HTTPS", constants.HTTPS, constants.DEFAULT_TLS_PORT),
+        # Decided by the http_scheme argument
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, constants.HTTP, constants.HTTP,
+         constants.DEFAULT_TLS_PORT),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, constants.HTTPS, constants.HTTPS, constants.DEFAULT_PORT),
+        ("mytrinoserver.domain", None, constants.HTTPS, constants.HTTPS, constants.DEFAULT_TLS_PORT),
+        # Decided by the http_scheme argument, which is case-insensitive
+        ("mytrinoserver.domain", None, "HTTPS", constants.HTTPS, constants.DEFAULT_TLS_PORT),
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, "Http", constants.HTTP, constants.DEFAULT_TLS_PORT),
+        # Decided by the port, whether it arrived in host or in port
+        ("mytrinoserver.domain", constants.DEFAULT_TLS_PORT, None, constants.HTTPS, constants.DEFAULT_TLS_PORT),
+        ("mytrinoserver.domain:443", None, None, constants.HTTPS, constants.DEFAULT_TLS_PORT),
+        ("mytrinoserver.domain", constants.DEFAULT_PORT, None, constants.HTTP, constants.DEFAULT_PORT),
+        # Decided by nothing
+        ("mytrinoserver.domain", None, None, constants.HTTP, constants.DEFAULT_PORT),
     ],
 )
-def test_setting_http_scheme(host, port, http_scheme_input_argument, http_scheme_set):
-    connection = Connection(host, port, http_scheme=http_scheme_input_argument)
-    assert connection.http_scheme == http_scheme_set
+def test_setting_http_scheme(host, port, http_scheme, expected_http_scheme, expected_port):
+    """A scheme in host and the http_scheme argument both win over the port.
+
+    A port the caller did not give is inferred back from the resolved scheme.
+    """
+    connection = Connection(host, port, http_scheme=http_scheme)
+    assert connection.http_scheme == expected_http_scheme
+    assert connection.port == expected_port
+
+
+@pytest.mark.parametrize(
+    "host, http_scheme, expected_message",
+    [
+        ("https://mytrinoserver.domain", constants.HTTP, "contradicts http_scheme"),
+        ("http://mytrinoserver.domain", constants.HTTPS, "contradicts http_scheme"),
+        ("mytrinoserver.domain", "", "Invalid http_scheme"),
+        ("mytrinoserver.domain", "ftp", "Invalid http_scheme"),
+        ("mytrinoserver.domain", "gopher", "Invalid http_scheme"),
+        ("mytrinoserver.domain", "htp", "Invalid http_scheme"),
+        ("ftp://mytrinoserver.domain", None, "Invalid scheme 'ftp' in host"),
+        ("gopher://mytrinoserver.domain", None, "Invalid scheme 'gopher' in host"),
+    ],
+)
+def test_invalid_scheme_is_rejected(host, http_scheme, expected_message):
+    with pytest.raises(ValueError, match=expected_message):
+        Connection(host, user="test", http_scheme=http_scheme)
+
+
+def test_uppercase_http_scheme_still_requires_tls_for_authentication():
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection("mytrinoserver.domain", user="test", auth=BasicAuthentication("test", "pass"), http_scheme="HTTP")
+
+
+@pytest.mark.parametrize(
+    "host, port, expected_message",
+    [
+        # Out of range, whether it arrived in host or in port
+        ("mytrinoserver.domain", -1, "Invalid port"),
+        ("mytrinoserver.domain", 65536, "Invalid port"),
+        ("mytrinoserver.domain", 99999, "Invalid port"),
+        ("mytrinoserver.domain:65536", None, "expected a port in 0-65535"),
+        ("mytrinoserver.domain:-1", None, "expected a port in 0-65535"),
+        ("mytrinoserver.domain:x", None, "expected a port in 0-65535"),
+        # Given twice and disagreeing
+        ("mytrinoserver.domain:9999", 8080, "contradicts port=8080"),
+    ],
+)
+def test_invalid_port_is_rejected(host, port, expected_message):
+    with pytest.raises(ValueError, match=expected_message):
+        Connection(host, port, user="test")
+
+
+def test_port_in_host_agreeing_with_port_argument_is_accepted():
+    connection = Connection("mytrinoserver.domain:8080", 8080, user="test")
+    assert connection.port == 8080
 
 
 @patch("trino.client.CODECS_UNAVAILABLE", {"lz4": "Not installed", "zstd": "Not installed"})

@@ -6,9 +6,11 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 from urllib.parse import quote_plus
-from urllib.parse import urlparse
 
 from sqlalchemy import exc
+
+from trino import constants
+from trino.dbapi import _parse_host
 
 
 def _rfc_1738_quote(text):
@@ -16,19 +18,16 @@ def _rfc_1738_quote(text):
 
 
 def _assert_valid_host(host: str) -> None:
-    # Parse with a leading "//" so a bare hostname is treated as the authority
-    # rather than a path. `urlparse(host).scheme` catches an embedded scheme.
+    """Require a hostname on its own and reject a scheme or port.
+
+    Stricter than `trino.dbapi._parse_host`. The caller builds a URL that
+    already has its own scheme and port so a scheme or port here has nowhere
+    to go. An IPv6 literal must be bracketed as that URL needs the brackets.
+    """
     try:
-        parsed = urlparse("//" + host)
-        invalid = bool(
-            urlparse(host).scheme
-            or parsed.port is not None
-            or parsed.path
-            or parsed.username
-            or parsed.password
-        )
+        scheme, _, port = _parse_host(host)
+        invalid = scheme is not None or port is not None or (":" in host and not host.startswith("["))
     except ValueError:
-        # A malformed port or IPv6 literal raises here.
         invalid = True
     if invalid:
         raise exc.ArgumentError(
@@ -40,7 +39,7 @@ def _assert_valid_host(host: str) -> None:
 
 def _url(
     host: str,
-    port: Optional[int] = 8080,
+    port: Optional[int] = constants.DEFAULT_PORT,
     user: Optional[str] = None,
     password: Optional[str] = None,
     catalog: Optional[str] = None,
