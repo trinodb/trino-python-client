@@ -1196,8 +1196,8 @@ class _SpooledProtocolResponseTO(TypedDict):
 
 
 class _SegmentMetadataTO(TypedDict):
-    uncompressedSize: str
-    segmentSize: str
+    uncompressedSize: int
+    segmentSize: int
 
 
 class _SegmentTO(_SegmentMetadataTO):
@@ -1583,5 +1583,5 @@ class ZStdQueryDataDecoder(CompressedQueryDataDecoder):
 class Lz4QueryDataDecoder(CompressedQueryDataDecoder):
     def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
         expected_uncompressed_size = metadata["uncompressedSize"]
-        decoded_bytes = lz4.block.decompress(data, uncompressed_size=int(expected_uncompressed_size))
+        decoded_bytes = lz4.block.decompress(data, uncompressed_size=expected_uncompressed_size)
         return decoded_bytes

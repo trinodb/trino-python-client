@@ -14,15 +14,19 @@ import time
 from unittest import mock
 
 import pytest
+import zstandard
 
 from trino.client import _RequestHeartbeat
 from trino.client import ClientSession
 from trino.client import DecodableSegment
 from trino.client import InlineSegment
+from trino.client import JsonQueryDataDecoder
 from trino.client import SegmentIterator
 from trino.client import SpooledSegment
 from trino.client import TrinoQuery
 from trino.client import TrinoRequest
+from trino.client import ZStdQueryDataDecoder
+from trino.mapper import NoOpRowMapper
 
 
 def _mock_trino_request():
@@ -176,7 +180,7 @@ def _spooled_fetch_response():
             "segments": [
                 {
                     "type": "inline",
-                    "metadata": {"uncompressedSize": "10", "segmentSize": "10"},
+                    "metadata": {"uncompressedSize": 10, "segmentSize": 10},
                     "data": "",
                 }
             ],
@@ -210,7 +214,7 @@ class _FakeSpooledSegment(SpooledSegment):
                 "type": "spooled",
                 "uri": f"http://storage/{name}",
                 "ackUri": f"http://storage/{name}/ack",
-                "metadata": {"uncompressedSize": "10", "segmentSize": "10"},
+                "metadata": {"uncompressedSize": 10, "segmentSize": 10},
             },
             request=None,
         )
@@ -261,7 +265,7 @@ def _spooled_segment_with_headers(coordinator_host, custom_headers):
         "uri": "https://coordinator/v1/spooled/download/seg1",
         "ackUri": "https://coordinator/v1/spooled/ack/seg1",
         "headers": {"X-Trino-Spooling-Token": ["token-abc"]},
-        "metadata": {"segmentSize": "1", "uncompressedSize": "1"},
+        "metadata": {"segmentSize": 1, "uncompressedSize": 1},
     }
     request = TrinoRequest(
         host="coordinator",
@@ -327,3 +331,32 @@ def test_send_spooling_request_segment_header_takes_precedence_over_custom_heade
     segment._send_spooling_request(segment.uri)
 
     assert recorded["headers"]["X-Trino-Spooling-Token"] == "token-abc"
+
+
+def test_zstd_decoder_decodes_compressed_segment():
+    rows = [[1, "a"], [2, "b"]]
+    uncompressed = json.dumps(rows).encode("utf8")
+    compressed = zstandard.ZstdCompressor().compress(uncompressed)
+
+    metadata = {
+        "segmentSize": len(compressed),
+        "uncompressedSize": len(uncompressed),
+    }
+    decoder = ZStdQueryDataDecoder(JsonQueryDataDecoder(NoOpRowMapper()))
+
+    assert decoder.decode(compressed, metadata) == rows
+
+
+def test_zstd_decoder_rejects_a_segment_whose_size_does_not_match():
+    rows = [[1, "a"]]
+    uncompressed = json.dumps(rows).encode("utf8")
+    compressed = zstandard.ZstdCompressor().compress(uncompressed)
+
+    metadata = {
+        "segmentSize": len(compressed) + 1,
+        "uncompressedSize": len(uncompressed),
+    }
+    decoder = ZStdQueryDataDecoder(JsonQueryDataDecoder(NoOpRowMapper()))
+
+    with pytest.raises(RuntimeError, match="Expected to read"):
+        decoder.decode(compressed, metadata)

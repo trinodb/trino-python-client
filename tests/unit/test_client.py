@@ -1716,7 +1716,7 @@ def test_execute_drains_spooled_update_query_with_trailing_page():
             "encoding": "json",
             "segments": [{
                 "type": "inline",
-                "metadata": {"uncompressedSize": "5", "segmentSize": "5"},
+                "metadata": {"uncompressedSize": 5, "segmentSize": 5},
                 "data": encoded_rows,
             }],
         },
