@@ -78,6 +78,38 @@ the query's current stats dictionary (the same dictionary returned by
 `Cursor.stats`), so mutating it has no effect on the client. Any exception
 raised by the callback propagates to the caller of `execute()`/`fetch()`.
 
+### Asynchronous client
+
+`trino.aio` provides an asynchronous, DBAPI-like interface built on
+`httpx2.AsyncClient`. It mirrors `trino.dbapi` with coroutine methods and
+accepts the same connection arguments (it is not a PEP 249 implementation, as
+PEP 249 is a synchronous specification):
+
+```python
+import asyncio
+import trino.aio
+
+
+async def main():
+    async with trino.aio.connect(
+        host="<host>",
+        port=<port>,
+        user="<username>",
+        catalog="<catalog>",
+        schema="<schema>",
+    ) as conn:
+        cur = conn.cursor()
+        await cur.execute("SELECT * FROM system.runtime.nodes")
+        rows = await cur.fetchall()
+        # or: async for row in cur: ...
+
+
+asyncio.run(main())
+```
+
+All authentication mechanisms and the spooled protocol are supported.
+Transactions are not supported by the asynchronous client yet.
+
 ### SQLAlchemy
 
 **Prerequisite**
@@ -357,8 +389,10 @@ Make sure that the GSSAPI support is installed using `pip install trino[gssapi]`
 The `GSSAPIAuthentication` class can be used to connect to a Trino cluster configured with
 the [`Kerberos` authentication type](https://trino.io/docs/current/security/kerberos.html):
 
-It follows the interface for `KerberosAuthentication`, but is using
-[requests-gssapi](https://github.com/pythongssapi/requests-gssapi), instead of [requests-kerberos](https://github.com/requests/requests-kerberos) under the hood.
+It follows the interface for `KerberosAuthentication`. Both classes implement
+the SPNEGO token exchange directly on top of
+[python-gssapi](https://github.com/pythongssapi/python-gssapi), which requires
+a GSSAPI implementation such as MIT Kerberos (Windows SSPI is not supported).
 
 - DBAPI
 
@@ -479,7 +513,7 @@ conn = connect(
 ### Self-signed certificates
 
 To use self-signed certificates, specify a path to the certificate in `verify` parameter.
-More details can be found in [the Python requests library documentation](https://requests.readthedocs.io/en/latest/user/advanced/#ssl-cert-verification).
+More details can be found in [the httpx SSL documentation](https://www.python-httpx.org/advanced/ssl/).
 
 ```python
 from trino.dbapi import connect
@@ -568,22 +602,23 @@ The transaction is created when the first SQL statement is executed.
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
 
-## Custom requests Session
+## Custom HTTP client
 
-You can create a custom [requests.Session object](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) and pass it to the `http_session` parameter. This can be used for things like setting additional HTTP headers, client certificates, etc.
+You can create a custom [httpx2.Client](https://www.python-httpx.org/advanced/clients/) and pass it to the `http_session` parameter. This can be used for things like setting additional HTTP headers, client certificates, proxies, etc. Note that TLS options (`verify`, `cert`) and `trust_env` can only be set when the client is constructed.
 
 ```python
-import requests
+import httpx2
 from trino.dbapi import connect
 
-s = requests.Session()
-s.cert = '/path/client.cert'
+s = httpx2.Client(cert='/path/client.cert', http2=True)
 
 conn = connect(
     http_session=s,
     ...
 )
 ```
+
+The asynchronous client accepts an `httpx2.AsyncClient` the same way.
 
 ## Legacy Primitive types
 

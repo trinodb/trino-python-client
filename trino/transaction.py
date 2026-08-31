@@ -65,7 +65,7 @@ class Transaction:
 
     def begin(self) -> None:
         response = self._request.post(START_TRANSACTION)
-        if not response.ok:
+        if response.is_error:
             raise trino.exceptions.DatabaseError(
                 "failed to start transaction: {}".format(response.status_code)
             )

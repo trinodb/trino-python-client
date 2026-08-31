@@ -37,7 +37,7 @@ def _mock_trino_request():
 
 
 def _head_response(status_code):
-    return mock.Mock(status_code=status_code, ok=(200 <= status_code < 300))
+    return mock.Mock(status_code=status_code, is_error=(400 <= status_code < 600))
 
 
 @pytest.fixture
@@ -165,7 +165,7 @@ def _spooled_fetch_response():
     """Minimal spooled protocol GET response JSON."""
     resp = mock.Mock()
     resp.status_code = 200
-    resp.ok = True
+    resp.is_error = False
     resp.headers = {}
     resp.text = json.dumps({
         "id": "q1",
@@ -285,7 +285,7 @@ def test_send_spooling_request_forwards_custom_headers_to_coordinator():
 
     def fake_get(uri, headers=None, **kwargs):
         recorded["headers"] = headers
-        return mock.Mock(ok=True)
+        return mock.Mock(is_error=False)
 
     segment._request._get = fake_get
     segment._send_spooling_request(segment.uri)
@@ -302,7 +302,7 @@ def test_send_spooling_request_does_not_forward_custom_headers_to_external_stora
 
     def fake_get(uri, headers=None, **kwargs):
         recorded["headers"] = headers
-        return mock.Mock(ok=True)
+        return mock.Mock(is_error=False)
 
     segment._request._get = fake_get
     external_uri = "https://s3.amazonaws.com/bucket/seg1?X-Amz-Signature=abc"
@@ -321,7 +321,7 @@ def test_send_spooling_request_segment_header_takes_precedence_over_custom_heade
 
     def fake_get(uri, headers=None, **kwargs):
         recorded["headers"] = headers
-        return mock.Mock(ok=True)
+        return mock.Mock(is_error=False)
 
     segment._request._get = fake_get
     segment._send_spooling_request(segment.uri)

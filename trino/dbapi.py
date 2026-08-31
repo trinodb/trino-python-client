@@ -133,6 +133,48 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
+def _default_spooling_encoding():
+    return [
+        enc
+        for enc in trino.client.ENCODINGS
+        if (enc.split("+")[1] if "+" in enc else None) not in trino.client.CODECS_UNAVAILABLE
+    ]
+
+
+def _resolve_scheme_and_port(parsed_host, port, http_scheme):
+    """Resolve the effective HTTP scheme and port; the scheme and port in the
+    host URL take precedence over the explicit arguments."""
+    if parsed_host.scheme:
+        scheme = parsed_host.scheme
+    elif http_scheme:
+        scheme = http_scheme
+    elif port == constants.DEFAULT_TLS_PORT:
+        scheme = constants.HTTPS
+    else:
+        scheme = constants.HTTP
+
+    default_port = constants.DEFAULT_TLS_PORT if scheme == constants.HTTPS else constants.DEFAULT_PORT
+    resolved_port = (
+        parsed_host.port if parsed_host.port is not None
+        else port if port is not None
+        else default_port
+    )
+    return scheme, resolved_port
+
+
+def _require_tls_for_auth(auth, http_scheme, allow_insecure_auth):
+    if auth is not None and http_scheme == constants.HTTP and not allow_insecure_auth:
+        raise trino.exceptions.TrinoAuthError(
+            "TLS/SSL is required for authentication. "
+            "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
+            "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
+            "If your connection is encrypted below the application layer (for example behind an mTLS "
+            "service mesh sidecar), pass allow_insecure_auth=True and ensure "
+            "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
+            "has HTTPS enabled."
+        )
+
+
 class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
@@ -172,11 +214,7 @@ class Connection:
         parsed_host = urlparse(host, allow_fragments=False)
 
         if encoding is _USE_DEFAULT_ENCODING:
-            encoding = [
-                enc
-                for enc in trino.client.ENCODINGS
-                if (enc.split("+")[1] if "+" in enc else None) not in trino.client.CODECS_UNAVAILABLE
-            ]
+            encoding = _default_spooling_encoding()
 
         self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.user = user
@@ -201,43 +239,15 @@ class Connection:
         )
         # mypy cannot follow module import
         if http_session is None:
-            self._http_session = trino.client.TrinoRequest.http.Session()
-            self._http_session.verify = verify
+            self._http_session = trino.client.TrinoRequest.create_http_client(
+                verify=verify, timeout=request_timeout, auth=auth
+            )
         else:
             self._http_session = http_session
         self.http_headers = http_headers
 
-        # Set http_scheme
-        if parsed_host.scheme:
-            self.http_scheme = parsed_host.scheme
-        elif http_scheme:
-            self.http_scheme = http_scheme
-        elif port == constants.DEFAULT_TLS_PORT:
-            self.http_scheme = constants.HTTPS
-        elif port == constants.DEFAULT_PORT:
-            self.http_scheme = constants.HTTP
-        else:
-            self.http_scheme = constants.HTTP
-
-        if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
-            raise trino.exceptions.TrinoAuthError(
-                "TLS/SSL is required for authentication. "
-                "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
-                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
-                "If your connection is encrypted below the application layer (for example behind an mTLS "
-                "service mesh sidecar), pass allow_insecure_auth=True and ensure "
-                "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
-                "has HTTPS enabled."
-            )
-
-        # Infer connection port: `hostname` takes precedence over explicit `port` argument
-        # If none is given, use default based on HTTP protocol
-        default_port = constants.DEFAULT_TLS_PORT if self.http_scheme == constants.HTTPS else constants.DEFAULT_PORT
-        self.port = (
-            parsed_host.port if parsed_host.port is not None
-            else port if port is not None
-            else default_port
-        )
+        self.http_scheme, self.port = _resolve_scheme_and_port(parsed_host, port, http_scheme)
+        _require_tls_for_auth(auth, self.http_scheme, allow_insecure_auth)
 
         self.auth = auth
         self.extra_credential = extra_credential

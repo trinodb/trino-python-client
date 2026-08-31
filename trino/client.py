@@ -34,25 +34,14 @@ The main interface is :class:`TrinoQuery`: ::
 """
 from __future__ import annotations
 
-import abc
 import atexit
-import base64
 import copy
 import functools
 import itertools
 import os
-import random
-import re
 import threading
-import urllib.parse
-import warnings
-from abc import abstractmethod
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
-from datetime import datetime
-from email.utils import parsedate_to_datetime
-from enum import Enum
 from time import sleep
 from typing import Any
 from typing import Callable
@@ -62,46 +51,50 @@ from typing import List
 from typing import Literal
 from typing import Optional
 from typing import Tuple
-from typing import TypedDict
 from typing import Union
-from zoneinfo import ZoneInfo
 
-try:
-    import lz4.block
-except ImportError as err:
-    _LZ4_ERROR = str(err)
-else:
-    _LZ4_ERROR = None
-
-try:
-    import orjson as json
-except ImportError:
-    import json
-
-import requests
-from requests import Response
-from requests import Session
-from requests.structures import CaseInsensitiveDict
-
-try:
-    import zstandard
-except ImportError as err:
-    _ZSTD_ERROR = str(err)
-else:
-    _ZSTD_ERROR = None
-
+import httpx2
+from httpx2 import Client
+from httpx2 import Response
 
 import trino.logging
 from trino import constants
 from trino import exceptions
-from trino._version import __version__
+from trino._protocol import _DelayExponential
+from trino._protocol import _InlineSegmentTO  # noqa: F401 re-export
+from trino._protocol import _parse_retry_after_header  # noqa: F401 re-export
+from trino._protocol import _SegmentMetadataTO  # noqa: F401 re-export
+from trino._protocol import _SegmentTO  # noqa: F401 re-export
+from trino._protocol import _SpooledProtocolResponseTO
+from trino._protocol import _SpooledSegmentTO
+from trino._protocol import _TrinoQueryBase
+from trino._protocol import _TrinoRequestBase
+from trino._protocol import CaseInsensitiveDict  # noqa: F401 re-export
+from trino._protocol import ClientSession
+from trino._protocol import CODECS_UNAVAILABLE  # noqa: F401 re-export
+from trino._protocol import CompressedQueryDataDecoder  # noqa: F401 re-export
+from trino._protocol import CompressedQueryDataDecoderFactory
+from trino._protocol import DecodableSegment
+from trino._protocol import ENCODINGS  # noqa: F401 re-export
+from trino._protocol import get_header_values  # noqa: F401 re-export
+from trino._protocol import get_prepared_statement_values  # noqa: F401 re-export
+from trino._protocol import get_roles_values  # noqa: F401 re-export
+from trino._protocol import get_session_property_values  # noqa: F401 re-export
+from trino._protocol import InlineSegment
+from trino._protocol import JsonQueryDataDecoder  # noqa: F401 re-export
+from trino._protocol import Lz4QueryDataDecoder  # noqa: F401 re-export
+from trino._protocol import needs_retry
+from trino._protocol import QueryDataDecoder
+from trino._protocol import retry_after_seconds
+from trino._protocol import ROLE_PATTERN  # noqa: F401 re-export
+from trino._protocol import Segment
+from trino._protocol import SegmentType  # noqa: F401 re-export
+from trino._protocol import spooling_request_headers
+from trino._protocol import TrinoStatus  # noqa: F401 re-export
+from trino._protocol import wire_headers
+from trino._protocol import ZStdQueryDataDecoder  # noqa: F401 re-export
 from trino.auth import Authentication
-from trino.exceptions import TrinoExternalError
-from trino.exceptions import TrinoQueryError
-from trino.exceptions import TrinoUserError
 from trino.mapper import RowMapper
-from trino.mapper import RowMapperFactory
-
 
 __all__ = [
     "ClientSession",
@@ -126,300 +119,12 @@ atexit.register(close_executor)
 
 MAX_ATTEMPTS = constants.DEFAULT_MAX_ATTEMPTS
 SOCKS_PROXY = os.environ.get("SOCKS_PROXY")
+# httpx configures proxies at client construction time, so PROXIES uses the
+# httpx mounts-style single "all://" key instead of requests' per-scheme dict.
 if SOCKS_PROXY:
-    PROXIES = {"http": "socks5://" + SOCKS_PROXY, "https": "socks5://" + SOCKS_PROXY}
+    PROXIES = {"all://": "socks5://" + SOCKS_PROXY}
 else:
     PROXIES = {}
-
-_HEADER_EXTRA_CREDENTIAL_KEY_REGEX = re.compile(r'^\S[^\s=]*$')
-
-ENCODINGS = ["json+zstd", "json+lz4", "json"]
-CODECS_UNAVAILABLE = {}
-if _LZ4_ERROR:
-    CODECS_UNAVAILABLE["lz4"] = _LZ4_ERROR
-if _ZSTD_ERROR:
-    CODECS_UNAVAILABLE["zstd"] = _ZSTD_ERROR
-
-ROLE_PATTERN = re.compile(r"^ROLE\{(.*)\}$")
-
-
-class ClientSession:
-    """
-    Manage the current Client Session properties of a specific connection. This class is thread-safe.
-
-    :param user: associated with the query. It is useful for access control
-                 and query scheduling.
-    :param authorization_user: associated with the query. It is useful for access control
-                               and query scheduling.
-    :param source: associated with the query. It is useful for access
-                   control and query scheduling.
-    :param catalog: to query. The *catalog* is associated with a Trino
-                    connector. This variable sets the default catalog used
-                    by SQL statements. For example, if *catalog* is set
-                    to ``some_catalog``, the SQL statement
-                    ``SELECT * FROM some_schema.some_table`` will actually
-                    query the table
-                    ``some_catalog.some_schema.some_table``.
-    :param schema: to query. The *schema* is a logical abstraction to group
-                   table. This variable sets the default schema used by
-                   SQL statements. For example, if *schema* is set to
-                   ``some_schema``, the SQL statement
-                   ``SELECT * FROM some_table`` will actually query the
-                   table ``some_catalog.some_schema.some_table``.
-    :param properties: set specific Trino behavior for the current
-                               session. Please refer to the output of
-                               ``SHOW SESSION`` to check the available
-                               properties.
-    :param headers: HTTP headers to POST/GET in the HTTP requests
-    :param extra_credential: extra credentials. as list of ``(key, value)``
-                             tuples.
-    :param client_tags: Client tags as list of strings.
-    :param roles: roles for the current session. Some connectors do not
-                 support role management. See connector documentation for more details.
-    :param timezone: The timezone for query processing. Defaults to the system's local timezone.
-    :param encoding: The encoding for the spooling protocol. Defaults to None.
-    """
-
-    def __init__(
-        self,
-        user: str,
-        authorization_user: Optional[str] = None,
-        catalog: Optional[str] = None,
-        schema: Optional[str] = None,
-        source: Optional[str] = None,
-        properties: Optional[Dict[str, str]] = None,
-        headers: Optional[Dict[str, str]] = None,
-        transaction_id: Optional[str] = None,
-        extra_credential: Optional[List[Tuple[str, str]]] = None,
-        client_tags: Optional[List[str]] = None,
-        roles: Optional[Union[Dict[str, str], str]] = None,
-        timezone: Optional[str] = None,
-        encoding: Optional[Union[str, List[str]]] = None,
-        heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
-    ):
-        self._object_lock = threading.Lock()
-        self._prepared_statements: Dict[str, str] = {}
-
-        self._user = user
-        self._authorization_user = authorization_user
-        self._catalog = catalog
-        self._schema = schema
-        self._source = source
-        self._properties = properties.copy() if properties is not None else {}
-        self._headers = headers.copy() if headers is not None else {}
-        self._transaction_id = transaction_id
-        self._extra_credential = extra_credential
-        self._client_tags = client_tags.copy() if client_tags is not None else list()
-        self._roles = self._format_roles(roles) if roles is not None else {}
-        if timezone:  # Check timezone validity
-            ZoneInfo(timezone)
-            self._timezone = timezone
-        else:
-            from tzlocal import get_localzone_name
-            self._timezone = get_localzone_name()
-        self._encoding = encoding
-        self._heartbeat_interval = heartbeat_interval
-
-    @property
-    def user(self) -> str:
-        return self._user
-
-    @property
-    def authorization_user(self) -> Optional[str]:
-        with self._object_lock:
-            return self._authorization_user
-
-    @authorization_user.setter
-    def authorization_user(self, authorization_user: Optional[str]) -> None:
-        with self._object_lock:
-            self._authorization_user = authorization_user
-
-    @property
-    def catalog(self) -> Optional[str]:
-        with self._object_lock:
-            return self._catalog
-
-    @catalog.setter
-    def catalog(self, catalog: Optional[str]) -> None:
-        with self._object_lock:
-            self._catalog = catalog
-
-    @property
-    def schema(self) -> Optional[str]:
-        with self._object_lock:
-            return self._schema
-
-    @schema.setter
-    def schema(self, schema: Optional[str]) -> None:
-        with self._object_lock:
-            self._schema = schema
-
-    @property
-    def source(self) -> Optional[str]:
-        return self._source
-
-    @property
-    def properties(self) -> Dict[str, str]:
-        with self._object_lock:
-            return self._properties
-
-    @properties.setter
-    def properties(self, properties: Dict[str, str]) -> None:
-        with self._object_lock:
-            self._properties = properties
-
-    @property
-    def headers(self) -> Dict[str, str]:
-        return self._headers
-
-    @property
-    def transaction_id(self) -> Optional[str]:
-        with self._object_lock:
-            return self._transaction_id
-
-    @transaction_id.setter
-    def transaction_id(self, transaction_id: Optional[str]) -> None:
-        with self._object_lock:
-            self._transaction_id = transaction_id
-
-    @property
-    def extra_credential(self) -> Optional[List[Tuple[str, str]]]:
-        return self._extra_credential
-
-    @property
-    def client_tags(self) -> List[str]:
-        return self._client_tags
-
-    @property
-    def roles(self) -> Dict[str, str]:
-        with self._object_lock:
-            return self._roles
-
-    @roles.setter
-    def roles(self, roles: Dict[str, str]) -> None:
-        with self._object_lock:
-            self._roles = roles
-
-    @property
-    def prepared_statements(self) -> Dict[str, str]:
-        return self._prepared_statements
-
-    @prepared_statements.setter
-    def prepared_statements(self, prepared_statements: Dict[str, str]) -> None:
-        with self._object_lock:
-            self._prepared_statements = prepared_statements
-
-    @property
-    def timezone(self) -> str:
-        with self._object_lock:
-            return self._timezone
-
-    @property
-    def encoding(self) -> Optional[Union[str, List[str]]]:
-        with self._object_lock:
-            return self._encoding
-
-    @property
-    def heartbeat_interval(self) -> Optional[float]:
-        return self._heartbeat_interval
-
-    @staticmethod
-    def _format_roles(roles: Union[Dict[str, str], str]) -> Dict[str, str]:
-        if isinstance(roles, str):
-            roles = {"system": roles}
-        formatted_roles = {}
-        for catalog, role in roles.items():
-            is_legacy_role_pattern = ROLE_PATTERN.match(role) is not None
-            if role in ("NONE", "ALL") or is_legacy_role_pattern:
-                if is_legacy_role_pattern:
-                    warnings.warn(f"A role '{role}' is provided using a legacy format. "
-                                  "Please remove the ROLE{} wrapping. Support for the legacy format might be "
-                                  "removed in a future release.",
-                                  DeprecationWarning)
-                formatted_roles[catalog] = role
-            else:
-                formatted_roles[catalog] = f"ROLE{{{role}}}"
-        return formatted_roles
-
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        del state["_object_lock"]
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self._object_lock = threading.Lock()
-
-
-def get_header_values(headers: CaseInsensitiveDict[str], header: str) -> List[str]:
-    return [val.strip() for val in headers[header].split(",")]
-
-
-def get_session_property_values(headers: CaseInsensitiveDict[str], header: str) -> List[Tuple[str, str]]:
-    kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs if kv)
-    ]
-
-
-def get_prepared_statement_values(headers: CaseInsensitiveDict[str], header: str) -> List[Tuple[str, str]]:
-    kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs if kv)
-    ]
-
-
-def get_roles_values(headers: CaseInsensitiveDict[str], header: str) -> List[Tuple[str, str]]:
-    kvs = get_header_values(headers, header)
-    return [
-        (k.strip(), urllib.parse.unquote_plus(v.strip()))
-        for k, v in (kv.split("=", 1) for kv in kvs if kv)
-    ]
-
-
-@dataclass
-class TrinoStatus:
-    id: str
-    stats: Dict[str, str]
-    warnings: List[Any]
-    info_uri: str
-    next_uri: Optional[str]
-    update_type: Optional[str]
-    update_count: Optional[int]
-    rows: Union[List[Any], Dict[str, Any]]
-    columns: List[Any]
-
-    def __repr__(self):
-        return (
-            "TrinoStatus("
-            "id={}, stats={{...}}, warnings={}, info_uri={}, next_uri={}, rows=<count={}>"
-            ")".format(
-                self.id,
-                len(self.warnings),
-                self.info_uri,
-                self.next_uri,
-                len(self.rows),
-            )
-        )
-
-
-class _DelayExponential:
-    def __init__(
-            self, base=0.1, exponent=2, jitter=True, max_delay=1800  # 100ms  # 30 min
-    ):
-        self._base = base
-        self._exponent = exponent
-        self._jitter = jitter
-        self._max_delay = max_delay
-
-    def __call__(self, attempt):
-        delay = float(self._base) * (self._exponent ** attempt)
-        if self._jitter:
-            delay *= random.random()
-        delay = min(float(self._max_delay), delay)
-        return delay
 
 
 class _RetryWithExponentialBackoff:
@@ -441,7 +146,7 @@ class _RetryAfterSleep:
         sleep(self._retry_after_header)
 
 
-class TrinoRequest:
+class TrinoRequest(_TrinoRequestBase):
     """
     Manage the HTTP requests of a Trino query.
 
@@ -482,11 +187,10 @@ class TrinoRequest:
     the client.
     """
 
-    http = requests
+    http = httpx2
 
-    HTTP_EXCEPTIONS = (
-        http.ConnectionError,
-        http.Timeout,
+    HTTP_EXCEPTIONS: Tuple[Any, ...] = (
+        http.TransportError,
     )
 
     def __init__(
@@ -494,129 +198,93 @@ class TrinoRequest:
         host: str,
         port: int,
         client_session: ClientSession,
-        http_session: Optional[Session] = None,
+        http_session: Optional[Client] = None,
         http_scheme: Optional[str] = None,
         auth: Optional[Authentication] = constants.DEFAULT_AUTH,
         max_attempts: int = MAX_ATTEMPTS,
         request_timeout: Union[float, Tuple[float, float]] = constants.DEFAULT_REQUEST_TIMEOUT,
         handle_retry=_RetryWithExponentialBackoff(),
-        verify: bool = True,
+        verify: Union[bool, str] = True,
     ) -> None:
-        self._client_session = client_session
-        self._host = host
-        self._port = port
-        self._next_uri: Optional[str] = None
-
-        if http_scheme is None:
-            if self._port == constants.DEFAULT_TLS_PORT:
-                self._http_scheme = constants.HTTPS
-            else:
-                self._http_scheme = constants.HTTP
-        else:
-            self._http_scheme = http_scheme
+        super().__init__(host, port, client_session, http_scheme)
 
         if http_session is not None:
             self._http_session = http_session
+            if auth is not None:
+                self._apply_auth_to_existing_client(http_session, auth)
         else:
-            self._http_session = self.http.Session()
-            self._http_session.verify = verify
-        self._http_session.headers.update(self.http_headers)
+            self._http_session = self.create_http_client(
+                verify=verify, timeout=request_timeout, auth=auth
+            )
+        # httpx clients expose no readable ``verify``; clients built by
+        # create_http_client carry the value used at construction time.
+        self._verify = getattr(self._http_session, "_trino_verify", verify)
+        self._http_session.headers.update(wire_headers(self.http_headers))
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
         if self._auth:
-            self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
 
-        self._request_timeout = request_timeout
+        self._request_timeout = self.http.Timeout(request_timeout)
         self._handle_retry = handle_retry
         self.max_attempts = max_attempts
 
-    @property
-    def transaction_id(self) -> Optional[str]:
-        return self._client_session.transaction_id
+    @classmethod
+    def create_http_client(
+        cls,
+        verify: Union[bool, str] = True,
+        timeout: Union[float, Tuple[float, float], None] = constants.DEFAULT_REQUEST_TIMEOUT,
+        auth: Optional[Authentication] = None,
+        **kwargs: Any,
+    ) -> Client:
+        """
+        Build the ``httpx2.Client`` used to talk to the coordinator.
 
-    @transaction_id.setter
-    def transaction_id(self, value: Optional[str]) -> None:
-        self._client_session.transaction_id = value
+        ``verify``, ``cert`` and ``trust_env`` can only be set when an httpx
+        client is constructed, so authentication implementations contribute
+        constructor arguments here through ``Authentication.get_client_arguments``.
+        """
+        client_kwargs: Dict[str, Any] = {
+            "verify": verify,
+            # HTTP/2 is negotiated via ALPN on TLS connections; plain HTTP and
+            # servers without h2 support silently fall back to HTTP/1.1.
+            "http2": True,
+            # requests followed redirects on GET/POST/DELETE by default; httpx does not.
+            "follow_redirects": True,
+            "timeout": cls.http.Timeout(timeout),
+        }
+        if PROXIES:
+            client_kwargs["proxy"] = PROXIES.get("all://")
+        auth_arguments: Dict[str, Any] = {}
+        http_auth = None
+        if auth is not None:
+            auth_arguments = auth.get_client_arguments()
+            client_kwargs.update(auth_arguments)
+            http_auth = auth.get_http_auth()
+        client_kwargs.update(kwargs)
+        client = cls.http.Client(auth=http_auth, **client_kwargs)
+        client._trino_verify = client_kwargs["verify"]
+        client._trino_client_arguments = frozenset(auth_arguments)
+        return client
 
-    @property
-    def http_headers(self) -> CaseInsensitiveDict[str]:
-        headers: CaseInsensitiveDict[str] = CaseInsensitiveDict()
-
-        headers[constants.HEADER_CATALOG] = self._client_session.catalog
-        headers[constants.HEADER_SCHEMA] = self._client_session.schema
-        headers[constants.HEADER_SOURCE] = self._client_session.source
-        if self._client_session.authorization_user is not None:
-            headers[constants.HEADER_ORIGINAL_USER] = self._client_session.user
-            headers[constants.HEADER_USER] = self._client_session.authorization_user
-        else:
-            headers[constants.HEADER_USER] = self._client_session.user
-        headers[constants.HEADER_TIMEZONE] = self._client_session.timezone
-        if self._client_session.encoding is None:
-            if not CODECS_UNAVAILABLE:
-                pass
-            else:
-                encoding = [
-                    enc
-                    for enc in ENCODINGS
-                    if (enc.split("+")[1] if "+" in enc else None) not in CODECS_UNAVAILABLE
-                ]
-                headers[constants.HEADER_ENCODING] = ",".join(encoding)
-        elif isinstance(self._client_session.encoding, list):
-            headers[constants.HEADER_ENCODING] = ",".join(self._client_session.encoding)
-        elif isinstance(self._client_session.encoding, str):
-            headers[constants.HEADER_ENCODING] = self._client_session.encoding
-        else:
-            raise ValueError("Invalid type for encoding: expected str or list")
-        headers[constants.HEADER_CLIENT_CAPABILITIES] = constants.CLIENT_CAPABILITIES
-
-        headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
-        if len(self._client_session.roles.values()):
-            headers[constants.HEADER_ROLE] = ",".join(
-                # ``name`` must not contain ``=``
-                "{}={}".format(catalog, urllib.parse.quote(str(role)))
-                for catalog, role in self._client_session.roles.items()
+    @staticmethod
+    def _apply_auth_to_existing_client(http_session: Client, auth: Authentication) -> None:
+        """
+        Attach ``auth`` to an already-constructed client. Only ``client.auth``
+        is settable after construction; when the authentication needs
+        constructor-only options (verify/cert/trust_env) that the client was
+        not built with, fail loudly instead of silently ignoring them.
+        """
+        required = auth.get_client_arguments()
+        provided = getattr(http_session, "_trino_client_arguments", frozenset())
+        missing = set(required) - set(provided)
+        if missing:
+            raise exceptions.TrinoConnectionError(
+                f"{type(auth).__name__} requires HTTP client construction options {sorted(missing)}; "
+                "configure them on your own httpx2 client, or omit http_session to let the "
+                "client be created for you."
             )
-        if self._client_session.client_tags is not None and len(self._client_session.client_tags) > 0:
-            headers[constants.HEADER_CLIENT_TAGS] = ",".join(self._client_session.client_tags)
-
-        headers[constants.HEADER_SESSION] = ",".join(
-            # ``name`` must not contain ``=``
-            "{}={}".format(name, urllib.parse.quote(str(value)))
-            for name, value in self._client_session.properties.items()
-        )
-
-        if len(self._client_session.prepared_statements) != 0:
-            # ``name`` must not contain ``=``
-            headers[constants.HEADER_PREPARED_STATEMENT] = ",".join(
-                "{}={}".format(name, urllib.parse.quote_plus(statement))
-                for name, statement in self._client_session.prepared_statements.items()
-            )
-
-        # merge custom http headers
-        for key in self._client_session.headers:
-            if key in headers.keys():
-                raise ValueError("cannot override reserved HTTP header {}".format(key))
-        headers.update(self._client_session.headers)
-
-        transaction_id = self._client_session.transaction_id
-        headers[constants.HEADER_TRANSACTION] = transaction_id
-
-        if self._client_session.extra_credential is not None and \
-                len(self._client_session.extra_credential) > 0:
-
-            for tup in self._client_session.extra_credential:
-                self._verify_extra_credential(tup)
-
-            # HTTP 1.1 section 4.2 combine multiple extra credentials into a
-            # comma-separated value
-            # extra credential value is encoded per spec (application/x-www-form-urlencoded MIME format)
-            headers[constants.HEADER_EXTRA_CREDENTIAL] = \
-                ", ".join(
-                    [f"{tup[0]}={urllib.parse.quote_plus(str(tup[1]))}"
-                     for tup in self._client_session.extra_credential])
-
-        return headers
+        http_session.auth = auth.get_http_auth()
 
     def unauthenticated(self):
         return TrinoRequest(
@@ -626,7 +294,7 @@ class TrinoRequest:
             request_timeout=self._request_timeout,
             handle_retry=self._handle_retry,
             client_session=ClientSession(user=self._client_session.user),
-            verify=self._http_session.verify)
+            verify=self._verify)
 
     @property
     def max_attempts(self) -> int:
@@ -645,33 +313,15 @@ class TrinoRequest:
         with_retry = _retry_with(
             self._handle_retry,
             handled_exceptions=self._exceptions,
-            conditions=(
-                # need retry when there is no exception but the status code is 429, 502, 503, or 504
-                lambda response: getattr(response, "status_code", None)
-                in (429, 502, 503, 504),
-                # need retry when the server returns 200 with an empty body (transient under load)
-                lambda response: getattr(response, "status_code", None) == 200
-                and not getattr(response, "text", "").strip(),
-            ),
+            # Retry when there is no exception but the response is a transient
+            # error status or an empty 200 body; see _protocol.needs_retry.
+            conditions=(needs_retry,),
             max_attempts=self._max_attempts,
         )
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
         self._head = with_retry(self._http_session.head)
-
-    def get_url(self, path: str) -> str:
-        return "{protocol}://{host}:{port}{path}".format(
-            protocol=self._http_scheme, host=self._host, port=self._port, path=path
-        )
-
-    @property
-    def statement_url(self) -> str:
-        return self.get_url(constants.URL_STATEMENT_PATH)
-
-    @property
-    def next_uri(self) -> Optional[str]:
-        return self._next_uri
 
     def post(self, sql: str, additional_http_headers: Optional[Dict[str, Any]] = None) -> Response:
         data = sql.encode("utf-8")
@@ -688,145 +338,30 @@ class TrinoRequest:
 
         http_response = self._post(
             self.statement_url,
-            data=data,
-            headers=http_headers,
+            content=data,
+            headers=wire_headers(http_headers),
             timeout=self._request_timeout,
-            proxies=PROXIES,
         )
         return http_response
 
     def get(self, url: str) -> Response:
         return self._get(
             url,
-            headers=self.http_headers,
+            headers=wire_headers(self.http_headers),
             timeout=self._request_timeout,
-            proxies=PROXIES,
         )
 
     def delete(self, url: str) -> Response:
-        return self._delete(url, timeout=self._request_timeout, proxies=PROXIES)
+        return self._delete(url, timeout=self._request_timeout)
 
     def head(self, url: str) -> Response:
         return self._head(
             url,
-            headers=self.http_headers,
+            headers=wire_headers(self.http_headers),
             timeout=self._request_timeout,
-            proxies=PROXIES,
+            # requests never followed redirects for HEAD; keep that behavior.
+            follow_redirects=False,
         )
-
-    @staticmethod
-    def _process_error(error, query_id: Optional[str]) -> Union[TrinoExternalError, TrinoQueryError, TrinoUserError]:
-        error_type = error["errorType"]
-        if error_type == "EXTERNAL":
-            raise exceptions.TrinoExternalError(error, query_id)
-        elif error_type == "USER_ERROR":
-            return exceptions.TrinoUserError(error, query_id)
-
-        return exceptions.TrinoQueryError(error, query_id)
-
-    @staticmethod
-    def raise_response_error(http_response: Response) -> None:
-        if http_response.status_code == 502:
-            raise exceptions.Http502Error("error 502: bad gateway")
-
-        if http_response.status_code == 503:
-            raise exceptions.Http503Error("error 503: service unavailable")
-
-        if http_response.status_code == 504:
-            raise exceptions.Http504Error("error 504: gateway timeout")
-
-        raise exceptions.HttpError(
-            "error {}{}".format(
-                http_response.status_code,
-                ": {}".format(http_response.content) if http_response.content else "",
-            )
-        )
-
-    def process(self, http_response: Response) -> TrinoStatus:
-        if not http_response.ok:
-            self.raise_response_error(http_response)
-
-        http_response.encoding = "utf-8"
-        if not http_response.text.strip():
-            raise exceptions.TrinoConnectionError(
-                "received empty response from server (status 200)"
-            )
-        response = json.loads(http_response.text)
-        if "error" in response and response["error"]:
-            raise self._process_error(response["error"], response.get("id"))
-
-        if constants.HEADER_CLEAR_SESSION in http_response.headers:
-            for prop in get_header_values(
-                http_response.headers, constants.HEADER_CLEAR_SESSION
-            ):
-                self._client_session.properties.pop(prop, None)
-
-        if constants.HEADER_SET_SESSION in http_response.headers:
-            for key, value in get_session_property_values(
-                http_response.headers, constants.HEADER_SET_SESSION
-            ):
-                self._client_session.properties[key] = value
-
-        if constants.HEADER_SET_CATALOG in http_response.headers:
-            self._client_session.catalog = http_response.headers[constants.HEADER_SET_CATALOG]
-
-        if constants.HEADER_SET_SCHEMA in http_response.headers:
-            self._client_session.schema = http_response.headers[constants.HEADER_SET_SCHEMA]
-
-        if constants.HEADER_SET_ROLE in http_response.headers:
-            for key, value in get_roles_values(
-                    http_response.headers, constants.HEADER_SET_ROLE
-            ):
-                self._client_session.roles[key] = value
-
-        if constants.HEADER_ADDED_PREPARE in http_response.headers:
-            for name, statement in get_prepared_statement_values(
-                http_response.headers, constants.HEADER_ADDED_PREPARE
-            ):
-                self._client_session.prepared_statements[name] = statement
-
-        if constants.HEADER_DEALLOCATED_PREPARE in http_response.headers:
-            for name in get_header_values(
-                http_response.headers, constants.HEADER_DEALLOCATED_PREPARE
-            ):
-                self._client_session.prepared_statements.pop(name, None)
-
-        if constants.HEADER_SET_AUTHORIZATION_USER in http_response.headers:
-            self._client_session.authorization_user = http_response.headers[constants.HEADER_SET_AUTHORIZATION_USER]
-
-        if constants.HEADER_RESET_AUTHORIZATION_USER in http_response.headers:
-            self._client_session.authorization_user = None
-
-        self._next_uri = response.get("nextUri")
-
-        data = response.get("data") if response.get("data") else []
-
-        return TrinoStatus(
-            id=response["id"],
-            stats=response["stats"],
-            warnings=response.get("warnings", []),
-            info_uri=response["infoUri"],
-            next_uri=self._next_uri,
-            update_type=response.get("updateType"),
-            update_count=response.get("updateCount"),
-            rows=data,
-            columns=response.get("columns"),
-        )
-
-    @staticmethod
-    def _verify_extra_credential(header: Tuple[str, str]) -> None:
-        """
-        Verifies that key has ASCII only and non-whitespace characters.
-        """
-        key = header[0]
-
-        if not _HEADER_EXTRA_CREDENTIAL_KEY_REGEX.match(key):
-            raise ValueError(f"whitespace or '=' are disallowed in extra credential '{key}'")
-
-        try:
-            key.encode().decode('ascii')
-        except UnicodeDecodeError:
-            raise ValueError(f"only ASCII characters are allowed in extra credential '{key}'")
 
 
 class TrinoResult:
@@ -889,7 +424,7 @@ class TrinoResult:
             return row
 
 
-class TrinoQuery:
+class TrinoQuery(_TrinoQueryBase):
     """Represent the execution of a SQL statement by Trino."""
 
     def __init__(
@@ -900,31 +435,9 @@ class TrinoQuery:
             fetch_mode: Literal["mapped", "segments"] = "mapped",
             stats_callback: Optional[Callable[[Dict[str, Any]], None]] = None
     ) -> None:
-        self._query_id: Optional[str] = None
-        self._stats: Dict[Any, Any] = {}
-        self._info_uri: Optional[str] = None
-        self._warnings: List[Dict[Any, Any]] = []
-        self._columns: Optional[List[str]] = None
-        self._finished = False
-        self._cancelled = False
+        super().__init__(query, legacy_primitive_types, fetch_mode, stats_callback)
         self._request = request
-        self._update_type = None
-        self._update_count = None
-        self._next_uri = None
-        self._query = query
         self._result: Optional[TrinoResult] = None
-        self._legacy_primitive_types = legacy_primitive_types
-        self._row_mapper: Optional[RowMapper] = None
-        self._fetch_mode = fetch_mode
-        self._stats_callback = stats_callback
-
-    @property
-    def query_id(self) -> Optional[str]:
-        return self._query_id
-
-    @property
-    def query(self) -> Optional[str]:
-        return self._query
 
     @property
     def columns(self):
@@ -950,28 +463,8 @@ class TrinoQuery:
         return self._columns
 
     @property
-    def stats(self):
-        return self._stats
-
-    @property
-    def update_type(self):
-        return self._update_type
-
-    @property
-    def update_count(self):
-        return self._update_count
-
-    @property
-    def warnings(self):
-        return self._warnings
-
-    @property
     def result(self):
         return self._result
-
-    @property
-    def info_uri(self):
-        return self._info_uri
 
     def execute(self, additional_http_headers=None) -> TrinoResult:
         """Initiate a Trino query by sending the SQL statement
@@ -986,7 +479,7 @@ class TrinoQuery:
 
         try:
             response = self._request.post(self._query, additional_http_headers)
-        except requests.exceptions.RequestException as e:
+        except httpx2.HTTPError as e:
             raise trino.exceptions.TrinoConnectionError("failed to execute: {}".format(e))
         status = self._request.process(response)
         self._info_uri = status.info_uri
@@ -1040,28 +533,11 @@ class TrinoQuery:
 
         return self._result
 
-    def _update_state(self, status):
-        self._stats.update(status.stats)
-        self._update_type = status.update_type
-        self._update_count = status.update_count
-        self._next_uri = status.next_uri
-        if not self._row_mapper and status.columns:
-            self._row_mapper = RowMapperFactory().create(columns=status.columns,
-                                                         legacy_primitive_types=self._legacy_primitive_types)
-        if status.columns:
-            self._columns = status.columns
-        self._report_stats()
-
-    def _report_stats(self) -> None:
-        if self._stats_callback is not None:
-            # Pass a deep copy so the callback cannot mutate internal query state.
-            self._stats_callback(copy.deepcopy(self._stats))
-
     def fetch(self) -> Union[List[Union[List[Any], Any]], Iterator[List[Any]]]:
         """Continue fetching data for the current query_id"""
         try:
             response = self._request.get(self._request.next_uri)
-        except requests.exceptions.RequestException as e:
+        except httpx2.HTTPError as e:
             raise trino.exceptions.TrinoConnectionError("failed to fetch: {}".format(e))
         status = self._request.process(response)
         self._update_state(status)
@@ -1090,27 +566,13 @@ class TrinoQuery:
         else:
             raise ValueError(f"Unexpected type: {type(status.rows)}")
 
-    def _to_segments(self, rows: _SpooledProtocolResponseTO) -> List[DecodableSegment]:
-        encoding = rows["encoding"]
-        metadata = rows["metadata"] if "metadata" in rows else None
-        segments = []
-        for segment in rows["segments"]:
-            segment_type = segment["type"]
-            if segment_type == SegmentType.INLINE:
-                inline_segment = cast(_InlineSegmentTO, segment)
-                segments.append(InlineSegment(inline_segment))
-            elif segment_type == SegmentType.SPOOLED:
-                spooled_segment = cast(_SpooledSegmentTO, segment)
-                segments.append(SpooledSegment(
-                    spooled_segment,
-                    self._request.unauthenticated(),
-                    coordinator_host=self._request._host,
-                    custom_headers=dict(self._request._client_session.headers),
-                ))
-            else:
-                raise ValueError(f"Unsupported segment type: {segment_type}")
-
-        return list(map(lambda segment: DecodableSegment(encoding, metadata, segment), segments))
+    def _create_spooled_segment(self, segment: _SpooledSegmentTO) -> Segment:
+        return SpooledSegment(
+            segment,
+            self._request.unauthenticated(),
+            coordinator_host=self._request._host,
+            custom_headers=dict(self._request._client_session.headers),
+        )
 
     def cancel(self) -> None:
         """Cancel the current query"""
@@ -1120,27 +582,14 @@ class TrinoQuery:
         logger.debug("cancelling query: %s", self.query_id)
         try:
             response = self._request.delete(self._next_uri)
-        except requests.exceptions.RequestException as e:
+        except httpx2.HTTPError as e:
             raise trino.exceptions.TrinoConnectionError("failed to cancel query: {}".format(e))
-        if response.status_code == requests.codes.no_content:
+        if response.status_code == httpx2.codes.NO_CONTENT:
             self._cancelled = True
             logger.debug("query cancelled: %s", self.query_id)
             return
 
         self._request.raise_response_error(response)
-
-    def is_finished(self) -> bool:
-        import warnings
-        warnings.warn("is_finished is deprecated, use finished instead", DeprecationWarning)
-        return self.finished
-
-    @property
-    def finished(self) -> bool:
-        return self._finished
-
-    @property
-    def cancelled(self) -> bool:
-        return self._cancelled
 
 
 def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
@@ -1153,8 +602,8 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
                 try:
                     result = func(*args, **kwargs)
                     if any(guard(result) for guard in conditions):
-                        if result.status_code == 429 and "Retry-After" in result.headers:
-                            retry_after = _parse_retry_after_header(result.headers.get("Retry-After"))
+                        retry_after = retry_after_seconds(result)
+                        if retry_after is not None:
                             handle_retry_sleep = _RetryAfterSleep(retry_after)
                             handle_retry_sleep.retry()
                         else:
@@ -1175,91 +624,6 @@ def _retry_with(handle_retry, handled_exceptions, conditions, max_attempts):
         return decorated
 
     return wrapper
-
-
-def _parse_retry_after_header(retry_after):
-    if isinstance(retry_after, int):
-        return retry_after
-    elif isinstance(retry_after, str) and retry_after.isdigit():
-        return int(retry_after)
-    else:
-        retry_date = parsedate_to_datetime(retry_after)
-        now = datetime.utcnow()
-        return (retry_date - now).total_seconds()
-
-
-# Trino Spooled protocol transfer objects
-class _SpooledProtocolResponseTO(TypedDict):
-    encoding: Literal["json", "json+std", "json+lz4"]
-    metadata: _SegmentMetadataTO
-    segments: List[_SegmentTO]
-
-
-class _SegmentMetadataTO(TypedDict):
-    uncompressedSize: str
-    segmentSize: str
-
-
-class _SegmentTO(_SegmentMetadataTO):
-    type: Literal["spooled", "inline"]
-    metadata: _SegmentMetadataTO
-
-
-class _SpooledSegmentTO(_SegmentTO):
-    uri: str
-    ackUri: str
-    headers: Dict[str, List[str]]
-
-
-class _InlineSegmentTO(_SegmentTO):
-    data: str
-
-
-class SegmentType(str, Enum):
-    """Enum with string values that can be compared to strings."""
-    INLINE = "inline"
-    SPOOLED = "spooled"
-
-
-class Segment(abc.ABC):
-    """
-    Abstract base class representing a segment of data produced by the spooling protocol.
-
-    Attributes:
-        metadata (property): Metadata associated with the segment.
-        rows (property): Returns the decoded and mapped data.
-    """
-    def __init__(self, segment: _SegmentTO) -> None:
-        self._segment = segment
-
-    @property
-    @abstractmethod
-    def data(self):
-        pass
-
-    @property
-    def metadata(self) -> _SegmentMetadataTO:
-        return self._segment["metadata"]
-
-
-class InlineSegment(Segment):
-    """
-    A subclass of Segment that handles inline data segments. The data is base64 encoded and
-    requires mapping to rows using the provided row_mapper.
-
-    Attributes:
-        rows (property): The data in the segment, decoded and mapped from the base64 encoded data.
-    """
-    def __init__(self, segment: _InlineSegmentTO) -> None:
-        super().__init__(segment)
-        self._segment = cast(_InlineSegmentTO, segment)
-
-    @property
-    def data(self) -> bytes:
-        return base64.b64decode(self._segment["data"])
-
-    def __repr__(self):
-        return f"InlineSegment(metadata={self.metadata})"
 
 
 class SpooledSegment(Segment):
@@ -1292,8 +656,10 @@ class SpooledSegment(Segment):
 
     @property
     def data(self) -> bytes:
-        http_response = self._send_spooling_request(self.uri)
-        if not http_response.ok:
+        # No timeout on the data path: downloading a large segment from
+        # external storage may legitimately take a long time.
+        http_response = self._send_spooling_request(self.uri, timeout=None)
+        if http_response.is_error:
             self._request.raise_response_error(http_response)
         return http_response.content
 
@@ -1313,61 +679,21 @@ class SpooledSegment(Segment):
         def acknowledge_request():
             try:
                 http_response = self._send_spooling_request(self.ack_uri, timeout=2)
-                if not http_response.ok:
+                if http_response.is_error:
                     self._request.raise_response_error(http_response)
             except Exception as e:
                 logger.error(f"Failed to acknowledge spooling request for segment {self}: {e}")
         # Start the acknowledgment in the executor thread
         executor.submit(acknowledge_request)
 
-    def _send_spooling_request(self, uri: str, **kwargs) -> requests.Response:
-        headers: Dict[str, str] = {}
-        # Forward user-supplied custom headers (e.g. auth gateway headers) only when the
-        # request targets the Trino coordinator, never to external storage (e.g. S3 presigned
-        # URLs) where such headers can break the request. The per-segment protocol headers
-        # returned by the coordinator always take precedence.
-        if self._coordinator_host is not None and urllib.parse.urlsplit(uri).hostname == self._coordinator_host:
-            headers.update(self._custom_headers)
-        for key, values in self.headers.items():
-            if len(values) > 1:
-                raise ValueError(f"Header '{key}' contains multiple values: {values}")
-            headers[key] = values[0]
+    def _send_spooling_request(self, uri: str, **kwargs) -> Response:
+        headers = spooling_request_headers(uri, self.headers, self._custom_headers, self._coordinator_host)
         return self._request._get(uri, headers=headers, **kwargs)
 
     def __repr__(self):
         return (
             f"SpooledSegment(metadata={self.metadata})"
         )
-
-
-class DecodableSegment:
-    """
-    Represents a collection of spooled segments of data, with an encoding format.
-
-    Attributes:
-        encoding (str): The encoding format of the spooled data.
-        metadata (_SegmentMetadataTO): Metadata for all segments in the query
-        segment (Segment): The spooled segment data
-    """
-    def __init__(self, encoding: str, metadata: _SegmentMetadataTO, segment: Segment) -> None:
-        self._encoding = encoding
-        self._metadata = metadata
-        self._segment = segment
-
-    @property
-    def encoding(self):
-        return self._encoding
-
-    @property
-    def segment(self):
-        return self._segment
-
-    @property
-    def metadata(self):
-        return self._metadata
-
-    def __repr__(self):
-        return (f"DecodableSegment(encoding={self._encoding}, metadata={self._metadata}, segment={self._segment})")
 
 
 class _RequestHeartbeat:
@@ -1410,7 +736,7 @@ class _RequestHeartbeat:
                 if response.status_code in (404, 405):
                     logger.warning("The server does not support heartbeat calls")
                     return
-                if not response.ok:
+                if response.is_error:
                     failures += 1
                 else:
                     failures = 0
@@ -1503,85 +829,3 @@ class SegmentDecoder():
             return self._decoder.decode(spooled_data.data, spooled_data.metadata)
         else:
             raise ValueError(f"Unsupported segment type: {type(segment)}")
-
-
-class CompressedQueryDataDecoderFactory():
-    def __init__(self, mapper: RowMapper) -> None:
-        self._mapper = mapper
-
-    def create(self, encoding: str) -> QueryDataDecoder:
-        if encoding == "json+zstd":
-            if "zstd" in CODECS_UNAVAILABLE:
-                raise ValueError(
-                    f"zstd is not installed so json+zstd encoding is not supported: {CODECS_UNAVAILABLE['zstd']}"
-                )
-            return ZStdQueryDataDecoder(JsonQueryDataDecoder(self._mapper))
-        elif encoding == "json+lz4":
-            if "lz4" in CODECS_UNAVAILABLE:
-                raise ValueError(
-                    f"lz4 is not installed so json+lz4 encoding is not supported: {CODECS_UNAVAILABLE['lz4']}"
-                )
-            return Lz4QueryDataDecoder(JsonQueryDataDecoder(self._mapper))
-        elif encoding == "json":
-            return JsonQueryDataDecoder(self._mapper)
-        else:
-            raise ValueError(f"Unsupported encoding: {encoding}")
-
-
-class QueryDataDecoder(abc.ABC):
-    @abstractmethod
-    def decode(self, data: bytes, metadata: _SegmentMetadataTO) -> List[List[Any]]:
-        pass
-
-
-class JsonQueryDataDecoder(QueryDataDecoder):
-    def __init__(self, mapper: RowMapper) -> None:
-        self._mapper = mapper
-
-    def decode(self, data: bytes, metadata: Dict[str, Any]) -> List[List[Any]]:
-        return self._mapper.map(json.loads(data.decode("utf8")))
-
-
-class CompressedQueryDataDecoder(QueryDataDecoder):
-    def __init__(self, delegate: QueryDataDecoder) -> None:
-        self._delegate = delegate
-
-    @abstractmethod
-    def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
-        pass
-
-    def decode(self, data: bytes, metadata: _SegmentMetadataTO) -> List[List[Any]]:
-        if "uncompressedSize" not in metadata:
-            # Data not compressed - below threshold
-            return self._delegate.decode(data, metadata)
-
-        # Data is compressed
-        expected_compressed_size = metadata["segmentSize"]
-        if not len(data) == expected_compressed_size:
-            raise RuntimeError(f"Expected to read {expected_compressed_size} bytes but got {len(data)}")
-        decompressed_data = self.decompress(data, metadata)
-        expected_uncompressed_size = metadata["uncompressedSize"]
-        if not len(decompressed_data) == expected_uncompressed_size:
-            raise RuntimeError(
-                "Decompressed size does not match expected segment size, "
-                f"expected {expected_uncompressed_size}, got {len(decompressed_data)}"
-            )
-        return self._delegate.decode(decompressed_data, metadata)
-
-
-class ZStdQueryDataDecoder(CompressedQueryDataDecoder):
-    def __init__(self, delegate: QueryDataDecoder) -> None:
-        super().__init__(delegate)
-        self._decompressor = None
-
-    def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
-        if self._decompressor is None:
-            self._decompressor = zstandard.ZstdDecompressor()
-        return self._decompressor.decompress(data)
-
-
-class Lz4QueryDataDecoder(CompressedQueryDataDecoder):
-    def decompress(self, data: bytes, metadata: _SegmentMetadataTO) -> bytes:
-        expected_uncompressed_size = metadata["uncompressedSize"]
-        decoded_bytes = lz4.block.decompress(data, uncompressed_size=int(expected_uncompressed_size))
-        return decoded_bytes

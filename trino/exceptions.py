@@ -74,6 +74,15 @@ class TrinoConnectionError(OperationalError):
     pass
 
 
+class SPNEGOExchangeError(TrinoAuthError):
+    """Raised when a Kerberos/GSSAPI (SPNEGO) token exchange with the server fails."""
+    pass
+
+
+# Backwards-compatible alias for the requests_kerberos-era exception name.
+KerberosExchangeError = SPNEGOExchangeError
+
+
 class TrinoDataError(NotSupportedError):
     pass
 
