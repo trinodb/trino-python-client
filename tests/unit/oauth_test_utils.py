@@ -11,11 +11,13 @@
 # limitations under the License.
 import json
 import re
+import threading
 import uuid
 from collections import namedtuple
 
-import httpretty
+import httpx2
 
+from tests.unit.mock_http import MockTrinoServer
 from trino import constants
 
 SERVER_ADDRESS = "https://coordinator"
@@ -48,30 +50,32 @@ class PostStatementCallback:
         self.tokens = tokens
         self.sample_post_response_data = sample_post_response_data
 
-    def __call__(self, request, uri, response_headers):
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
         authorization = request.headers.get("Authorization")
         if authorization and authorization.replace("Bearer ", "") in self.tokens:
-            return [200, response_headers, json.dumps(self.sample_post_response_data)]
+            return httpx2.Response(200, text=json.dumps(self.sample_post_response_data))
         elif self.redirect_server is None and self.token_server is not None:
-            return [401,
-                    {
-                        'Www-Authenticate': (
-                            'Bearer realm="Trino", token_type="JWT", '
-                            f'Bearer x_token_server="{self.token_server}"'
-                        ),
-                        'Basic realm': '"Trino"'
-                    },
-                    ""]
-        return [401,
-                {
+            return httpx2.Response(
+                401,
+                headers={
                     'Www-Authenticate': (
                         'Bearer realm="Trino", token_type="JWT", '
-                        f'Bearer x_redirect_server="{self.redirect_server}", '
-                        f'x_token_server="{self.token_server}"'
+                        f'Bearer x_token_server="{self.token_server}"'
                     ),
                     'Basic realm': '"Trino"'
                 },
-                ""]
+                text="")
+        return httpx2.Response(
+            401,
+            headers={
+                'Www-Authenticate': (
+                    'Bearer realm="Trino", token_type="JWT", '
+                    f'Bearer x_redirect_server="{self.redirect_server}", '
+                    f'x_token_server="{self.token_server}"'
+                ),
+                'Basic realm': '"Trino"'
+            },
+            text="")
 
 
 class GetTokenCallback:
@@ -80,73 +84,68 @@ class GetTokenCallback:
         self.token = token
         self.attempts = attempts
 
-    def __call__(self, request, uri, response_headers):
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
         self.attempts -= 1
         if self.attempts < 0:
-            return [404, response_headers, "{}"]
+            return httpx2.Response(404, text="{}")
         if self.attempts == 0:
-            return [200, response_headers, f'{{"token": "{self.token}"}}']
-        return [200, response_headers, f'{{"nextUri": "{self.token_server}"}}']
+            return httpx2.Response(200, text=f'{{"token": "{self.token}"}}')
+        return httpx2.Response(200, text=f'{{"nextUri": "{self.token_server}"}}')
 
 
-def _get_token_requests(challenge_id):
-    return list(filter(
-        lambda r: r.method == "GET" and r.path == f"/{TOKEN_PATH}/{challenge_id}",
-        httpretty.latest_requests()))
+def _get_token_requests(server: MockTrinoServer, challenge_id):
+    return server.requests(method="GET", path=f"/{TOKEN_PATH}/{challenge_id}")
 
 
-def _post_statement_requests():
-    return list(filter(
-        lambda r: r.method == "POST" and r.path == constants.URL_STATEMENT_PATH,
-        httpretty.latest_requests()))
+def _post_statement_requests(server: MockTrinoServer):
+    return server.requests(method="POST", path=constants.URL_STATEMENT_PATH)
 
 
 class MultithreadedTokenServer:
     Challenge = namedtuple('Challenge', ['token', 'attempts'])
 
-    def __init__(self, sample_post_response_data, attempts=1):
+    def __init__(self, server: MockTrinoServer, sample_post_response_data, attempts=1):
         self.tokens = set()
         self.challenges = {}
         self.sample_post_response_data = sample_post_response_data
         self.attempts = attempts
+        # The callbacks can run concurrently from multiple threads.
+        self._lock = threading.Lock()
 
         # bind post statement
-        httpretty.register_uri(
-            method=httpretty.POST,
-            uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-            body=self.post_statement_callback)
+        server.register("POST", constants.URL_STATEMENT_PATH, self.post_statement_callback)
 
         # bind get token
-        httpretty.register_uri(
-            method=httpretty.GET,
-            uri=re.compile(rf"{TOKEN_RESOURCE}/.*"),
-            body=self.get_token_callback)
+        server.register("GET", re.compile(rf"^/{TOKEN_PATH}/.*"), self.get_token_callback)
 
-    # noinspection PyUnusedLocal
-    def post_statement_callback(self, request, uri, response_headers):
+    def post_statement_callback(self, request: httpx2.Request) -> httpx2.Response:
         authorization = request.headers.get("Authorization")
 
-        if authorization and authorization.replace("Bearer ", "") in self.tokens:
-            return [200, response_headers, json.dumps(self.sample_post_response_data)]
+        with self._lock:
+            if authorization and authorization.replace("Bearer ", "") in self.tokens:
+                return httpx2.Response(200, text=json.dumps(self.sample_post_response_data))
 
-        challenge_id = str(uuid.uuid4())
-        token = str(uuid.uuid4())
-        self.tokens.add(token)
-        self.challenges[challenge_id] = MultithreadedTokenServer.Challenge(token, self.attempts)
-        redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
-        token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
-        return [401, {'Www-Authenticate': f'Bearer x_redirect_server="{redirect_server}", '
-                                          f'x_token_server="{token_server}"',
-                      'Basic realm': '"Trino"'}, ""]
+            challenge_id = str(uuid.uuid4())
+            token = str(uuid.uuid4())
+            self.tokens.add(token)
+            self.challenges[challenge_id] = MultithreadedTokenServer.Challenge(token, self.attempts)
+            redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
+            token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
+        return httpx2.Response(
+            401,
+            headers={'Www-Authenticate': f'Bearer x_redirect_server="{redirect_server}", '
+                                         f'x_token_server="{token_server}"',
+                     'Basic realm': '"Trino"'},
+            text="")
 
-    # noinspection PyUnusedLocal
-    def get_token_callback(self, request, uri, response_headers):
-        challenge_id = uri.replace(f"{TOKEN_RESOURCE}/", "")
-        challenge = self.challenges[challenge_id]
-        challenge = challenge._replace(attempts=challenge.attempts - 1)
-        self.challenges[challenge_id] = challenge
+    def get_token_callback(self, request: httpx2.Request) -> httpx2.Response:
+        challenge_id = request.url.path.replace(f"/{TOKEN_PATH}/", "")
+        with self._lock:
+            challenge = self.challenges[challenge_id]
+            challenge = challenge._replace(attempts=challenge.attempts - 1)
+            self.challenges[challenge_id] = challenge
         if challenge.attempts < 0:
-            return [404, response_headers, "{}"]
+            return httpx2.Response(404, text="{}")
         if challenge.attempts == 0:
-            return [200, response_headers, f'{{"token": "{challenge.token}"}}']
-        return [200, response_headers, f'{{"nextUri": "{uri}"}}']
+            return httpx2.Response(200, text=f'{{"token": "{challenge.token}"}}')
+        return httpx2.Response(200, text=f'{{"nextUri": "{str(request.url)}"}}')

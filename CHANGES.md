@@ -6,6 +6,41 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.340.0
+
+* **Breaking:** Replace the `requests` HTTP stack with
+  [httpx2](https://github.com/pydantic/httpx2). HTTP/2 is negotiated via ALPN
+  on TLS connections when the server supports it, with transparent HTTP/1.1
+  fallback. Note the following interface changes:
+  * The `http_session` parameter of `trino.dbapi.Connection` and
+    `trino.client.TrinoRequest` now takes an `httpx2.Client` instead of a
+    `requests.Session`. TLS options (`verify`, `cert`) and `trust_env` can
+    only be configured when the client is constructed, so combining a custom
+    `http_session` with an authentication that needs them (for example
+    `CertificateAuthentication`) now raises `TrinoConnectionError` instead of
+    silently mutating the session.
+  * The `trino.auth.Authentication` interface changed: `set_http_session` was
+    replaced by `get_http_auth()` (returning an `httpx2.Auth`) and
+    `get_client_arguments()` (returning `verify`/`cert`/`trust_env`
+    constructor arguments). Third-party implementations must be updated.
+  * Transport errors are now `httpx2` exceptions (`httpx2.HTTPError` and
+    subclasses) instead of `requests.exceptions.*`.
+  * `trino.client.PROXIES` uses the httpx mounts shape
+    (`{"all://": "socks5://host:port"}`) and is applied when the HTTP client
+    is constructed, not per request. SOCKS support requires the new
+    `trino[socks]` extra.
+* **Breaking:** Kerberos and GSSAPI authentication implement the SPNEGO token
+  exchange in the client on top of `python-gssapi` instead of
+  `requests_kerberos`/`requests_gssapi`. The public constructor signatures of
+  `KerberosAuthentication` and `GSSAPIAuthentication` are unchanged and both
+  the `trino[kerberos]` and `trino[gssapi]` extras now install the same
+  dependencies. A GSSAPI implementation such as MIT Kerberos is required;
+  Windows SSPI is not supported.
+* Add `trino.aio`, an asynchronous DBAPI-like interface built on
+  `httpx2.AsyncClient` with support for all authentication mechanisms and the
+  spooled protocol. Transactions are not supported by the asynchronous client
+  yet.
+
 ## Release 0.339.0
 
 * Add support for returning column comments from SQLAlchemy `get_columns`.

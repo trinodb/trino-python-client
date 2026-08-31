@@ -26,22 +26,22 @@ with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
 with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
-kerberos_require = ["requests_kerberos"]
-gssapi_require = [""
-                  "requests_gssapi",
-                  # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
-                  "krb5 == 0.5.1"]
+# Kerberos and GSSAPI authentication use the in-repo SPNEGO flow (trino/_spnego.py)
+# built on python-gssapi; both extras pull the same dependencies.
+kerberos_require = ["gssapi",
+                    # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
+                    "krb5 == 0.5.1"]
+gssapi_require = kerberos_require
 sqlalchemy_require = ["sqlalchemy >= 1.3"]
+socks_require = ["httpx2[socks]"]
 external_authentication_token_cache_require = ["keyring"]
 
 # We don't add localstorage_require to all_require as users must explicitly opt in to use keyring.
-all_require = kerberos_require + sqlalchemy_require
+all_require = sqlalchemy_require
 
 tests_require = all_require + [
-    # httpretty >= 1.1 duplicates requests in `httpretty.latest_requests`
-    # https://github.com/gabrielfalcao/HTTPretty/issues/425
-    "httpretty < 1.1",
     "pytest",
+    "pytest-asyncio",
     "pytest-runner",
     "pre-commit",
     "black",
@@ -83,12 +83,11 @@ setup(
     ],
     python_requires=">=3.9",
     install_requires=[
+        "httpx2[http2]",
         "lz4",
         "orjson >= 3.11.0 ; platform_python_implementation != 'PyPy'",
         "python-dateutil",
         "pytz",
-        # CVE-2024-47081
-        "requests>=2.32.4",
         "tzlocal",
         "zstandard",
     ],
@@ -97,6 +96,7 @@ setup(
         "kerberos": kerberos_require,
         "gssapi": gssapi_require,
         "sqlalchemy": sqlalchemy_require,
+        "socks": socks_require,
         "tests": tests_require,
         "external-authentication-token-cache": external_authentication_token_cache_require,
     },

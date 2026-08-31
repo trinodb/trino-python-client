@@ -9,10 +9,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from unittest.mock import MagicMock
-from unittest.mock import patch
-
 import pytest
+
+from tests.unit.mock_http import MATCH_ALL
+from tests.unit.mock_http import MockTrinoServer
 
 
 @pytest.fixture(scope="session")
@@ -285,15 +285,18 @@ def sample_get_error_response_data():
 
 
 @pytest.fixture
-def mock_get_and_post():
-    post = MagicMock()
-    get = MagicMock()
-
-    with patch("trino.client.TrinoRequest.http") as mock_requests:
-        mock_requests.Session.return_value.get = get
-        mock_requests.Session.return_value.post = post
-
-        yield get, post
+def trino_server():
+    """
+    A recording mock coordinator answering every request with an empty JSON
+    body. Tests build clients with ``trino_server.client()`` (or through
+    ``TrinoRequest.create_http_client(transport=trino_server.transport())``)
+    and assert on the requests that actually went on the wire.
+    """
+    server = MockTrinoServer()
+    server.register("POST", MATCH_ALL, json={})
+    server.register("GET", MATCH_ALL, json={})
+    server.register("DELETE", MATCH_ALL, json={})
+    yield server
 
 
 def sqlalchemy_version() -> str:

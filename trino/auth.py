@@ -10,12 +10,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import abc
+import asyncio
 import importlib
 import json
 import os
 import re
 import threading
 import webbrowser
+from collections.abc import AsyncGenerator
+from collections.abc import Generator
 from collections.abc import Mapping
 from typing import Any
 from typing import Callable
@@ -23,17 +26,12 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
-from urllib.parse import urlparse
 
-from requests import PreparedRequest
-from requests import Request
-from requests import Response
-from requests import Session
-from requests.auth import AuthBase
-from requests.auth import extract_cookies_to_jar
+import httpx2
 
 import trino.logging
 from trino import exceptions
+from trino._spnego import SPNEGOAuth
 from trino.constants import HEADER_ORIGINAL_USER
 from trino.constants import HEADER_USER
 from trino.constants import MAX_NT_PASSWORD_SIZE
@@ -42,12 +40,48 @@ logger = trino.logging.get_logger(__name__)
 
 
 class Authentication(metaclass=abc.ABCMeta):
+    """
+    Extension point for Trino authentication mechanisms.
+
+    httpx builds its TLS and environment configuration when a client is
+    constructed, so an authentication is asked for two things:
+
+    - :meth:`get_client_arguments`: constructor arguments merged into the
+      ``httpx2.Client``/``httpx2.AsyncClient`` the connection creates
+      (``verify``, ``cert`` and ``trust_env``).
+    - :meth:`get_http_auth`: the ``httpx2.Auth`` instance attached to the
+      client, or ``None`` when the mechanism only needs client arguments.
+    """
+
+    def get_client_arguments(self) -> Dict[str, Any]:
+        return {}
+
     @abc.abstractmethod
-    def set_http_session(self, http_session: Session) -> Session:
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
         pass
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return tuple()
+
+    def set_http_session(self, http_session: Any) -> Any:
+        raise NotImplementedError(
+            "set_http_session was removed when the client migrated from requests to httpx2. "
+            "Implement get_http_auth() (returning an httpx2.Auth) and, for verify/cert/trust_env, "
+            "get_client_arguments() instead."
+        )
+
+
+def _gssapi_credentials(principal: Optional[str]) -> Any:
+    if principal:
+        try:
+            import gssapi
+        except ImportError:
+            raise RuntimeError("unable to import gssapi")
+
+        name = gssapi.Name(principal, gssapi.NameType.user)
+        return gssapi.Credentials(name=name, usage="initiate")
+
+    return None
 
 
 class KerberosAuthentication(Authentication):
@@ -77,35 +111,27 @@ class KerberosAuthentication(Authentication):
         self._delegate = delegate
         self._ca_bundle = ca_bundle
 
-    def set_http_session(self, http_session: Session) -> Session:
-        try:
-            import requests_kerberos
-        except ImportError:
-            raise RuntimeError("unable to import requests_kerberos")
-
+    def get_client_arguments(self) -> Dict[str, Any]:
         if self._config:
             os.environ["KRB5_CONFIG"] = self._config
-        http_session.trust_env = False
-        http_session.auth = requests_kerberos.HTTPKerberosAuth(
-            mutual_authentication=self._mutual_authentication,
-            force_preemptive=self._force_preemptive,
-            hostname_override=self._hostname_override,
-            sanitize_mutual_error_response=self._sanitize_mutual_error_response,
-            principal=self._principal,
-            delegate=self._delegate,
-            service=self._service_name,
-        )
+        arguments: Dict[str, Any] = {"trust_env": False}
         if self._ca_bundle:
-            http_session.verify = self._ca_bundle
-        return http_session
+            arguments["verify"] = self._ca_bundle
+        return arguments
+
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
+        return SPNEGOAuth(
+            service_name=self._service_name,
+            hostname_override=self._hostname_override,
+            mutual_authentication=self._mutual_authentication,
+            opportunistic_auth=self._force_preemptive,
+            delegate=self._delegate,
+            creds=_gssapi_credentials(self._principal),
+            sanitize_mutual_error_response=self._sanitize_mutual_error_response,
+        )
 
     def get_exceptions(self) -> Tuple[Any, ...]:
-        try:
-            from requests_kerberos.exceptions import KerberosExchangeError
-
-            return KerberosExchangeError,
-        except ImportError:
-            raise RuntimeError("unable to import requests_kerberos")
+        return exceptions.SPNEGOExchangeError,
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, KerberosAuthentication):
@@ -148,38 +174,26 @@ class GSSAPIAuthentication(Authentication):
         self._delegate = delegate
         self._ca_bundle = ca_bundle
 
-    def set_http_session(self, http_session: Session) -> Session:
-        try:
-            import requests_gssapi
-        except ImportError:
-            raise RuntimeError("unable to import requests_gssapi")
-
+    def get_client_arguments(self) -> Dict[str, Any]:
         if self._config:
             os.environ["KRB5_CONFIG"] = self._config
-        http_session.trust_env = False
-        http_session.auth = requests_gssapi.HTTPSPNEGOAuth(
+        arguments: Dict[str, Any] = {"trust_env": False}
+        if self._ca_bundle:
+            arguments["verify"] = self._ca_bundle
+        return arguments
+
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
+        return SPNEGOAuth(
+            target_name=self._get_target_name(self._hostname_override, self._service_name),
             mutual_authentication=self._mutual_authentication,
             opportunistic_auth=self._force_preemptive,
-            target_name=self._get_target_name(self._hostname_override, self._service_name),
-            sanitize_mutual_error_response=self._sanitize_mutual_error_response,
-            creds=self._get_credentials(self._principal),
             delegate=self._delegate,
+            creds=self._get_credentials(self._principal),
+            sanitize_mutual_error_response=self._sanitize_mutual_error_response,
         )
-        if self._ca_bundle:
-            http_session.verify = self._ca_bundle
-        return http_session
 
     def _get_credentials(self, principal: Optional[str] = None) -> Any:
-        if principal:
-            try:
-                import gssapi
-            except ImportError:
-                raise RuntimeError("unable to import gssapi")
-
-            name = gssapi.Name(principal, gssapi.NameType.user)
-            return gssapi.Credentials(name=name, usage="initiate")
-
-        return None
+        return _gssapi_credentials(principal)
 
     def _get_target_name(
             self,
@@ -201,12 +215,7 @@ class GSSAPIAuthentication(Authentication):
         return hostname_override
 
     def get_exceptions(self) -> Tuple[Any, ...]:
-        try:
-            from requests_gssapi.exceptions import SPNEGOExchangeError
-
-            return SPNEGOExchangeError,
-        except ImportError:
-            raise RuntimeError("unable to import requests_kerberos")
+        return exceptions.SPNEGOExchangeError,
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GSSAPIAuthentication):
@@ -227,14 +236,8 @@ class BasicAuthentication(Authentication):
         self._username = username
         self._password = password
 
-    def set_http_session(self, http_session: Session) -> Session:
-        try:
-            import requests.auth
-        except ImportError:
-            raise RuntimeError("unable to import requests.auth")
-
-        http_session.auth = requests.auth.HTTPBasicAuth(self._username, self._password)
-        return http_session
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
+        return httpx2.BasicAuth(self._username, self._password)
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
@@ -245,7 +248,7 @@ class BasicAuthentication(Authentication):
         return self._username == other._username and self._password == other._password
 
 
-class _BearerAuth(AuthBase):
+class _BearerAuth(httpx2.Auth):
     """
     Custom implementation of Authentication class for bearer token
     """
@@ -253,9 +256,9 @@ class _BearerAuth(AuthBase):
     def __init__(self, token: str):
         self.token = token
 
-    def __call__(self, r: PreparedRequest) -> PreparedRequest:
-        r.headers["Authorization"] = "Bearer " + self.token
-        return r
+    def auth_flow(self, request: httpx2.Request) -> Generator[httpx2.Request, httpx2.Response, None]:
+        request.headers["Authorization"] = "Bearer " + self.token
+        yield request
 
 
 class JWTAuthentication(Authentication):
@@ -263,9 +266,8 @@ class JWTAuthentication(Authentication):
     def __init__(self, token: str):
         self.token = token
 
-    def set_http_session(self, http_session: Session) -> Session:
-        http_session.auth = _BearerAuth(self.token)
-        return http_session
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
+        return _BearerAuth(self.token)
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
@@ -414,7 +416,13 @@ class _OAuth2KeyRingTokenCache(_OAuth2TokenCache):
                                                      "information.") from e
 
 
-class _OAuth2TokenBearer(AuthBase):
+# Sentinel yielded by the OAuth2 core flow instead of a request when another
+# thread or task is already running the OAuth2 exchange; the drivers translate
+# it into an appropriate (blocking or event-loop-friendly) wait.
+_WAIT_FOR_OAUTH = object()
+
+
+class _OAuth2TokenBearer(httpx2.Auth):
     """
     Custom implementation of Trino OAuth2 based authentication to get the token
     """
@@ -424,44 +432,89 @@ class _OAuth2TokenBearer(AuthBase):
     def __init__(self, redirect_auth_url_handler: Callable[[str], None]):
         self._redirect_auth_url = redirect_auth_url_handler
         keyring_cache = _OAuth2KeyRingTokenCache()
-        self._token_cache = keyring_cache if keyring_cache.is_keyring_available() else _OAuth2TokenInMemoryCache()
+        self._token_cache: _OAuth2TokenCache = \
+            keyring_cache if keyring_cache.is_keyring_available() else _OAuth2TokenInMemoryCache()
         self._token_lock = threading.Lock()
+        # Held by the thread/task currently performing the OAuth2 exchange so
+        # concurrent requests wait for its token instead of also opening a
+        # browser window.
         self._inside_oauth_attempt_lock = threading.Lock()
-        self._inside_oauth_attempt_blocker = threading.Event()
 
-    def __call__(self, r: PreparedRequest) -> PreparedRequest:
-        host = self._determine_host(r.url)
-        user = self._determine_user(r.headers)
+    def sync_auth_flow(
+        self, request: httpx2.Request
+    ) -> Generator[httpx2.Request, httpx2.Response, None]:
+        flow = self._flow(request)
+        item = next(flow)
+        while True:
+            if item is _WAIT_FOR_OAUTH:
+                # Block until the thread running the OAuth2 exchange finishes.
+                with self._inside_oauth_attempt_lock:
+                    pass
+                item = flow.send(None)
+                continue
+            response = yield item
+            response.read()
+            try:
+                item = flow.send(response)
+            except StopIteration:
+                return
+
+    async def async_auth_flow(
+        self, request: httpx2.Request
+    ) -> AsyncGenerator[httpx2.Request, httpx2.Response]:
+        flow = self._flow(request)
+        item = next(flow)
+        while True:
+            if item is _WAIT_FOR_OAUTH:
+                # Never block the event loop; the lock may be held by another
+                # thread, so poll it instead of awaiting a loop-bound primitive.
+                while self._inside_oauth_attempt_lock.locked():
+                    await asyncio.sleep(0.05)
+                item = flow.send(None)
+                continue
+            response = yield item
+            await response.aread()
+            try:
+                item = flow.send(response)
+            except StopIteration:
+                return
+
+    def _flow(self, request: httpx2.Request) -> Generator[Any, Any, None]:
+        host = request.url.host
+        user = self._determine_user(request.headers)
         key = self._construct_cache_key(host, user)
         token = self._get_token_from_cache(key)
 
         if token is not None:
-            r.headers['Authorization'] = "Bearer " + token
+            request.headers["Authorization"] = "Bearer " + token
 
-        r.register_hook('response', self._authenticate)
-
-        return r
-
-    def _authenticate(self, response: Response, **kwargs: Any) -> Optional[Response]:
+        response = yield request
         if not 400 <= response.status_code < 500:
-            return response
+            return
 
-        acquired = self._inside_oauth_attempt_lock.acquire(blocking=False)
-        if acquired:
+        if self._inside_oauth_attempt_lock.acquire(blocking=False):
             try:
                 # Lock is acquired, attempt the OAuth2 flow
-                self._attempt_oauth(response, **kwargs)
-                self._inside_oauth_attempt_blocker.set()
+                token = yield from self._attempt_oauth(response)
+                self._store_token_to_cache(key, token)
             finally:
                 self._inside_oauth_attempt_lock.release()
-                self._inside_oauth_attempt_blocker.clear()
         else:
-            # Lock is not acquired, we are already in the OAuth2 flow, so we block until OAuth2 flow is finished.
-            self._inside_oauth_attempt_blocker.wait()
+            # We are already in the OAuth2 flow on another thread or task;
+            # wait until it finishes and pick up the token it cached.
+            yield _WAIT_FOR_OAUTH
+            token = self._get_token_from_cache(key)
 
-        return self._retry_request(response, **kwargs)
+        # Retry the original request with the fresh token, carrying over any
+        # cookies the failed response may have set.
+        if token is not None:
+            request.headers["Authorization"] = "Bearer " + token
+        cookies = httpx2.Cookies()
+        cookies.extract_cookies(response)
+        cookies.set_cookie_header(request)
+        yield request
 
-    def _attempt_oauth(self, response: Response, **kwargs: Any) -> None:
+    def _attempt_oauth(self, response: httpx2.Response) -> Generator[Any, Any, str]:
         # we have to handle the authentication, may be token the token expired, or it wasn't there at all
         auth_info = response.headers.get('WWW-Authenticate')
         if not auth_info:
@@ -485,57 +538,32 @@ class _OAuth2TokenBearer(AuthBase):
             # tell app that use this url to proceed with the authentication
             self._redirect_auth_url(auth_server)
 
-        # Consume content and release the original connection
-        # to allow our new request to reuse the same one.
-        response.content
-        response.close()
+        # Token polls reuse the timeout the original request was sent with.
+        extensions = {}
+        timeout = response.request.extensions.get("timeout")
+        if timeout is not None:
+            extensions["timeout"] = timeout
 
-        token = self._get_token(token_server, response, **kwargs)
-
-        request = response.request
-        host = self._determine_host(request.url)
-        user = self._determine_user(request.headers)
-        key = self._construct_cache_key(host, user)
-        self._store_token_to_cache(key, token)
-
-    def _retry_request(self, response: Response, **kwargs: Any) -> Optional[Response]:
-        request = response.request.copy()
-        extract_cookies_to_jar(request._cookies, response.request, response.raw)
-        request.prepare_cookies(request._cookies)
-
-        host = self._determine_host(response.request.url)
-        user = self._determine_user(request.headers)
-        key = self._construct_cache_key(host, user)
-        token = self._get_token_from_cache(key)
-        if token is not None:
-            request.headers['Authorization'] = "Bearer " + token
-        retry_response = response.connection.send(request, **kwargs)
-        retry_response.history.append(response)
-        retry_response.request = request
-        return retry_response
-
-    def _get_token(self, token_server: str, response: Response, **kwargs: Any) -> str:
         attempts = 0
         while attempts < self.MAX_OAUTH_ATTEMPTS:
             attempts += 1
-            with response.connection.send(Request(
-                    method='GET', url=token_server).prepare(), **kwargs) as response:
-                if response.status_code == 200:
-                    token_response = json.loads(response.text)
-                    token = token_response.get('token')
-                    if token:
-                        return token
-                    error = token_response.get('error')
-                    if error:
-                        raise exceptions.TrinoAuthError(f"Error while getting the token: {error}")
-                    else:
-                        token_server = token_response.get('nextUri')
-                        logger.debug(f"nextURi auth token server: {token_server}")
+            token_response = yield httpx2.Request("GET", token_server, extensions=extensions)
+            if token_response.status_code == 200:
+                body = json.loads(token_response.text)
+                token = body.get('token')
+                if token:
+                    return token
+                error = body.get('error')
+                if error:
+                    raise exceptions.TrinoAuthError(f"Error while getting the token: {error}")
                 else:
-                    raise exceptions.TrinoAuthError(
-                        f"Error while getting the token response "
-                        f"status code: {response.status_code}, "
-                        f"body: {response.text}")
+                    token_server = body.get('nextUri')
+                    logger.debug(f"nextURi auth token server: {token_server}")
+            else:
+                raise exceptions.TrinoAuthError(
+                    f"Error while getting the token response "
+                    f"status code: {token_response.status_code}, "
+                    f"body: {token_response.text}")
 
         raise exceptions.TrinoAuthError("Exceeded max attempts while getting the token")
 
@@ -546,10 +574,6 @@ class _OAuth2TokenBearer(AuthBase):
     def _store_token_to_cache(self, key: Optional[str], token: str) -> None:
         with self._token_lock:
             self._token_cache.store_token_to_cache(key, token)
-
-    @staticmethod
-    def _determine_host(url: Optional[str]) -> Any:
-        return urlparse(url).hostname
 
     @staticmethod
     def _determine_user(headers: Mapping[Any, Any]) -> Optional[Any]:
@@ -586,9 +610,8 @@ class OAuth2Authentication(Authentication):
         self._redirect_auth_url = redirect_auth_url_handler
         self._bearer = _OAuth2TokenBearer(self._redirect_auth_url)
 
-    def set_http_session(self, http_session: Session) -> Session:
-        http_session.auth = self._bearer
-        return http_session
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
+        return self._bearer
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return ()
@@ -604,9 +627,11 @@ class CertificateAuthentication(Authentication):
         self._cert = cert
         self._key = key
 
-    def set_http_session(self, http_session: Session) -> Session:
-        http_session.cert = (self._cert, self._key)
-        return http_session
+    def get_client_arguments(self) -> Dict[str, Any]:
+        return {"cert": (self._cert, self._key)}
+
+    def get_http_auth(self) -> Optional[httpx2.Auth]:
+        return None
 
     def get_exceptions(self) -> Tuple[Any, ...]:
         return ()

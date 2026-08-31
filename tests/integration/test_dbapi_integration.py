@@ -22,8 +22,8 @@ from decimal import Decimal
 from typing import Tuple
 from zoneinfo import ZoneInfo
 
+import httpx2
 import pytest
-import requests
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino
@@ -1580,18 +1580,19 @@ def retrieve_client_tags_from_query(run_trino, client_tags):
     api_url = "http://" + trino_connection.host + ":" + str(trino_connection.port)
 
     if trino_version() >= 483:
-        session = requests.Session()
-        resp = session.post(api_url + "/ui/auth/login", json={
-            "username": "admin", "password": ""
-        })
-        assert resp.ok, f"POST request to /ui/auth/login failed: {resp.status_code} {resp.reason}"
-        query_info = session.get(api_url + "/ui/api/query/" + cur._query.query_id).json()
+        with httpx2.Client() as session:
+            resp = session.post(api_url + "/ui/auth/login", json={
+                "username": "admin", "password": ""
+            })
+            assert resp.is_success, \
+                f"POST request to /ui/auth/login failed: {resp.status_code} {resp.reason_phrase}"
+            query_info = session.get(api_url + "/ui/api/query/" + cur._query.query_id).json()
     else:
-        query_info = requests.post(api_url + "/ui/login", data={
+        query_info = httpx2.post(api_url + "/ui/login", data={
             "username": "admin",
             "password": "",
             "redirectPath": api_url + '/ui/api/query/' + cur._query.query_id
-        }).json()
+        }, follow_redirects=True).json()
 
     query_client_tags = query_info['session']['clientTags']
     return query_client_tags

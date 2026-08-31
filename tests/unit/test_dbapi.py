@@ -9,17 +9,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import threading
 import uuid
 from unittest.mock import patch
 
-import httpretty
+import httpx2
 import pytest
-from httpretty import httprettified
-from requests import Session
 
 import trino.exceptions
+from tests.unit.mock_http import MockTrinoServer
 from tests.unit.oauth_test_utils import _get_token_requests
 from tests.unit.oauth_test_utils import _post_statement_requests
 from tests.unit.oauth_test_utils import GetTokenCallback
@@ -27,6 +25,7 @@ from tests.unit.oauth_test_utils import PostStatementCallback
 from tests.unit.oauth_test_utils import REDIRECT_RESOURCE
 from tests.unit.oauth_test_utils import RedirectHandler
 from tests.unit.oauth_test_utils import SERVER_ADDRESS
+from tests.unit.oauth_test_utils import TOKEN_PATH
 from tests.unit.oauth_test_utils import TOKEN_RESOURCE
 from trino import constants
 from trino.auth import BasicAuthentication
@@ -36,34 +35,36 @@ from trino.dbapi import connect
 from trino.dbapi import Connection
 from trino.dbapi import Cursor
 
+_QUERY_ID = "20210817_140827_00000_arvdv"
 
-@patch("trino.dbapi.trino.client")
-def test_http_session_is_correctly_passed_in(mock_client):
-    # GIVEN
-    test_session = Session()
-    test_session.proxies = {"http": "some.http.proxy:81", "https": "some.http.proxy:81"}
 
-    # WHEN
-    with connect("sample_trino_cluster:443", http_session=test_session) as conn:
+def _finished_statement_response():
+    """A POST /v1/statement response without a nextUri: the query is
+    immediately in a terminal state, so no follow-up requests are needed."""
+    return {
+        "id": _QUERY_ID,
+        "infoUri": f"{SERVER_ADDRESS}/query.html?{_QUERY_ID}",
+        "stats": {"state": "FINISHED"},
+    }
+
+
+def test_http_session_is_correctly_passed_in(trino_server):
+    trino_server.register("POST", constants.URL_STATEMENT_PATH, json=_finished_statement_response())
+    test_session = trino_server.client()
+
+    with connect("https://sample_trino_cluster:443", user="test", http_session=test_session) as conn:
         conn.cursor().execute("SOME FAKE QUERY")
+        assert conn._http_session is test_session
 
-    # THEN
-    request_args, _ = mock_client.TrinoRequest.call_args
-    assert test_session in request_args
+    assert len(trino_server.requests(method="POST", path=constants.URL_STATEMENT_PATH)) == 1
 
 
-@patch("trino.dbapi.trino.client")
-def test_http_session_is_defaulted_when_not_specified(mock_client):
-    # WHEN
+def test_http_session_is_defaulted_when_not_specified():
     with connect("sample_trino_cluster:443") as conn:
-        conn.cursor().execute("SOME FAKE QUERY")
-
-    # THEN
-    request_args, _ = mock_client.TrinoRequest.call_args
-    assert mock_client.TrinoRequest.http.Session.return_value in request_args
+        assert isinstance(conn._http_session, httpx2.Client)
+        assert conn._create_request()._http_session is conn._http_session
 
 
-@httprettified
 def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
@@ -71,27 +72,20 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
     redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
+    server = MockTrinoServer()
+
     post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
     get_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_get_response_data)
 
     # bind post statement to submit query
-    httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+    server.register("POST", constants.URL_STATEMENT_PATH, post_statement_callback)
 
     # bind get statement for result retrieval
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
-        body=get_statement_callback)
+    server.register("GET", f"{constants.URL_STATEMENT_PATH}/{_QUERY_ID}/1", get_statement_callback)
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    server.register("GET", f"/{TOKEN_PATH}/{challenge_id}", get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -99,7 +93,8 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
             "coordinator",
             user="test",
             auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
-            http_scheme=constants.HTTPS
+            http_scheme=constants.HTTPS,
+            http_session=server.client(),
     ) as conn:
         conn.cursor().execute("SELECT 1")
         conn.cursor().execute("SELECT 2")
@@ -107,10 +102,7 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    server.register("GET", f"/{TOKEN_PATH}/{challenge_id}", get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -118,16 +110,16 @@ def test_token_retrieved_once_per_auth_instance(sample_post_response_data, sampl
             "coordinator",
             user="test",
             auth=OAuth2Authentication(redirect_auth_url_handler=redirect_handler),
-            http_scheme=constants.HTTPS
+            http_scheme=constants.HTTPS,
+            http_session=server.client(),
     ) as conn2:
         conn2.cursor().execute("SELECT 1")
         conn2.cursor().execute("SELECT 2")
         conn2.cursor().execute("SELECT 3")
 
-    assert len(_get_token_requests(challenge_id)) == 1
+    assert len(_get_token_requests(server, challenge_id)) == 1
 
 
-@httprettified
 def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post_response_data,
                                                                      sample_get_response_data):
     token = str(uuid.uuid4())
@@ -136,27 +128,20 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
     redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
+    server = MockTrinoServer()
+
     post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
     get_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_get_response_data)
 
     # bind post statement to submit query
-    httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+    server.register("POST", constants.URL_STATEMENT_PATH, post_statement_callback)
 
     # bind get statement for result retrieval
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
-        body=get_statement_callback)
+    server.register("GET", f"{constants.URL_STATEMENT_PATH}/{_QUERY_ID}/1", get_statement_callback)
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    server.register("GET", f"/{TOKEN_PATH}/{challenge_id}", get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -166,7 +151,8 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
             "coordinator",
             user="test",
             auth=authentication,
-            http_scheme=constants.HTTPS
+            http_scheme=constants.HTTPS,
+            http_session=server.client(),
     ) as conn:
         conn.cursor().execute("SELECT 1")
         conn.cursor().execute("SELECT 2")
@@ -174,26 +160,23 @@ def test_token_retrieved_once_when_authentication_instance_is_shared(sample_post
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    server.register("GET", f"/{TOKEN_PATH}/{challenge_id}", get_token_callback)
 
     with connect(
             "coordinator",
             user="test",
             auth=authentication,
-            http_scheme=constants.HTTPS
+            http_scheme=constants.HTTPS,
+            http_session=server.client(),
     ) as conn2:
         conn2.cursor().execute("SELECT 1")
         conn2.cursor().execute("SELECT 2")
         conn2.cursor().execute("SELECT 3")
 
-    assert len(_post_statement_requests()) == 7
-    assert len(_get_token_requests(challenge_id)) == 1
+    assert len(_post_statement_requests(server)) == 7
+    assert len(_get_token_requests(server, challenge_id)) == 1
 
 
-@httprettified
 def test_token_retrieved_once_when_multithreaded(sample_post_response_data, sample_get_response_data):
     token = str(uuid.uuid4())
     challenge_id = str(uuid.uuid4())
@@ -201,27 +184,20 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
     redirect_server = f"{REDIRECT_RESOURCE}/{challenge_id}"
     token_server = f"{TOKEN_RESOURCE}/{challenge_id}"
 
+    server = MockTrinoServer()
+
     post_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_post_response_data)
     get_statement_callback = PostStatementCallback(redirect_server, token_server, [token], sample_get_response_data)
 
     # bind post statement to submit query
-    httpretty.register_uri(
-        method=httpretty.POST,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}",
-        body=post_statement_callback)
+    server.register("POST", constants.URL_STATEMENT_PATH, post_statement_callback)
 
     # bind get statement for result retrieval
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/20210817_140827_00000_arvdv/1",
-        body=get_statement_callback)
+    server.register("GET", f"{constants.URL_STATEMENT_PATH}/{_QUERY_ID}/1", get_statement_callback)
 
     # bind get token
     get_token_callback = GetTokenCallback(token_server, token)
-    httpretty.register_uri(
-        method=httpretty.GET,
-        uri=token_server,
-        body=get_token_callback)
+    server.register("GET", f"/{TOKEN_PATH}/{challenge_id}", get_token_callback)
 
     redirect_handler = RedirectHandler()
 
@@ -231,7 +207,8 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
         "coordinator",
         user="test",
         auth=authentication,
-        http_scheme=constants.HTTPS
+        http_scheme=constants.HTTPS,
+        http_session=server.client(),
     )
 
     class RunningThread(threading.Thread):
@@ -256,27 +233,19 @@ def test_token_retrieved_once_when_multithreaded(sample_post_response_data, samp
     for thread in threads:
         thread.join()
 
-    assert len(_get_token_requests(challenge_id)) == 1
+    assert len(_get_token_requests(server, challenge_id)) == 1
 
 
-@patch("trino.dbapi.trino.client")
-def test_tags_are_set_when_specified(mock_client):
+def test_tags_are_set_when_specified():
     client_tags = ["TAG1", "TAG2"]
     with connect("sample_trino_cluster:443", client_tags=client_tags) as conn:
-        conn.cursor().execute("SOME FAKE QUERY")
-
-    _, passed_client_tags = mock_client.ClientSession.call_args
-    assert passed_client_tags["client_tags"] == client_tags
+        assert conn._client_session.client_tags == client_tags
 
 
-@patch("trino.dbapi.trino.client")
-def test_role_is_set_when_specified(mock_client):
+def test_role_is_set_when_specified():
     roles = {"system": "finance"}
     with connect("sample_trino_cluster:443", roles=roles) as conn:
-        conn.cursor().execute("SOME FAKE QUERY")
-
-    _, passed_role = mock_client.ClientSession.call_args
-    assert passed_role["roles"] == roles
+        assert conn._client_session.roles == {"system": "ROLE{finance}"}
 
 
 def test_hostname_parsing():
@@ -398,11 +367,14 @@ def test_no_error_when_auth_over_http_with_allow_insecure_auth():
     assert request._http_scheme == constants.HTTP
 
 
+def _statement_path(query_id, token):
+    return f"{constants.URL_STATEMENT_PATH}/{query_id}/{token}"
+
+
 def _statement_uri(query_id, token):
-    return f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/{query_id}/{token}"
+    return f"{SERVER_ADDRESS}{_statement_path(query_id, token)}"
 
 
-@httprettified
 def test_cursor_close_does_not_cancel_finished_update_query():
     """Regression test for https://github.com/trinodb/trino-python-client/issues/601
 
@@ -411,8 +383,7 @@ def test_cursor_close_does_not_cancel_finished_update_query():
     cursor without fetching must drain that nextUri instead of issuing a DELETE,
     otherwise the already-completed statement is reported as USER_CANCELED.
     """
-    query_id = "20210817_140827_00000_arvdv"
-    statement_path = f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}"
+    query_id = _QUERY_ID
 
     post_response = {
         "id": query_id,
@@ -446,12 +417,13 @@ def test_cursor_close_does_not_cancel_finished_update_query():
         "stats": {"state": "FINISHED"},
     }
 
-    httpretty.register_uri(method=httpretty.POST, uri=statement_path, body=json.dumps(post_response))
-    httpretty.register_uri(method=httpretty.GET, uri=_statement_uri(query_id, 1), body=json.dumps(update_response))
-    httpretty.register_uri(method=httpretty.GET, uri=_statement_uri(query_id, 2), body=json.dumps(final_response))
-    httpretty.register_uri(method=httpretty.DELETE, uri=_statement_uri(query_id, 2), status=204)
+    server = MockTrinoServer()
+    server.register("POST", constants.URL_STATEMENT_PATH, json=post_response)
+    server.register("GET", _statement_path(query_id, 1), json=update_response)
+    server.register("GET", _statement_path(query_id, 2), json=final_response)
+    server.register("DELETE", _statement_path(query_id, 2), status=204, text="")
 
-    with connect("coordinator", user="test", http_scheme=constants.HTTPS) as conn:
+    with connect("coordinator", user="test", http_scheme=constants.HTTPS, http_session=server.client()) as conn:
         cur = conn.cursor()
         cur.execute("INSERT INTO some_table VALUES (1), (2), (3)")
         # execute() must have drained the query to a terminal state.
@@ -459,17 +431,14 @@ def test_cursor_close_does_not_cancel_finished_update_query():
         assert cur.rowcount == 1000
         cur.close()
 
-    delete_requests = [r for r in httpretty.latest_requests() if r.method == "DELETE"]
-    assert delete_requests == [], "closing a finished update query must not issue a cancel"
+    assert server.requests(method="DELETE") == [], "closing a finished update query must not issue a cancel"
 
 
-@httprettified
 def test_cursor_close_cancels_unfinished_query():
     """Closing a cursor whose result set has not been fully consumed must still
     cancel the running query so the server can free its resources.
     """
-    query_id = "20210817_140827_00000_arvdv"
-    statement_path = f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}"
+    query_id = _QUERY_ID
 
     post_response = {
         "id": query_id,
@@ -491,18 +460,18 @@ def test_cursor_close_cancels_unfinished_query():
         "stats": {"state": "RUNNING"},
     }
 
-    httpretty.register_uri(method=httpretty.POST, uri=statement_path, body=json.dumps(post_response))
-    httpretty.register_uri(method=httpretty.GET, uri=_statement_uri(query_id, 1), body=json.dumps(data_response))
-    httpretty.register_uri(method=httpretty.DELETE, uri=_statement_uri(query_id, 2), status=204)
+    server = MockTrinoServer()
+    server.register("POST", constants.URL_STATEMENT_PATH, json=post_response)
+    server.register("GET", _statement_path(query_id, 1), json=data_response)
+    server.register("DELETE", _statement_path(query_id, 2), status=204, text="")
 
-    with connect("coordinator", user="test", http_scheme=constants.HTTPS) as conn:
+    with connect("coordinator", user="test", http_scheme=constants.HTTPS, http_session=server.client()) as conn:
         cur = conn.cursor()
         cur.execute("SELECT x FROM some_table")
         assert cur._query.finished is False
         cur.close()
 
-    delete_requests = [r for r in httpretty.latest_requests() if r.method == "DELETE"]
-    assert len(delete_requests) == 1, "closing an unfinished query must cancel it"
+    assert len(server.requests(method="DELETE")) == 1, "closing an unfinished query must cancel it"
 
 
 @pytest.mark.parametrize(

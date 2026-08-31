@@ -13,10 +13,10 @@ from contextlib import nullcontext as does_not_raise
 from typing import Any
 
 import pytest
-import requests
 
 gssapi = pytest.importorskip("gssapi", exc_type=ImportError)
 
+from trino._spnego import SPNEGOAuth  # noqa: E402
 from trino.auth import GSSAPIAuthentication  # noqa: E402
 
 
@@ -78,10 +78,16 @@ def test_authentication_gssapi_init_arguments(
 ):
     auth = GSSAPIAuthentication(**options)
 
-    session = requests.Session()
-
     with expected_exception:
-        auth.set_http_session(session)
+        http_auth = auth.get_http_auth()
 
-        assert session.auth.target_name == expected_hostname
-        assert session.auth.creds == expected_credentials
+        assert isinstance(http_auth, SPNEGOAuth)
+        assert http_auth.target_name == expected_hostname
+        assert http_auth.creds == expected_credentials
+
+
+def test_authentication_gssapi_client_arguments():
+    auth = GSSAPIAuthentication(ca_bundle="/tmp/ca.crt")
+    arguments = auth.get_client_arguments()
+    assert arguments["trust_env"] is False
+    assert arguments["verify"] == "/tmp/ca.crt"
