@@ -1142,6 +1142,27 @@ def test_empty_200_response_retry(monkeypatch):
     assert get_retry.retry_count == attempts
 
 
+@pytest.mark.parametrize("method_name", ["_get", "_post", "_delete", "_head"])
+def test_empty_200_transport_response_does_not_retry(method_name, monkeypatch):
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = 200
+    http_resp._content = b""
+
+    retry = RetryRecorder(result=http_resp)
+    session_method = method_name.removeprefix("_")
+    monkeypatch.setattr(TrinoRequest.http.Session, session_method, retry)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        max_attempts=3,
+    )
+
+    getattr(req, method_name)("URL")
+    assert retry.retry_count == 1
+
+
 @pytest.mark.parametrize("status_code", [
     501
 ])

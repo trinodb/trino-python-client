@@ -638,6 +638,8 @@ class TrinoRequest:
         if value == 1:  # No retry
             self._get = self._http_session.get
             self._post = self._http_session.post
+            self._get_statement = self._http_session.get
+            self._post_statement = self._http_session.post
             self._delete = self._http_session.delete
             self._head = self._http_session.head
             return
@@ -649,14 +651,26 @@ class TrinoRequest:
                 # need retry when there is no exception but the status code is 429, 502, 503, or 504
                 lambda response: getattr(response, "status_code", None)
                 in (429, 502, 503, 504),
+            ),
+            max_attempts=self._max_attempts,
+        )
+        with_statement_retry = _retry_with(
+            self._handle_retry,
+            handled_exceptions=self._exceptions,
+            conditions=(
+                # need retry when there is no exception but the status code is 429, 502, 503, or 504
+                lambda response: getattr(response, "status_code", None)
+                in (429, 502, 503, 504),
                 # need retry when the server returns 200 with an empty body (transient under load)
                 lambda response: getattr(response, "status_code", None) == 200
-                and not getattr(response, "text", "").strip(),
+                and not getattr(response, "content", b""),
             ),
             max_attempts=self._max_attempts,
         )
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
+        self._get_statement = with_statement_retry(self._http_session.get)
+        self._post_statement = with_statement_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
         self._head = with_retry(self._http_session.head)
 
@@ -686,7 +700,7 @@ class TrinoRequest:
         # explicitly to match the Trino JDBC client. Users may still override it.
         http_headers.setdefault(constants.HEADER_CONTENT_TYPE, constants.CONTENT_TYPE_TEXT_UTF8)
 
-        http_response = self._post(
+        http_response = self._post_statement(
             self.statement_url,
             data=data,
             headers=http_headers,
@@ -696,7 +710,7 @@ class TrinoRequest:
         return http_response
 
     def get(self, url: str) -> Response:
-        return self._get(
+        return self._get_statement(
             url,
             headers=self.http_headers,
             timeout=self._request_timeout,
