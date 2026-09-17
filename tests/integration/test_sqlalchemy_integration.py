@@ -203,6 +203,40 @@ def test_insert_uuid(trino_connection):
 
 
 @pytest.mark.skipif(
+    sqlalchemy_version() < "2.0",
+    reason="sqlalchemy.Uuid only exists with SQLAlchemy 2.0 and above"
+)
+@pytest.mark.parametrize('trino_connection', ['memory'], indirect=True)
+def test_select_reflected_native_uuid_column(trino_connection):
+    engine, conn = trino_connection
+    if not engine.dialect.has_schema(conn, "test"):
+        with engine.begin() as connection:
+            connection.execute(sqla.schema.CreateSchema("test"))
+    guid = uuid.UUID('12345678-1234-5678-1234-567812345678')
+    # The table is created with raw DDL rather than through MetaData so that the
+    # column is a genuine Trino UUID regardless of how the dialect renders
+    # sqlalchemy.Uuid in DDL. Reading it back is what regressed: the DBAPI already
+    # returns a uuid.UUID, so a dialect that does not declare supports_native_uuid
+    # makes SQLAlchemy re-parse it and raise AttributeError.
+    with engine.begin() as connection:
+        connection.exec_driver_sql("DROP TABLE IF EXISTS test.native_uuid")
+        connection.exec_driver_sql("CREATE TABLE test.native_uuid (guid uuid)")
+        connection.exec_driver_sql(f"INSERT INTO test.native_uuid VALUES (UUID '{guid}')")
+    try:
+        assert conn.exec_driver_sql("SELECT guid FROM test.native_uuid").scalar() == guid
+
+        metadata = sqla.MetaData()
+        table = sqla.Table('native_uuid', metadata, schema='test', autoload_with=conn)
+        assert_column(table, "guid", sqla.sql.sqltypes.Uuid)
+
+        rows = conn.execute(sqla.select(table)).fetchall()
+        assert rows == [(guid,)]
+    finally:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("DROP TABLE IF EXISTS test.native_uuid")
+
+
+@pytest.mark.skipif(
     sqlalchemy_version() < "1.4",
     reason="columns argument to select() must be a Python list or other iterable"
 )

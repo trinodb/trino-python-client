@@ -78,6 +78,9 @@ class TrinoDialect(DefaultDialect):
     supports_native_enum = False
     supports_native_boolean = True
     supports_native_decimal = True
+    # The DBAPI returns uuid.UUID objects for UUID columns, so SQLAlchemy must not
+    # install Uuid.result_processor, which would re-parse an already parsed UUID.
+    supports_native_uuid = True
 
     # Column options
     supports_sequences = False
