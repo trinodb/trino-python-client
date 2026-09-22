@@ -13,7 +13,9 @@ import json
 import time
 from unittest import mock
 
+import httpretty
 import pytest
+from httpretty import httprettified
 
 from trino.client import _RequestHeartbeat
 from trino.client import ClientSession
@@ -287,7 +289,7 @@ def test_send_spooling_request_forwards_custom_headers_to_coordinator():
         recorded["headers"] = headers
         return mock.Mock(ok=True)
 
-    segment._request._get = fake_get
+    segment._request._get_accept_empty_body = fake_get
     segment._send_spooling_request(segment.uri)
 
     assert recorded["headers"]["X-Auth-Gateway-Token"] == "user-token"
@@ -304,7 +306,7 @@ def test_send_spooling_request_does_not_forward_custom_headers_to_external_stora
         recorded["headers"] = headers
         return mock.Mock(ok=True)
 
-    segment._request._get = fake_get
+    segment._request._get_accept_empty_body = fake_get
     external_uri = "https://s3.amazonaws.com/bucket/seg1?X-Amz-Signature=abc"
     segment._send_spooling_request(external_uri)
 
@@ -323,7 +325,44 @@ def test_send_spooling_request_segment_header_takes_precedence_over_custom_heade
         recorded["headers"] = headers
         return mock.Mock(ok=True)
 
-    segment._request._get = fake_get
+    segment._request._get_accept_empty_body = fake_get
     segment._send_spooling_request(segment.uri)
 
     assert recorded["headers"]["X-Trino-Spooling-Token"] == "token-abc"
+
+
+def _spooled_segment_for_ack(max_attempts):
+    request = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+        max_attempts=max_attempts,
+    )
+    segment_to = {
+        "type": "spooled",
+        "uri": "http://coordinator/v1/spooled/download/seg1",
+        "ackUri": "http://coordinator/v1/spooled/ack/seg1",
+        "metadata": {"segmentSize": "1", "uncompressedSize": "1"},
+    }
+    return SpooledSegment(segment_to, request)
+
+
+@httprettified
+def test_acknowledge_request_retries_on_error_status_code():
+    segment = _spooled_segment_for_ack(max_attempts=3)
+    httpretty.register_uri(method=httpretty.GET, uri=segment.ack_uri, body="", status=503)
+
+    segment._send_acknowledgement()
+
+    assert len(httpretty.latest_requests()) == 3
+
+
+@httprettified
+def test_acknowledge_request_does_not_retry_on_empty_200_response():
+    segment = _spooled_segment_for_ack(max_attempts=3)
+    httpretty.register_uri(method=httpretty.GET, uri=segment.ack_uri, body="", status=200)
+
+    segment._send_acknowledgement()
+
+    assert len(httpretty.latest_requests()) == 1

@@ -1752,3 +1752,43 @@ def test_execute_drains_spooled_update_query_with_trailing_page():
     assert query.stats["state"] == "FINISHED"
     # The count row survives draining and the rows stay lazily iterable.
     assert list(result) == [[3]]
+
+
+def _retryable_get(monkeypatch, body: bytes, status_code: int = 200):
+    """Serve a canned response from Session.get and return (request, recorder)."""
+    http_resp = TrinoRequest.http.Response()
+    http_resp.status_code = status_code
+    http_resp._content = body
+
+    get_retry = RetryRecorder(result=http_resp)
+    monkeypatch.setattr(TrinoRequest.http.Session, "get", get_retry)
+
+    req = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        max_attempts=3,
+    )
+    return req, get_retry
+
+
+def test_empty_body_retry_check_does_not_decode_body(monkeypatch):
+    # Reading .text would run charset detection over the whole payload merely to test emptiness,
+    # which is wasteful for a large binary body. The check must look at the raw bytes instead.
+    req, get_retry = _retryable_get(monkeypatch, body=b"\x89PNG\r\n\x1a\n" * 1024)
+
+    with mock.patch.object(
+        TrinoRequest.http.Response, "text", new_callable=mock.PropertyMock
+    ) as response_text:
+        req.get("URL")
+
+    response_text.assert_not_called()
+    assert get_retry.retry_count == 1
+
+
+def test_whitespace_only_200_response_retry(monkeypatch):
+    req, get_retry = _retryable_get(monkeypatch, body=b"  \r\n\t ")
+
+    req.get("URL")
+
+    assert get_retry.retry_count == 3

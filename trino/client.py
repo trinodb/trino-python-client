@@ -636,29 +636,36 @@ class TrinoRequest:
     def max_attempts(self, value: int) -> None:
         self._max_attempts = value
         if value == 1:  # No retry
-            self._get = self._http_session.get
+            self._get = self._get_accept_empty_body = self._http_session.get
             self._post = self._http_session.post
             self._delete = self._http_session.delete
             self._head = self._http_session.head
             return
 
+        def has_error_status(response: Response) -> bool:
+            return getattr(response, "status_code", None) in (429, 502, 503, 504)
+
+        def has_ok_status_but_no_body(response: Response) -> bool:
+            return getattr(response, "status_code", None) == 200 and not getattr(response, "content", b"").strip()
+
         with_retry = _retry_with(
             self._handle_retry,
             handled_exceptions=self._exceptions,
-            conditions=(
-                # need retry when there is no exception but the status code is 429, 502, 503, or 504
-                lambda response: getattr(response, "status_code", None)
-                in (429, 502, 503, 504),
-                # need retry when the server returns 200 with an empty body (transient under load)
-                lambda response: getattr(response, "status_code", None) == 200
-                and not getattr(response, "text", "").strip(),
-            ),
+            # retry when there is no exception but error status_code, and when status code is 200 but there's no body
+            conditions=(has_error_status, has_ok_status_but_no_body),
             max_attempts=self._max_attempts,
         )
+
         self._get = with_retry(self._http_session.get)
         self._post = with_retry(self._http_session.post)
         self._delete = with_retry(self._http_session.delete)
         self._head = with_retry(self._http_session.head)
+        self._get_accept_empty_body = _retry_with(
+            self._handle_retry,
+            handled_exceptions=self._exceptions,
+            conditions=(has_error_status,),
+            max_attempts=self._max_attempts,
+        )(self._http_session.get)
 
     def get_url(self, path: str) -> str:
         return "{protocol}://{host}:{port}{path}".format(
@@ -1310,15 +1317,16 @@ class SpooledSegment(Segment):
         return self._segment.get("headers", {})
 
     def acknowledge(self) -> None:
-        def acknowledge_request():
-            try:
-                http_response = self._send_spooling_request(self.ack_uri, timeout=2)
-                if not http_response.ok:
-                    self._request.raise_response_error(http_response)
-            except Exception as e:
-                logger.error(f"Failed to acknowledge spooling request for segment {self}: {e}")
         # Start the acknowledgment in the executor thread
-        executor.submit(acknowledge_request)
+        executor.submit(self._send_acknowledgement)
+
+    def _send_acknowledgement(self):
+        try:
+            http_response = self._send_spooling_request(self.ack_uri, timeout=2)
+            if not http_response.ok:
+                self._request.raise_response_error(http_response)
+        except Exception as e:
+            logger.error(f"Failed to acknowledge spooling request for segment {self}: {e}")
 
     def _send_spooling_request(self, uri: str, **kwargs) -> requests.Response:
         headers: Dict[str, str] = {}
@@ -1332,7 +1340,7 @@ class SpooledSegment(Segment):
             if len(values) > 1:
                 raise ValueError(f"Header '{key}' contains multiple values: {values}")
             headers[key] = values[0]
-        return self._request._get(uri, headers=headers, **kwargs)
+        return self._request._get_accept_empty_body(uri, headers=headers, **kwargs)
 
     def __repr__(self):
         return (
