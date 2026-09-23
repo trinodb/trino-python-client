@@ -6,6 +6,26 @@ list](https://github.com/trinodb/trino-python-client/tags), the
 [README](https://github.com/trinodb/trino-python-client/blob/master/README.md)
 and the [PyPI page](https://pypi.org/project/trino/).
 
+## Release 0.340.0
+
+* Fix `AttributeError` when binding `bytes` values for `VARBINARY` columns,
+  including through SQLAlchemy `LargeBinary` inserts and literal
+  compilation.
+  ([#626](https://github.com/trinodb/trino-python-client/issues/626))
+* Fix `$partitions` queries issued by SQLAlchemy reflection never being
+  cancelled, leaving them running on the coordinator until they time out
+  on their own.
+  ([#627](https://github.com/trinodb/trino-python-client/pull/627))
+* Fix a regression introduced in 0.339.0 where the HTTP 200 empty-body
+  retry was applied to all requests instead of just statement submission
+  and polling, slowing down spooled result downloads and causing
+  successful spooled segment acknowledgements to be retried unnecessarily.
+  ([#636](https://github.com/trinodb/trino-python-client/issues/636))
+* Add an `allow_insecure_auth` connection option to opt out of the guard
+  against sending authentication credentials over plain HTTP for
+  connections that are encrypted below the application layer.
+  ([#494](https://github.com/trinodb/trino-python-client/issues/494))
+
 ## Release 0.339.0
 
 * Add support for returning column comments from SQLAlchemy `get_columns`.
