@@ -20,6 +20,7 @@ decide to convert then to a list of tuples.
 import datetime
 import math
 import uuid
+import weakref
 from collections import OrderedDict
 from decimal import Decimal
 from itertools import islice
@@ -250,6 +251,7 @@ class Connection:
         self._transaction = None
         self.legacy_primitive_types = legacy_primitive_types
         self.legacy_prepared_statements = legacy_prepared_statements
+        self._cursors: "weakref.WeakSet[Cursor]" = weakref.WeakSet()
 
     @property
     def isolation_level(self):
@@ -271,7 +273,13 @@ class Connection:
             self.close()
 
     def close(self):
-        # TODO cancel outstanding queries?
+        # Closing a cursor cancels its running query. Best effort: the coordinator
+        # reaps whatever this misses after query.client.timeout.
+        for cursor in list(self._cursors):
+            try:
+                cursor.close()
+            except Exception as e:
+                logger.warning("Failed to close a cursor while closing the connection: %s", e)
         self._http_session.close()
 
     def start_transaction(self):
@@ -323,7 +331,7 @@ class Connection:
             "row": Cursor
         }.get(cursor_style.lower(), Cursor)
 
-        return cursor_class(
+        cursor = cursor_class(
             self,
             request,
             legacy_primitive_types=(
@@ -333,6 +341,8 @@ class Connection:
             ),
             stats_callback=stats_callback
         )
+        self._cursors.add(cursor)
+        return cursor
 
     def _use_legacy_prepared_statements(self):
         if self.legacy_prepared_statements is not None:

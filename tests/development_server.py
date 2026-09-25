@@ -3,7 +3,6 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-import docker.errors
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.network import Network
 from testcontainers.core.waiting_utils import wait_for_logs
@@ -18,30 +17,6 @@ TRINO_IMAGE_REPO = "trinodb/trino"
 TRINO_VERSION = os.environ.get("TRINO_VERSION") or "latest"
 TRINO_CONTAINER_NAME = "trino"
 TRINO_HOST = "localhost"
-
-
-def get_trino_container(port: int):
-    """Find and return a running trino container.
-    Returns None if no matching container is found.
-    """
-    client = docker.from_env()
-    try:
-        container = client.containers.get(TRINO_CONTAINER_NAME)
-    except docker.errors.NotFound:
-        return None
-
-    if not any(tag.startswith(f"{TRINO_IMAGE_REPO}:") for tag in (container.image.tags or [])):
-        return None
-
-    host_ports = [
-        binding["HostPort"]
-        for bindings in container.ports.values() if bindings
-        for binding in bindings
-    ]
-    if str(port) not in host_ports:
-        return None
-
-    return container
 
 
 def create_bucket(s3_client):

@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import base64
+import math
 import threading
 import time
 import urllib
@@ -48,6 +49,7 @@ from trino import constants
 from trino.auth import _OAuth2KeyRingTokenCache
 from trino.auth import _OAuth2TokenBearer
 from trino.client import _DelayExponential
+from trino.client import _Heartbeat
 from trino.client import _retry_with
 from trino.client import _RetryWithExponentialBackoff
 from trino.client import ClientSession
@@ -1303,6 +1305,282 @@ def test_stats_callback_cannot_mutate_query_stats():
     }
 
 
+_HEARTBEAT_NEXT_URI = "http://coordinator/v1/statement/q/1"
+
+
+class _FakeHeartbeatRequest(TrinoRequest):
+    """Base for fake TrinoRequest subclasses used in heartbeat tests."""
+
+    def __init__(self, client_session):
+        super().__init__(
+            host="coordinator",
+            port=8080,
+            client_session=client_session,
+            http_scheme="http",
+        )
+        self.head_calls = []
+        # cancel() issues a DELETE. Serve 204 so it succeeds without real HTTP.
+        self._delete = self._serve_no_content
+
+    def _serve_no_content(self, url, **kwargs):
+        return self._canned_response(None, status_code=204)
+
+    def _canned_response(self, payload, status_code=200):
+        response = requests.Response()
+        response.status_code = status_code
+        if payload is not None:
+            body = json.dumps(payload)
+            # orjson.dumps returns bytes, stdlib json.dumps returns str
+            response._content = body if isinstance(body, bytes) else body.encode("utf-8")
+        return response
+
+
+class _ScriptedHeadRequest(_FakeHeartbeatRequest):
+    """Serves scripted HEAD responses (status codes or exceptions) and records the calls."""
+
+    def __init__(self, responses):
+        super().__init__(ClientSession(user="test"))
+        self._responses = iter(responses)
+        self.head_timeouts = []
+
+    def _head(self, url, timeout):
+        self.head_calls.append(url)
+        self.head_timeouts.append(timeout)
+        item = next(self._responses)
+        if isinstance(item, Exception):
+            raise item
+        return self._canned_response(None, status_code=item)
+
+
+def _scripted_query(responses, next_uri=_HEARTBEAT_NEXT_URI):
+    """A query whose request serves scripted HEAD responses."""
+    req = _ScriptedHeadRequest(responses)
+    query = TrinoQuery(req, query="SELECT 1")
+    query._next_uri = next_uri
+    return query, req
+
+
+def test_heartbeat_sends_head_to_next_uri_and_reschedules():
+    query, req = _scripted_query([200])
+    query._heartbeat._deadline = 0.0
+
+    query._maybe_heartbeat()
+
+    assert req.head_calls == [_HEARTBEAT_NEXT_URI]
+    assert req.head_timeouts == [(_Heartbeat.HEAD_TIMEOUT_CAP, _Heartbeat.HEAD_TIMEOUT_CAP)]
+    # A successful beat pushes the deadline forward instead of disabling it
+    assert time.monotonic() < query._heartbeat._deadline < math.inf
+
+
+def test_heartbeat_before_the_deadline_sends_nothing():
+    # Default construction sets a deadline far in the future
+    query, req = _scripted_query([])
+
+    query._maybe_heartbeat()
+
+    assert req.head_calls == []
+
+
+# 404 means this query is gone on the server, the next fetch() will show why anyway.
+# 405 means the server does not support HEAD requests at all.
+@pytest.mark.parametrize("status_code", (404, 405))
+def test_gone_or_unsupported_response_disables_heartbeats(status_code):
+    query, req = _scripted_query([status_code])
+    query._heartbeat._deadline = 0.0
+
+    query._maybe_heartbeat()
+
+    assert req.head_calls == [_HEARTBEAT_NEXT_URI]
+    assert query._heartbeat._deadline == math.inf
+
+    # A disabled deadline is at math.inf so a later call is never due again on its own
+    query._maybe_heartbeat()
+
+    assert req.head_calls == [_HEARTBEAT_NEXT_URI]
+
+
+def test_heartbeat_disables_after_max_consecutive_failures():
+    max_failures = _Heartbeat.MAX_FAILURES
+    query, req = _scripted_query([Exception("boom")] * max_failures)
+
+    for _ in range(max_failures):
+        query._heartbeat._deadline = 0.0
+        query._maybe_heartbeat()
+
+    assert len(req.head_calls) == max_failures
+    assert query._heartbeat._deadline == math.inf
+
+    query._maybe_heartbeat()
+
+    assert len(req.head_calls) == max_failures
+
+
+def test_heartbeat_success_resets_the_failure_counter():
+    # Only three CONSECUTIVE failures disable heartbeats. The 200 in the middle resets the count.
+    responses = [Exception("boom")] * 2 + [200] + [Exception("boom")] * 3
+    query, req = _scripted_query(responses)
+
+    for _ in range(len(responses)):
+        query._heartbeat._deadline = 0.0
+        query._maybe_heartbeat()
+
+    assert len(req.head_calls) == len(responses)
+    assert query._heartbeat._deadline == math.inf
+
+
+def test_heartbeat_error_response_resets_the_failure_counter():
+    # A response of any status proves the server is reachable. Only network
+    # failures count toward disabling heartbeats.
+    responses = [Exception("boom")] * 2 + [503] + [Exception("boom")] * 2
+    query, req = _scripted_query(responses)
+
+    for _ in range(len(responses)):
+        query._heartbeat._deadline = 0.0
+        query._maybe_heartbeat()
+
+    assert len(req.head_calls) == len(responses)
+    assert query._heartbeat._deadline < math.inf
+
+
+def test_heartbeat_skips_when_next_uri_is_none():
+    query, req = _scripted_query([], next_uri=None)
+    query._heartbeat._deadline = 0.0
+
+    query._maybe_heartbeat()
+
+    assert req.head_calls == []
+
+
+def test_heartbeat_skips_when_the_query_is_finished():
+    query, req = _scripted_query([])
+    query._finished = True
+    query._heartbeat._deadline = 0.0
+
+    query._maybe_heartbeat()
+
+    assert req.head_calls == []
+
+
+class _HeartbeatRecordingRequest(_FakeHeartbeatRequest):
+    """Serves canned response pages and records heartbeat HEAD calls."""
+
+    def __init__(self, pages, heartbeat_interval):
+        super().__init__(ClientSession(user="test", heartbeat_interval=heartbeat_interval))
+        self._pages = iter(pages)
+        # Replace the transports behind get/post so the public methods still run
+        # their normal response processing.
+        self._get = self._serve_page
+        self._post = self._serve_page
+
+    def _serve_page(self, url, **kwargs):
+        return self._canned_response(next(self._pages))
+
+    def _head(self, url, timeout):
+        self.head_calls.append(url)
+        return self._canned_response(None)
+
+
+def _heartbeat_page(next_uri=None, data=None):
+    page = {
+        "id": "q1",
+        "infoUri": "http://coordinator/query.html?q1",
+        "stats": {"state": "RUNNING"},
+        "columns": [{"name": "x", "type": "integer", "typeSignature": {"rawType": "integer", "arguments": []}}],
+    }
+    if next_uri is not None:
+        page["nextUri"] = next_uri
+    if data is not None:
+        page["data"] = data
+    return page
+
+
+_HEARTBEAT_URI_1 = "http://coordinator/v1/statement/executing/q1/1"
+_HEARTBEAT_URI_2 = "http://coordinator/v1/statement/executing/q1/2"
+
+
+@httprettified
+def test_heartbeat_head_bypasses_the_retry_wrapper():
+    # The retry wrapper resends body-less 200 responses and a HEAD response never has a
+    # body. Heartbeat HEADs go straight to the session, so max_attempts must not apply.
+    url = "http://coordinator:8080/v1/statement/executing/q1/1"
+    httpretty.register_uri(httpretty.HEAD, url, status=200)
+    request = TrinoRequest(
+        host="coordinator",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+        max_attempts=3,
+    )
+
+    request._head(url, timeout=5)
+
+    assert len([r for r in httpretty.latest_requests() if r.method == "HEAD"]) == 1
+
+
+@httprettified
+def test_heartbeat_head_follows_redirects():
+    # A gateway may answer with a redirect to the coordinator. The heartbeat only
+    # renews the server-side deadline if the HEAD follows it.
+    gateway_url = "http://gateway:8080/v1/statement/executing/q1/1"
+    coordinator_url = "http://coordinator:8080/v1/statement/executing/q1/1"
+    httpretty.register_uri(httpretty.HEAD, gateway_url, status=302, adding_headers={"Location": coordinator_url})
+    httpretty.register_uri(httpretty.HEAD, coordinator_url, status=200)
+    request = TrinoRequest(
+        host="gateway",
+        port=8080,
+        client_session=ClientSession(user="test"),
+        http_scheme="http",
+    )
+
+    response = request._head(gateway_url, timeout=5)
+
+    assert response.status_code == 200
+
+    head_requests = [request for request in httpretty.latest_requests() if request.method == "HEAD"]
+    requested_hosts = [request.headers.get("Host") for request in head_requests]
+    assert requested_hosts == ["gateway:8080", "coordinator:8080"]
+
+
+def test_heartbeat_disabled_when_interval_is_zero():
+    request = _FakeHeartbeatRequest(ClientSession(user="test", heartbeat_interval=0.0))
+    query = TrinoQuery(request, query="SELECT 1")
+
+    assert query._heartbeat._deadline == math.inf
+
+
+def test_heartbeat_sends_nothing_after_cancel():
+    query, req = _scripted_query([])
+
+    query.cancel()
+    query._heartbeat._deadline = 0.0
+    query._maybe_heartbeat()
+
+    assert req.head_calls == []
+
+
+def test_fetch_defers_the_heartbeat():
+    # A processed fetch() response proves the client is alive, so it pushes the deadline
+    # forward. A beat that was due before the fetch is no longer due after it.
+    request = _HeartbeatRecordingRequest(
+        pages=[
+            _heartbeat_page(next_uri=_HEARTBEAT_URI_2, data=[[1]]),
+            _heartbeat_page(data=[[2]]),
+        ],
+        heartbeat_interval=30,
+    )
+    request._next_uri = _HEARTBEAT_URI_1
+    query = TrinoQuery(request, query="SELECT 1")
+    query._heartbeat._deadline = 0.0
+
+    rows = query.fetch()
+
+    assert query._heartbeat._deadline > time.monotonic()
+
+    list(TrinoResult(query, rows))
+
+    assert request.head_calls == []
+
+
 def test_delay_exponential_without_jitter():
     max_delay = 1200.0
     get_delay = _DelayExponential(base=5, jitter=False, max_delay=max_delay)
@@ -1615,6 +1893,9 @@ class _FinishedQuery:
     def fetch(self):
         return []
 
+    def _maybe_heartbeat(self):
+        pass
+
 
 @pytest.mark.parametrize("consecutive_failures", (1, 2, 3))
 def test_trino_result_resumes_after_transient_error_in_rows_iterator(consecutive_failures):
@@ -1687,6 +1968,9 @@ def test_trino_result_resumes_after_transient_fetch_error():
                 raise IOError("connection reset")
             self.finished = True
             return [[2]]
+
+        def _maybe_heartbeat(self):
+            pass
 
     result = TrinoResult(FlakyQuery(), [[1]])
     it = iter(result)

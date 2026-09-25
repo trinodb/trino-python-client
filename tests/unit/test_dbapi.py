@@ -28,6 +28,9 @@ from tests.unit.oauth_test_utils import REDIRECT_RESOURCE
 from tests.unit.oauth_test_utils import RedirectHandler
 from tests.unit.oauth_test_utils import SERVER_ADDRESS
 from tests.unit.oauth_test_utils import TOKEN_RESOURCE
+from tests.unit.test_client import _heartbeat_page
+from tests.unit.test_client import _HEARTBEAT_URI_1
+from tests.unit.test_client import _HeartbeatRecordingRequest
 from trino import constants
 from trino.auth import BasicAuthentication
 from trino.auth import OAuth2Authentication
@@ -545,3 +548,22 @@ def test_format_prepared_param_binary(value, expected):
     assert cursor._format_prepared_param(value) == expected
     # Round trip through Binary(), as SQLAlchemy's _Binary.bind_processor does.
     assert cursor._format_prepared_param(Binary(value)) == expected
+
+
+def _canned_cursor(pages):
+    """A cursor whose request serves canned pages and records heartbeat HEAD calls."""
+    conn = Connection(host="coordinator", user="test")
+    cur = conn.cursor()
+    cur._request = _HeartbeatRecordingRequest(pages=pages, heartbeat_interval=0.02)
+    return conn, cur
+
+
+def test_connection_close_closes_its_cursors():
+    conn, cur = _canned_cursor(
+        pages=[_heartbeat_page(next_uri=_HEARTBEAT_URI_1, data=[[1]])],
+    )
+
+    cur.execute("SELECT 1")
+    conn.close()
+
+    assert cur._query.cancelled

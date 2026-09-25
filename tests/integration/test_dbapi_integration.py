@@ -27,7 +27,6 @@ import requests
 from tzlocal import get_localzone_name  # type: ignore
 
 import trino
-from tests.development_server import get_trino_container
 from tests.integration.conftest import trino_version
 from trino import constants
 from trino.client import InlineSegment
@@ -2055,28 +2054,43 @@ def test_spooled_segments_lazy_description(trino_connection):
     assert len(cur.fetchall()) == 60175
 
 
+class _HeadCountingSession(requests.Session):
+    """Records every HEAD request the client sends."""
+
+    def __init__(self):
+        super().__init__()
+        self.sent_head_urls = []
+
+    def head(self, url, **kwargs):
+        self.sent_head_urls.append(url)
+        return super().head(url, **kwargs)
+
+
+def _heartbeat_head_urls(session, query_id):
+    heartbeat_path = f"/v1/statement/executing/{query_id}/"
+    return [url for url in session.sent_head_urls if heartbeat_path in url]
+
+
+def _assert_heartbeats_sent(session, query_id):
+    heartbeat_urls = _heartbeat_head_urls(session, query_id)
+    assert len(heartbeat_urls) > 0, (
+        f"Expected at least one heartbeat HEAD request for query {query_id}, "
+        f"but the client sent HEAD only to {session.sent_head_urls}"
+    )
+
+
 @pytest.mark.skipif(
     trino_version() <= 466,
     reason="spooling protocol was introduced in version 466"
 )
 def test_heartbeat_head_requests_during_spooled_download(run_trino):
-    """Verify that heartbeat HEAD requests are sent to the coordinator while
-    downloading spooled segments from external storage."""
     host, port = run_trino
-    container = get_trino_container(port)
-    assert container, "Cannot find a running Trino container"
-
+    session = _HeadCountingSession()
     conn = trino.dbapi.Connection(
         host=host, port=port, user="test", source="test",
         max_attempts=1, encoding="json", heartbeat_interval=0.1,
+        http_session=session,
     )
-
-    log_path = "/data/trino/var/log/http-request.log"
-
-    # Capture the current size of the HTTP request log
-    exit_code, output = container.exec_run(["wc", "-l", log_path])
-    assert exit_code == 0, f"Cannot read Trino HTTP request log, is the log path `{log_path}` correct?"
-    logfile_lines = int(output.decode().split()[0])
 
     cur = conn.cursor()
     cur.execute("""SELECT l.*
@@ -2088,28 +2102,36 @@ def test_heartbeat_head_requests_during_spooled_download(run_trino):
     cur.fetchall()
     cur.close()
 
-    head_request_found = False
-    # Sometimes trino needs time to flush the logs so we make few attempts
-    # to check the log with sleep inbetween.
-    for attempt in range(10):
-        if attempt:
-            t.sleep(1.0)
+    _assert_heartbeats_sent(session, query_id)
 
-        _, output = container.exec_run(["tail", "-n", f"+{logfile_lines}", log_path])
-        loglines = output.decode().splitlines()
 
-        pattern = f"/v1/statement/executing/{query_id}/"
-        for line in loglines:
-            if "HEAD" in line and pattern in line:
-                head_request_found = True
-                break
-
-        if head_request_found:
-            break
-
-    assert head_request_found, (
-        f"Expected heartbeat HEAD requests in http-request.log not found. Log tail:\n{''.join(loglines)}"
+@pytest.mark.parametrize("heartbeat_interval, expect_heartbeats", [(0.2, True), (None, False)])
+def test_heartbeat_head_requests_while_caller_is_slow(run_trino, heartbeat_interval, expect_heartbeats):
+    host, port = run_trino
+    session = _HeadCountingSession()
+    conn = trino.dbapi.Connection(
+        host=host, port=port, user="test", source="test",
+        max_attempts=1, encoding=None, heartbeat_interval=heartbeat_interval,
+        http_session=session,
     )
+
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tpch.tiny.lineitem")
+    query_id = cur.query_id
+    # Each fetched row checks whether a full interval passed since the last
+    # processed response and sends a HEAD if so. Model a slow consumer that
+    # asks for one row at a time with a pause between requests longer than
+    # the interval.
+    for _ in range(3):
+        assert cur.fetchone() is not None
+        t.sleep(0.3)
+    cur.fetchall()
+    cur.close()
+
+    if expect_heartbeats:
+        _assert_heartbeats_sent(session, query_id)
+    else:
+        assert _heartbeat_head_urls(session, query_id) == []
 
 
 def get_cursor(legacy_prepared_statements, run_trino):
