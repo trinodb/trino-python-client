@@ -18,6 +18,7 @@ Fetch methods returns rows as a list of lists on purpose to let the caller
 decide to convert then to a list of tuples.
 """
 import datetime
+import ipaddress
 import math
 import uuid
 from collections import OrderedDict
@@ -30,9 +31,11 @@ from typing import Callable
 from typing import Dict
 from typing import List
 from typing import NamedTuple
+from typing import NoReturn
 from typing import Optional
+from typing import Tuple
 from typing import Union
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import trino.client
@@ -133,6 +136,94 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
+def _parse_host(host: str) -> Tuple[Optional[str], str, Optional[int]]:
+    """Split a host argument into its scheme, hostname and port.
+
+    Accepts a full URL, a hostname on its own or a hostname with a port.
+    Returns None for a missing scheme or port. The caller fills in the
+    defaults and checks the port range.
+
+    Does not check the hostname itself. An unresolvable name fails later, when
+    requests connects.
+    """
+    def fail(reason: str) -> NoReturn:
+        raise ValueError(f"Invalid 'host' argument {host!r}: {reason}.")
+
+    # Without "//" urlsplit reads a scheme-less argument as a path and returns
+    # hostname=None. The prefix forces the authority form. urlsplit does not
+    # validate the hostname it hands back.
+    parts = urlsplit(host if "://" in host else "//" + host, allow_fragments=True)
+    try:
+        hostname, port = parts.hostname, parts.port
+    except ValueError:
+        # urlsplit cannot read an unbracketed IPv6 literal. URLs require
+        # the brackets because ::1 is otherwise ambiguous with host:port.
+        try:
+            ipaddress.ip_address(host)
+            return None, host, None
+        except ValueError:
+            pass
+        # urlsplit raises the same error for an out-of-range port and a
+        # non-numeric one. Report the range either way.
+        fail(f"expected a port in {constants.MIN_PORT}-{constants.MAX_PORT}")
+
+    if parts.path:
+        fail("a path is not allowed")
+    if parts.username is not None or parts.password is not None:
+        fail("credentials are not allowed, pass the 'user' and 'auth' arguments instead")
+    if parts.query or parts.fragment:
+        fail("a query or fragment is not allowed")
+    if not hostname:
+        fail("the hostname is empty")
+    return (parts.scheme or None), hostname, port
+
+
+def _resolve_endpoint(
+    host: str, port: Optional[int], http_scheme: Optional[str]
+) -> Tuple[str, str, int]:
+    """Resolve the scheme, hostname and port to connect to.
+
+    The scheme and the port can each arrive in the host argument or in their
+    own argument. Passing both raises unless they agree. A missing port is
+    inferred from the scheme and a missing scheme is inferred from the port.
+    """
+    host_scheme, hostname, host_port = _parse_host(host)
+
+    if host_port is not None and port is not None and host_port != port:
+        raise ValueError(
+            f"The port in host {host!r} contradicts port={port!r}. "
+            "Drop one of the two, or make them agree."
+        )
+
+    given_port = host_port if host_port is not None else port
+    if given_port is not None and not constants.MIN_PORT <= given_port <= constants.MAX_PORT:
+        raise ValueError(
+            f"Invalid port {given_port!r}, expected {constants.MIN_PORT}-{constants.MAX_PORT}."
+        )
+
+    if host_scheme:
+        try:
+            scheme = trino.client.normalize_http_scheme(host_scheme)
+        except ValueError:
+            raise ValueError(
+                f"Invalid scheme {host_scheme!r} in host {host!r}, "
+                f"expected {constants.HTTP!r} or {constants.HTTPS!r}."
+            ) from None
+        if http_scheme is not None and trino.client.normalize_http_scheme(http_scheme) != scheme:
+            raise ValueError(
+                f"The scheme in host {host!r} contradicts http_scheme={http_scheme!r}. "
+                "Drop one of the two, or make them agree."
+            )
+    elif http_scheme is not None:
+        scheme = trino.client.normalize_http_scheme(http_scheme)
+    else:
+        scheme = trino.client.scheme_for_port(given_port)
+
+    if given_port is None:
+        given_port = trino.client.port_for_scheme(scheme)
+    return scheme, hostname, given_port
+
+
 class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
@@ -168,8 +259,7 @@ class Connection:
         heartbeat_interval: Optional[float] = constants.DEFAULT_HEARTBEAT_INTERVAL,
         allow_insecure_auth: bool = False,
     ):
-        # Automatically assign http_schema, port based on hostname
-        parsed_host = urlparse(host, allow_fragments=False)
+        self.http_scheme, self.host, self.port = _resolve_endpoint(host, port, http_scheme)
 
         if encoding is _USE_DEFAULT_ENCODING:
             encoding = [
@@ -177,8 +267,6 @@ class Connection:
                 for enc in trino.client.ENCODINGS
                 if (enc.split("+")[1] if "+" in enc else None) not in trino.client.CODECS_UNAVAILABLE
             ]
-
-        self.host = host if parsed_host.hostname is None else parsed_host.hostname + parsed_host.path
         self.user = user
         self.source = source
         self.catalog = catalog
@@ -207,37 +295,15 @@ class Connection:
             self._http_session = http_session
         self.http_headers = http_headers
 
-        # Set http_scheme
-        if parsed_host.scheme:
-            self.http_scheme = parsed_host.scheme
-        elif http_scheme:
-            self.http_scheme = http_scheme
-        elif port == constants.DEFAULT_TLS_PORT:
-            self.http_scheme = constants.HTTPS
-        elif port == constants.DEFAULT_PORT:
-            self.http_scheme = constants.HTTP
-        else:
-            self.http_scheme = constants.HTTP
-
         if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
             raise trino.exceptions.TrinoAuthError(
                 "TLS/SSL is required for authentication. "
-                "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
-                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
+                "To use HTTPS, specify 'https://' in the host URL or pass http_scheme='https'. "
                 "If your connection is encrypted below the application layer (for example behind an mTLS "
                 "service mesh sidecar), pass allow_insecure_auth=True and ensure "
                 "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
                 "has HTTPS enabled."
             )
-
-        # Infer connection port: `hostname` takes precedence over explicit `port` argument
-        # If none is given, use default based on HTTP protocol
-        default_port = constants.DEFAULT_TLS_PORT if self.http_scheme == constants.HTTPS else constants.DEFAULT_PORT
-        self.port = (
-            parsed_host.port if parsed_host.port is not None
-            else port if port is not None
-            else default_port
-        )
 
         self.auth = auth
         self.extra_credential = extra_credential
