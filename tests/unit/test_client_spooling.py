@@ -255,6 +255,22 @@ def test_segment_iterator_retries_failed_segment_without_skipping_it(failing_seg
     assert [seg.acknowledge_count for seg in segs] == [1, 1, 1]
 
 
+def test_segment_iterator_acknowledges_last_segment_without_reading_past_it():
+    segs = [_FakeSpooledSegment(name) for name in ("s1", "s2")]
+    segments = [DecodableSegment("json", None, seg) for seg in segs]
+    iterator = SegmentIterator(segments, mapper=None)
+    iterator._decoder = _FlakyDecoder({segs[0]: [[1], [2]], segs[1]: [[3]]}, failing_segment=None)
+
+    # Stop at the last row, as fetchone() on a single-row result does.
+    rows = [next(iterator) for _ in range(3)]
+
+    assert rows == [[1], [2], [3]]
+    assert [seg.acknowledge_count for seg in segs] == [1, 1]
+    with pytest.raises(StopIteration):
+        next(iterator)
+    assert [seg.acknowledge_count for seg in segs] == [1, 1]
+
+
 def _spooled_segment_with_headers(coordinator_host, custom_headers):
     segment_to = {
         "type": "spooled",

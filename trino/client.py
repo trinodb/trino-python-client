@@ -1450,7 +1450,6 @@ class SegmentIterator:
         self._decoder = None
         self._rows: Iterator[List[List[Any]]] = iter([])
         self._finished = False
-        self._current_segment: Optional[DecodableSegment] = None
         # Segment whose decoding failed. Retried on the next call instead of being acknowledged and skipped.
         self._pending_segment: Optional[DecodableSegment] = None
         if (request is not None) != bool(heartbeat_interval):
@@ -1472,15 +1471,10 @@ class SegmentIterator:
                 self._load_next_segment()
 
     def _load_next_segment(self):
-        # A segment is acknowledged only after its rows were decoded successfully. If the previous attempt failed
+        # A spooled segment is acknowledged as soon as its rows were decoded successfully, so the server can delete
+        # it even when the caller stops reading at the last row (e.g. fetchone()). If the previous attempt failed
         # mid-decode (e.g. the spooled segment download failed) the same segment is retried instead of being skipped.
         if self._pending_segment is None:
-            if self._current_segment:
-                segment = self._current_segment.segment
-                if isinstance(segment, SpooledSegment):
-                    segment.acknowledge()
-                self._current_segment = None
-
             try:
                 self._pending_segment = next(self._segments)
             except StopIteration:
@@ -1500,8 +1494,10 @@ class SegmentIterator:
             rows = self._decoder.decode(self._pending_segment.segment)
 
         self._rows = iter(rows)
-        self._current_segment = self._pending_segment
+        segment = self._pending_segment.segment
         self._pending_segment = None
+        if isinstance(segment, SpooledSegment):
+            segment.acknowledge()
 
 
 class SegmentDecoder():
