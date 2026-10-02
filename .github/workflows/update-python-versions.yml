@@ -17,8 +17,21 @@ permissions:
 jobs:
   update-python-versions:
     runs-on: ubuntu-latest
+    if: github.repository == 'trinodb/trino-python-client'
     steps:
+      # GITHUB_TOKEN cannot push changes to .github/workflows/.
+      # PRs it opens also do not trigger CI.
+      - name: Generate token
+        id: generate_token
+        # fork of tibdex/github-app-token
+        uses: trinodb/github-actions/github-app-token@2c3f458fcad343199d0e92badaaa6e9dd7993b2e
+        with:
+          app_id: ${{ secrets.SERVICE_ACCOUNT_APP_ID }}
+          private_key: ${{ secrets.SERVICE_ACCOUNT_PRIVATE_KEY }}
+
       - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
 
       - uses: actions/setup-python@v6
         with:
@@ -55,7 +68,7 @@ jobs:
       - name: Create pull request
         if: steps.check_changes.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
         run: |
           EXISTING_PR=$(gh pr list --head bot/update-python-versions --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
           if [ -z "$EXISTING_PR" ]; then
