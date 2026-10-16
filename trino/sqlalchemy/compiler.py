@@ -13,6 +13,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import compiler
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.base import DialectKWArgs
+from sqlalchemy.sql.functions import Function
 from sqlalchemy.sql.functions import GenericFunction
 from sqlalchemy.util import warn as SAWarn
 
@@ -164,6 +165,18 @@ class TrinoSQLCompiler(compiler.SQLCompiler):
 
     class Lag(GenericIgnoreNulls):
         name = 'lag'
+
+    # SQLAlchemy's SQL compilation cache (added in 1.4) requires each class that adds
+    # state beyond what its superclass's own traversal already covers to declare
+    # that explicitly, otherwise it can't produce a cache key for any statement using it
+    # and warns about it on first use.
+    if hasattr(Function, '_traverse_internals'):
+        from sqlalchemy.sql.visitors import InternalTraversal
+
+        for _cls in (FirstValue, LastValue, NthValue, Lead, Lag):
+            _cls._traverse_internals = Function._traverse_internals + [
+                ('ignore_nulls', InternalTraversal.dp_boolean),
+            ]
 
     @staticmethod
     @compiles(FirstValue)
