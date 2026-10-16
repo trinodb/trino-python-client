@@ -201,6 +201,47 @@ def test_ignore_nulls(dialect, function, element):
 
 
 @pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="SQL compilation caching was introduced in 1.4"
+)
+@pytest.mark.parametrize(
+    'element',
+    [func.first_value, func.last_value, func.nth_value, func.lead, func.lag]
+)
+def test_ignore_nulls_functions_support_caching(element, recwarn):
+    # Each of these previously lacked a `_traverse_internals`/`inherit_cache`, so
+    # SQLAlchemy couldn't produce a cache key and warned about it
+    # (SAWarning, "will not make use of SQL compilation caching")
+    statement = element(
+        table_without_catalog.c.id
+    ).over(partition_by=table_without_catalog.c.name)
+
+    cache_key = statement._generate_cache_key()
+
+    assert cache_key is not None
+    assert not [w for w in recwarn.list if issubclass(w.category, SAWarning)]
+
+
+@pytest.mark.skipif(
+    sqlalchemy_version() < "1.4",
+    reason="SQL compilation caching was introduced in 1.4"
+)
+@pytest.mark.parametrize(
+    'element',
+    [func.first_value, func.last_value, func.nth_value, func.lead, func.lag]
+)
+def test_ignore_nulls_cache_key_distinguishes_arguments(element):
+    key_id = element(table_without_catalog.c.id)._generate_cache_key()
+    key_name = element(table_without_catalog.c.name)._generate_cache_key()
+    key_ignore_nulls = element(
+        table_without_catalog.c.id, ignore_nulls=True
+    )._generate_cache_key()
+
+    assert key_id.key != key_name.key
+    assert key_id.key != key_ignore_nulls.key
+
+
+@pytest.mark.skipif(
     sqlalchemy_version() < "2.0",
     reason="ImportError: cannot import name 'try_cast' from 'sqlalchemy'"
 )
