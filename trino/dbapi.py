@@ -139,6 +139,68 @@ class Connection:
     statement, can also be cancelled. Transactions are not supported by this
     client implementation yet.
 
+    :param host: the hostname or IP address of the Trino coordinator. It may
+                 be a plain hostname or a URL; a scheme and port given in the
+                 URL take precedence over the ``http_scheme`` and ``port``
+                 arguments.
+    :param port: the coordinator port. Defaults to 443 for ``https`` and
+                 8080 for ``http`` once ``http_scheme`` is resolved.
+    :param user: the session user, sent as the ``X-Trino-User`` header.
+    :param source: the client name shown for queries in the Trino Web UI.
+                   Defaults to ``"trino-python-client"``.
+    :param catalog: the default catalog used by SQL statements.
+    :param schema: the default schema used by SQL statements.
+    :param session_properties: a dict of session properties for the session,
+                               e.g. ``{'query_max_run_time': '10m'}``.
+    :param http_headers: additional HTTP headers sent with each request.
+    :param http_scheme: ``"http"`` or ``"https"``. Resolved from the host URL
+                        scheme when present, otherwise from this argument,
+                        otherwise from the port (443 maps to ``https``,
+                        8080 maps to ``http``), defaulting to ``"http"``.
+    :param auth: an authentication instance (e.g. ``BasicAuthentication``,
+                 ``JWTAuthentication``); ``None`` means no authentication.
+                 Authentication requires TLS unless ``allow_insecure_auth``
+                 is set.
+    :param extra_credential: extra credentials as a list of
+                             ``(name, value)`` tuples, sent as
+                             ``X-Trino-Extra-Credential`` headers.
+    :param max_attempts: maximum attempts for each HTTP request, including
+                         retries. Defaults to 3.
+    :param request_timeout: client-side timeout in seconds for each HTTP
+                            request. Defaults to 30.0.
+    :param isolation_level: the transaction isolation level, one of
+                            ``trino.transaction.IsolationLevel``. Defaults to
+                            ``IsolationLevel.AUTOCOMMIT``.
+    :param verify: controls TLS certificate verification. ``True`` (default)
+                   verifies against the system CA bundle, ``False`` disables
+                   verification, and a string is treated as the path to a CA
+                   bundle.
+    :param http_session: a custom ``requests.Session`` to use for HTTP;
+                         a new default session is created when not given.
+    :param client_tags: a list of tags sent as the ``X-Trino-Client-Tags``
+                        header.
+    :param legacy_primitive_types: when ``True``, query results are not
+                                   converted to the corresponding Python
+                                   types. See "Legacy Primitive types" below.
+    :param legacy_prepared_statements: forces the use (``True``) or not
+                                       (``False``) of legacy prepared
+                                       statements. When not given, the client
+                                       probes the coordinator once per
+                                       host and port and caches the result.
+    :param roles: authorization roles as a dict mapping catalog names to
+                  roles, or a single string which is used as the role for
+                  the ``system`` catalog.
+    :param timezone: the session time zone, e.g. ``"US/Pacific"``. When not
+                     given, the client's local time zone is used.
+    :param encoding: the spooling protocol encodings in order of preference,
+                     e.g. ``"json+zstd"`` or ``["json+zstd", "json"]``.
+                     Defaults to every encoding supported by the installed
+                     codecs. See "Spooled protocol" below.
+    :param heartbeat_interval: interval in seconds between heartbeat requests
+                               for long-running queries. Defaults to 30.0.
+    :param allow_insecure_auth: allows authentication over plain ``http``.
+                                The coordinator must also be configured with
+                                ``http-server.authentication.allow-insecure-over-http=true``.
     """
 
     def __init__(

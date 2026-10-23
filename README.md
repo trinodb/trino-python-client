@@ -54,6 +54,39 @@ rows for example `Cursor.fetchone()` or `Cursor.fetchmany()`. By default
 `Cursor.fetchmany()` fetches one row. Please set
 `trino.dbapi.Cursor.arraysize` accordingly.
 
+**Connection parameters**
+
+`trino.dbapi.connect()` accepts the same arguments as `trino.dbapi.Connection`.
+All parameters are optional except `host`. A parameter left as `None` means
+"not set" (its server-side default applies), except where noted below.
+
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `host` | `str` | — | The hostname or IP address of the Trino coordinator. May be a URL; a scheme and port in the URL take precedence over `http_scheme` and `port`. |
+| `port` | `int` | `443` for https, `8080` for http | The port number of the Trino coordinator. |
+| `user` | `str` | `None` | The username for the session, sent as the `X-Trino-User` header. |
+| `source` | `str` | `'trino-python-client'` | The client name shown for queries in the Trino Web UI. |
+| `catalog` | `str` | `None` | The default catalog to use for queries. |
+| `schema` | `str` | `None` | The default schema to use for queries. |
+| `session_properties` | `dict` | `None` | A dictionary of session properties, e.g. `{'query_max_run_time': '10m'}`. |
+| `http_headers` | `dict` | `None` | A dictionary of additional custom HTTP headers to send with requests. |
+| `http_scheme` | `str` | auto-detected | Protocol to use: `'http'` or `'https'`. Resolved from the host URL scheme when present, otherwise from this argument, otherwise from the port (`443` → `'https'`, `8080` → `'http'`), defaulting to `'http'`. |
+| `auth` | `object` | `None` | An authentication instance, e.g. `BasicAuthentication`, `JWTAuthentication` or `KerberosAuthentication`. `None` means no authentication. |
+| `extra_credential` | `list` of `(name, value)` tuples | `None` | Extra credentials sent as `X-Trino-Extra-Credential` headers. |
+| `max_attempts` | `int` | `3` | Maximum number of attempts for each HTTP request, including retries. |
+| `request_timeout` | `float` | `30.0` | Client-side timeout (in seconds) for each HTTP request. |
+| `isolation_level` | `trino.transaction.IsolationLevel` | `IsolationLevel.AUTOCOMMIT` | Transaction isolation level. |
+| `verify` | `bool` \| `str` | `True` | Controls TLS certificate verification. Set to `False` to disable, or provide a path to a CA bundle. |
+| `http_session` | `requests.Session` | `None` | A custom HTTP session. `None` creates a new default session. |
+| `client_tags` | `list[str]` | `None` | A list of tags sent as the `X-Trino-Client-Tags` header. |
+| `legacy_primitive_types` | `bool` | `False` | When `True`, query results are not converted to the corresponding Python types. |
+| `legacy_prepared_statements` | `bool` | auto-detected | Force the use (`True`) or not (`False`) of legacy prepared statements. When not given, the client probes the coordinator once per host and port and caches the result. |
+| `roles` | `dict[str, str]` \| `str` | `None` | Authorization roles: a dict mapping catalog names to roles, or a single string used as the role for the `system` catalog. |
+| `timezone` | `str` | client's local time zone | The time zone for the session, e.g. `'US/Pacific'`. |
+| `encoding` | `str` \| `list[str]` | all supported encodings | Spooled protocol encodings in order of preference, e.g. `'json+zstd'` or `['json+zstd', 'json']`. |
+| `heartbeat_interval` | `float` | `30.0` | Interval in seconds between heartbeat requests for long-running queries. |
+| `allow_insecure_auth` | `bool` | `False` | Allow authentication over plain `http`. The coordinator must also be configured with `http-server.authentication.allow-insecure-over-http=true`. |
+
 **Monitoring query progress**
 
 Since queries can take a while to complete, it is useful to be able to monitor
