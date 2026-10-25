@@ -922,10 +922,10 @@ def test_get_indexes_returns_empty_for_iceberg_table(run_trino):
 
 
 @pytest.mark.skipif(trino_version() == 351, reason="Dynamic catalogs not supported")
-def test_get_indexes_returns_partitions_for_hive_table(run_trino):
+@pytest.mark.parametrize("schema_name", ["test_schema", "test-schema"])
+def test_get_indexes_returns_partitions_for_hive_table(run_trino, schema_name):
     host, port = run_trino
     catalog_name = "test_hive"
-    schema_name = "test_schema"
     table_name = "partitioned"
 
     conn = trino.dbapi.connect(host=host, port=port, user="test")
@@ -938,16 +938,16 @@ def test_get_indexes_returns_partitions_for_hive_table(run_trino):
             f"\"fs.native-local.enabled\" = 'true')"
         )
         cur.fetchall()
-        cur.execute(f"CREATE SCHEMA {catalog_name}.{schema_name}")
+        cur.execute(f"CREATE SCHEMA {catalog_name}.\"{schema_name}\"")
         cur.fetchall()
         cur.execute(
-            f"CREATE TABLE {catalog_name}.{schema_name}.{table_name} "
+            f"CREATE TABLE {catalog_name}.\"{schema_name}\".{table_name} "
             f"(id INTEGER, name VARCHAR, region VARCHAR) "
             f"WITH (partitioned_by = ARRAY['name', 'region'])"
         )
         cur.fetchall()
         cur.execute(
-            f"INSERT INTO {catalog_name}.{schema_name}.{table_name} VALUES (1, 'alice', 'us-east')"
+            f"INSERT INTO {catalog_name}.\"{schema_name}\".{table_name} VALUES (1, 'alice', 'us-east')"
         )
         cur.fetchall()
 
@@ -962,9 +962,9 @@ def test_get_indexes_returns_partitions_for_hive_table(run_trino):
         _assert_no_lingering_query(cur, f'{table_name}$partitions')
     finally:
         cur = conn.cursor()
-        cur.execute(f"DROP TABLE IF EXISTS {catalog_name}.{schema_name}.{table_name}")
+        cur.execute(f"DROP TABLE IF EXISTS {catalog_name}.\"{schema_name}\".{table_name}")
         cur.fetchall()
-        cur.execute(f"DROP SCHEMA IF EXISTS {catalog_name}.{schema_name}")
+        cur.execute(f"DROP SCHEMA IF EXISTS {catalog_name}.\"{schema_name}\"")
         cur.fetchall()
         cur.execute(f"DROP CATALOG IF EXISTS {catalog_name}")
         cur.fetchall()
