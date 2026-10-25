@@ -376,6 +376,23 @@ class TestTrinoDialect:
         query = str(connection.execute.call_args[0][0])
         assert "default_schema" in query
 
+    @pytest.mark.parametrize(
+        "schema, table_name, expected_query",
+        [
+            ("some-schema", "some_table", 'SELECT * FROM "some-schema"."some_table$partitions"'),
+            ("some_schema", 'some"table', 'SELECT * FROM "some_schema"."some""table$partitions"'),
+        ],
+    )
+    def test_get_partitions_quotes_identifiers(self, schema, table_name, expected_query):
+        partition_names = ["year"]
+        data_types = ["integer"]
+        connection, _ = self._partitions_connection(partition_names, data_types)
+
+        self.dialect._get_partitions(connection, table_name, schema)
+
+        query = str(connection.execute.call_args[0][0])
+        assert query == expected_query
+
 
 def test_trino_connection_basic_auth():
     dialect = TrinoDialect()
