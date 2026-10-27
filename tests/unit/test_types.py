@@ -37,3 +37,24 @@ def test_pickle_roundtripping(value, fn):
     bytes = pickle.dumps(value)
     unpickled_value = pickle.loads(bytes)
     assert fn(value) == fn(unpickled_value)
+
+
+@pytest.mark.parametrize("name", ["missing", "__array_interface__", "__array_struct__"])
+def test_named_row_missing_attribute(name):
+    row = types.NamedRowTuple(["Alice", 38], ["name", "age"], ["varchar", "integer"])
+    with pytest.raises(AttributeError, match=name):
+        getattr(row, name)
+    assert not hasattr(row, name)
+    assert getattr(row, name, "fallback") == "fallback"
+
+
+def test_named_row_named_attributes():
+    row = types.NamedRowTuple(["Alice", 38], ["name", "age"], ["varchar", "integer"])
+    assert row.name == "Alice"
+    assert row.age == 38
+
+
+def test_named_row_duplicate_attribute():
+    row = types.NamedRowTuple(["Alice", "Bob"], ["name", "name"], ["varchar", "varchar"])
+    with pytest.raises(ValueError, match="Ambiguous row field reference: name"):
+        row.name
