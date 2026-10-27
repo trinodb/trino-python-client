@@ -120,6 +120,7 @@ class NamedRowTuple(Tuple[Any, ...]):
     def __getattr__(self, name: str) -> Any:
         if self._names.count(name):
             raise ValueError("Ambiguous row field reference: " + name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __getnewargs__(self) -> Any:
         return (tuple(self), (), ())
