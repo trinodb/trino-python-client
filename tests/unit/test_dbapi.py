@@ -398,6 +398,66 @@ def test_no_error_when_auth_over_http_with_allow_insecure_auth():
     assert request._http_scheme == constants.HTTP
 
 
+def test_error_when_authorization_header_in_http_session_over_http():
+    session = Session()
+    session.headers["Authorization"] = "Bearer token"
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection("mytrinoserver.domain", http_scheme=constants.HTTP, http_session=session)
+
+
+def test_error_when_authorization_header_in_http_headers_over_http():
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection(
+            "mytrinoserver.domain",
+            http_scheme=constants.HTTP,
+            http_headers={"Authorization": "Bearer token"},
+        )
+
+
+def test_error_when_authorization_header_case_insensitive_over_http():
+    with pytest.raises(trino.exceptions.TrinoAuthError, match="TLS/SSL is required for authentication"):
+        Connection(
+            "mytrinoserver.domain",
+            http_scheme=constants.HTTP,
+            http_headers={"authorization": "Bearer token"},
+        )
+
+
+def test_no_error_when_authorization_header_over_https():
+    session = Session()
+    session.headers["Authorization"] = "Bearer token"
+    Connection(
+        "mytrinoserver.domain",
+        http_scheme=constants.HTTPS,
+        http_session=session,
+        http_headers={"Authorization": "Bearer token"},
+    )
+
+
+def test_no_error_when_authorization_header_over_http_with_allow_insecure_auth():
+    session = Session()
+    session.headers["Authorization"] = "Bearer token"
+    connection = Connection(
+        "mytrinoserver.domain",
+        http_scheme=constants.HTTP,
+        http_session=session,
+        http_headers={"Authorization": "Bearer token"},
+        allow_insecure_auth=True,
+    )
+    assert connection.http_scheme == constants.HTTP
+
+
+def test_no_error_when_no_authorization_header_over_http():
+    session = Session()
+    session.headers["X-Custom-Header"] = "value"
+    Connection(
+        "mytrinoserver.domain",
+        http_scheme=constants.HTTP,
+        http_session=session,
+        http_headers={"X-Custom-Header": "value"},
+    )
+
+
 def _statement_uri(query_id, token):
     return f"{SERVER_ADDRESS}{constants.URL_STATEMENT_PATH}/{query_id}/{token}"
 

@@ -133,6 +133,18 @@ def connect(*args, **kwargs):
 _USE_DEFAULT_ENCODING = object()
 
 
+def _headers_contain_authorization(headers) -> bool:
+    """Return True when the given headers carry an Authorization header.
+
+    Header names are case-insensitive (RFC 9110), so the check normalises
+    them. ``headers`` may be a plain dict (``http_headers``) or a requests
+    ``CaseInsensitiveDict`` (``http_session.headers``).
+    """
+    if not headers:
+        return False
+    return any(isinstance(name, str) and name.lower() == "authorization" for name in headers)
+
+
 class Connection:
     """Trino supports transactions and the ability to either commit or rollback
     a sequence of SQL statements. A single query i.e. the execution of a SQL
@@ -219,16 +231,28 @@ class Connection:
         else:
             self.http_scheme = constants.HTTP
 
-        if auth is not None and self.http_scheme == constants.HTTP and not allow_insecure_auth:
-            raise trino.exceptions.TrinoAuthError(
-                "TLS/SSL is required for authentication. "
-                "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
-                "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
-                "If your connection is encrypted below the application layer (for example behind an mTLS "
-                "service mesh sidecar), pass allow_insecure_auth=True and ensure "
-                "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
-                "has HTTPS enabled."
-            )
+        if self.http_scheme == constants.HTTP and not allow_insecure_auth:
+            if auth is not None:
+                auth_source = "an 'auth' object was supplied"
+            elif _headers_contain_authorization(http_headers) or _headers_contain_authorization(
+                getattr(self._http_session, "headers", None)
+            ):
+                auth_source = (
+                    "an 'Authorization' header was supplied via 'http_headers' or 'http_session'"
+                )
+            else:
+                auth_source = None
+            if auth_source is not None:
+                raise trino.exceptions.TrinoAuthError(
+                    "TLS/SSL is required for authentication: "
+                    f"{auth_source}. "
+                    "To use HTTPS, specify 'https://' in the host URL (which takes precedence "
+                    "over http_scheme), or, if the host URL has no scheme, pass http_scheme='https'. "
+                    "If your connection is encrypted below the application layer (for example behind an mTLS "
+                    "service mesh sidecar), pass allow_insecure_auth=True and ensure "
+                    "http-server.authentication.allow-insecure-over-http=true is set on the coordinator if it "
+                    "has HTTPS enabled."
+                )
 
         # Infer connection port: `hostname` takes precedence over explicit `port` argument
         # If none is given, use default based on HTTP protocol
