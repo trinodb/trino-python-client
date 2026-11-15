@@ -361,6 +361,28 @@ class TestTrinoDialect:
 
         result.close.assert_called_once()
 
+        def test_get_partitions_quotes_schema_needing_quoting(self):
+        partition_names = ["region"]
+        data_types = ["varchar"]
+        connection, _ = self._partitions_connection(partition_names, data_types)
+
+        returned = self.dialect._get_partitions(connection, "t", "sales-eu")
+
+        assert returned == partition_names
+        query = str(connection.execute.call_args[0][0])
+        assert query == 'SELECT * FROM "sales-eu"."t$partitions"'
+
+    def test_get_partitions_escapes_quote_in_table_name(self):
+        partition_names = ["region"]
+        data_types = ["varchar"]
+        connection, _ = self._partitions_connection(partition_names, data_types)
+
+        returned = self.dialect._get_partitions(connection, 'we"ird', "some_schema")
+
+        assert returned == partition_names
+        query = str(connection.execute.call_args[0][0])
+        assert query == 'SELECT * FROM "some_schema"."we""ird$partitions"'
+
     def test_get_partitions_defaults_schema_when_not_given(self):
         partition_names = ["year"]
         data_types = ["integer"]

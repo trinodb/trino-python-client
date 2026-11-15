@@ -236,7 +236,7 @@ class TrinoDialect(DefaultDialect):
         schema = schema or self._get_default_schema_name(connection)
         query = dedent(
             f"""
-            SELECT * FROM {schema}."{table_name}$partitions"
+            SELECT * FROM {self._get_full_table(f"{table_name}$partitions", schema)}
         """
         ).strip()
 
