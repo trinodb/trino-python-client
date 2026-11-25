@@ -644,23 +644,25 @@ class TrinoRequest:
             self._head = self._http_session.head
             return
 
+        # This function is used as a retry condition for all requests, including POST.
+        # Due to that there's a chance a POST request reaches the server twice.
+        def is_intermittent_error(response) -> bool:
+            return (
+                getattr(response, "status_code", None)
+                in (429, 502, 503, 504, 520, 521, 522, 523, 524)
+            )
+
         with_retry = _retry_with(
             self._handle_retry,
             handled_exceptions=self._exceptions,
-            conditions=(
-                # need retry when there is no exception but the status code is 429, 502, 503, or 504
-                lambda response: getattr(response, "status_code", None)
-                in (429, 502, 503, 504),
-            ),
+            conditions=(is_intermittent_error,),
             max_attempts=self._max_attempts,
         )
         with_statement_retry = _retry_with(
             self._handle_retry,
             handled_exceptions=self._exceptions,
             conditions=(
-                # need retry when there is no exception but the status code is 429, 502, 503, or 504
-                lambda response: getattr(response, "status_code", None)
-                in (429, 502, 503, 504),
+                is_intermittent_error,
                 # need retry when the server returns 200 with an empty body (transient under load)
                 lambda response: getattr(response, "status_code", None) == 200
                 and not getattr(response, "content", b""),

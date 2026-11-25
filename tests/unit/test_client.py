@@ -1003,6 +1003,14 @@ def test_extra_credential_value_object(mock_get_and_post):
     assert headers[constants.HEADER_EXTRA_CREDENTIAL] == "foo=changed"
 
 
+@pytest.fixture
+def recorded_sleeps(monkeypatch):
+    """Replace the retry back-off sleep with a recorder, so retry tests don't wait."""
+    sleeps = []
+    monkeypatch.setattr("trino.client.sleep", sleeps.append)
+    return sleeps
+
+
 class RetryRecorder:
     def __init__(self, error=None, result=None):
         self.__name__ = "RetryRecorder"
@@ -1029,6 +1037,7 @@ class RetryRecorder:
         pytest.param(GSSAPIAuthentication, SPNEGOExchangeError, marks=requires_gssapi),
     ]
 )
+@pytest.mark.usefixtures("recorded_sleeps")
 def test_authentication_fail_retry(auth_class, retry_exception_class, monkeypatch):
     post_retry = RetryRecorder(error=retry_exception_class())
     monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
@@ -1062,7 +1071,13 @@ def test_authentication_fail_retry(auth_class, retry_exception_class, monkeypatc
     (502, 3),
     (503, 3),
     (504, 3),
+    (520, 3),
+    (521, 3),
+    (522, 3),
+    (523, 3),
+    (524, 3),
 ])
+@pytest.mark.usefixtures("recorded_sleeps")
 def test_5XX_error_retry(status_code, attempts, monkeypatch):
     http_resp = TrinoRequest.http.Response()
     http_resp.status_code = status_code
@@ -1089,10 +1104,11 @@ def test_5XX_error_retry(status_code, attempts, monkeypatch):
     assert post_retry.retry_count == attempts
 
 
-def test_429_error_retry(monkeypatch):
+@pytest.mark.parametrize("retry_after", (2, "2"))
+def test_429_error_retry(monkeypatch, recorded_sleeps, retry_after):
     http_resp = TrinoRequest.http.Response()
     http_resp.status_code = 429
-    http_resp.headers["Retry-After"] = 1
+    http_resp.headers["Retry-After"] = retry_after
 
     post_retry = RetryRecorder(result=http_resp)
     monkeypatch.setattr(TrinoRequest.http.Session, "post", post_retry)
@@ -1110,10 +1126,12 @@ def test_429_error_retry(monkeypatch):
     )
 
     req.post("URL")
-    assert post_retry.retry_count == 3
+    assert post_retry.retry_count == req.max_attempts
 
     req.get("URL")
-    assert post_retry.retry_count == 3
+    assert post_retry.retry_count == req.max_attempts
+
+    assert recorded_sleeps == [int(retry_after)] * (req.max_attempts * 2)
 
 
 def test_empty_200_response_retry(monkeypatch):
@@ -1164,7 +1182,11 @@ def test_empty_200_transport_response_does_not_retry(method_name, monkeypatch):
 
 
 @pytest.mark.parametrize("status_code", [
-    501
+    501,
+    # Cloudflare TLS/configuration errors not treated as transient
+    525,
+    526,
+    530,
 ])
 def test_error_no_retry(status_code, monkeypatch):
     http_resp = TrinoRequest.http.Response()
@@ -1332,6 +1354,7 @@ class SomeException(Exception):
     pass
 
 
+@pytest.mark.usefixtures("recorded_sleeps")
 def test_retry_with():
     max_attempts = 3
     with_retry = _retry_with(
