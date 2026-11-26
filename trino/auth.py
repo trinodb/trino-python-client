@@ -16,9 +16,9 @@ import os
 import re
 import threading
 import webbrowser
+from collections.abc import Callable
 from collections.abc import Mapping
 from typing import Any
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import Optional

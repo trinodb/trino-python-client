@@ -47,6 +47,7 @@ import threading
 import urllib.parse
 import warnings
 from abc import abstractmethod
+from collections.abc import Callable
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -55,7 +56,6 @@ from email.utils import parsedate_to_datetime
 from enum import Enum
 from time import sleep
 from typing import Any
-from typing import Callable
 from typing import cast
 from typing import Dict
 from typing import List
