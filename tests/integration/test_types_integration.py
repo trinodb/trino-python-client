@@ -779,8 +779,11 @@ def test_interval_year_to_month(trino_connection):
     ).execute()
 
 
+PARAMETRIC_INTERVAL_MIN_TRINO_VERSION = 484
+
+
 def test_interval_day_to_second(trino_connection):
-    (
+    test = (
         SqlTest(trino_connection)
         .add_field(
             sql="CAST(null AS INTERVAL DAY TO SECOND)",
@@ -795,9 +798,6 @@ def test_interval_day_to_second(trino_connection):
             sql="INTERVAL '-2' SECOND",
             python=timedelta(seconds=-2))
         .add_field(
-            sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
-            python=timedelta(days=1, seconds=40271, microseconds=116000))
-        .add_field(
             sql="INTERVAL '-5 23:59:57.000' DAY TO SECOND",
             python=timedelta(days=-6, seconds=3))
         .add_field(
@@ -810,14 +810,42 @@ def test_interval_day_to_second(trino_connection):
             sql="INTERVAL '32.123' SECOND",
             python=timedelta(seconds=32, microseconds=123000))
         # max supported timedelta in Python
-        .add_field(
-            sql="INTERVAL '999999999 23:59:59.999' DAY TO SECOND",
-            python=timedelta(days=999999999, hours=23, minutes=59, seconds=59, milliseconds=999))
-        # min supported timedelta in Python
-        .add_field(
-            sql="INTERVAL '-999999999' DAY",
-            python=timedelta(days=-999999999))
-    ).execute()
+    )
+    if trino_version() >= PARAMETRIC_INTERVAL_MIN_TRINO_VERSION:
+        # Trino 484 stores day/time intervals up to a picosecond in a long value, older versions up to a millisecond,
+        # so the range of values and rounding behavior differs between 484 and older versions.
+        (
+            test
+            # newer Trino rounds microseconds to the nearest millisecond during interval serialization
+            .add_field(
+                sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
+                python=timedelta(days=1, seconds=40271, microseconds=117000))
+            # max supported INTERVAL in Trino
+            .add_field(
+                sql="INTERVAL '106751991 04:00:54.775807' DAY TO SECOND",
+                python=timedelta(days=106751991, hours=4, seconds=54, microseconds=776000))
+            # min supported INTERVAL in Trino
+            .add_field(
+                sql="INTERVAL '-106751991 04:00:54.775808' DAY TO SECOND",
+                python=-timedelta(days=106751991, hours=4, seconds=54, microseconds=776000))
+        )
+    else:
+        (
+            test
+            # older Trino truncates microseconds in the interval representation
+            .add_field(
+                sql="INTERVAL '1 11:11:11.116555' DAY TO SECOND",
+                python=timedelta(days=1, seconds=40271, microseconds=116000))
+            # max supported timedelta in Python
+            .add_field(
+                sql="INTERVAL '999999999 23:59:59.999' DAY TO SECOND",
+                python=timedelta(days=999999999, hours=23, minutes=59, seconds=59, milliseconds=999))
+            # min supported timedelta in Python
+            .add_field(
+                sql="INTERVAL '-999999999' DAY",
+                python=timedelta(days=-999999999))
+        )
+    test.execute()
 
     SqlExpectFailureTest(trino_connection).execute("INTERVAL '1000000000' DAY")
     SqlExpectFailureTest(trino_connection).execute("INTERVAL '-999999999 00:00:00.001' DAY TO SECOND")
