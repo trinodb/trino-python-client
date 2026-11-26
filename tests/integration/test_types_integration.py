@@ -14,6 +14,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 import trino
+from tests.integration.conftest import skip_if_codec_unavailable_on_pypy
 from tests.integration.conftest import trino_version
 
 
@@ -21,6 +22,7 @@ from tests.integration.conftest import trino_version
 def trino_connection(request, run_trino):
     host, port = run_trino
     encoding = request.param
+    skip_if_codec_unavailable_on_pypy(encoding)
 
     yield trino.dbapi.Connection(
         host=host,

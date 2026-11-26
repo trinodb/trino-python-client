@@ -10,9 +10,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import platform
 import socket
 import sys
 from contextlib import closing
+from typing import Optional
 
 import pytest
 
@@ -20,6 +22,7 @@ import trino.logging
 from tests.development_server import start_development_server
 from tests.development_server import TRINO_HOST
 from tests.development_server import TRINO_VERSION
+from trino.client import CODECS_UNAVAILABLE
 from trino.constants import DEFAULT_PORT
 
 logger = trino.logging.get_logger(__name__)
@@ -61,3 +64,11 @@ def trino_version() -> int:
     if TRINO_VERSION == "latest":
         return sys.maxsize
     return int(TRINO_VERSION)
+
+
+def skip_if_codec_unavailable_on_pypy(encoding: Optional[str]) -> None:
+    if platform.python_implementation() != "PyPy":
+        return
+    codec = encoding.split("+")[1] if encoding and "+" in encoding else None
+    if codec in CODECS_UNAVAILABLE:
+        pytest.skip(f"{codec} is not installed: {CODECS_UNAVAILABLE[codec]}")
