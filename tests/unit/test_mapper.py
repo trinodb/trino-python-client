@@ -9,12 +9,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 
 from trino import constants
+from trino.exceptions import TrinoDataError
 from trino.mapper import DecimalValueMapper
+from trino.mapper import IntervalDayToSecondMapper
 from trino.mapper import RowMapperFactory
 
 
@@ -125,3 +128,75 @@ class TestNumberCornerCases:
     def test_very_small_magnitude_exponent(self, mapper):
         value = "-1.23456789012345678901234567890123456789012345678901E-16333"
         assert mapper.map(value) == Decimal(value)
+
+
+def test_parametric_interval_advertised_in_capabilities():
+    capabilities = constants.CLIENT_CAPABILITIES.split(",")
+    assert constants.CLIENT_CAPABILITY_PARAMETRIC_INTERVAL in capabilities
+
+
+@pytest.mark.parametrize("value, expected", [
+    pytest.param(None, None, id="null"),
+    # legacy format: always three fractional digits, holding milliseconds
+    pytest.param("1 11:11:11.117", timedelta(days=1, seconds=40271, microseconds=117000), id="legacy"),
+    pytest.param("-5 23:59:57.000", timedelta(days=-6, seconds=3), id="legacy-negative"),
+    pytest.param("0 00:00:00.005", timedelta(milliseconds=5), id="legacy-zero-padded"),
+    # PARAMETRIC_INTERVAL format: as many fractional digits as the type's precision
+    pytest.param("2 00:00:00", timedelta(days=2), id="precision-0"),
+    pytest.param("-0 00:00:02", timedelta(seconds=-2), id="precision-0-negative-zero-days"),
+    pytest.param("0 00:00:01.5", timedelta(seconds=1, microseconds=500000), id="precision-1"),
+    pytest.param("0 00:00:32.1239", timedelta(seconds=32, microseconds=123900), id="precision-4"),
+    pytest.param("1 11:11:11.116555", timedelta(days=1, seconds=40271, microseconds=116555), id="precision-6"),
+    pytest.param("-1 11:11:11.116555", -timedelta(days=1, seconds=40271, microseconds=116555),
+                 id="precision-6-negative"),
+    # digits beyond microseconds are rounded half to even, symmetrically for negative values
+    pytest.param("1 00:00:00.123456789012", timedelta(days=1, microseconds=123457), id="precision-12"),
+    pytest.param("0 00:00:00.0000005", timedelta(0), id="tie-rounds-to-even-down"),
+    pytest.param("0 00:00:00.0000015", timedelta(microseconds=2), id="tie-rounds-to-even-up"),
+    pytest.param("-0 00:00:00.0000015", timedelta(microseconds=-2), id="tie-negative"),
+    pytest.param("0 00:00:00.9999995", timedelta(seconds=1), id="rounding-carries-into-seconds"),
+    # range limits of servers storing microseconds in a long
+    pytest.param("106751991 04:00:54.775807",
+                 timedelta(days=106751991, hours=4, seconds=54, microseconds=775807), id="server-max"),
+    pytest.param("-106751991 04:00:54.775808",
+                 -timedelta(days=106751991, hours=4, seconds=54, microseconds=775808), id="server-min"),
+    # range limits of timedelta, reachable on servers storing milliseconds in a long
+    pytest.param("999999999 23:59:59.999",
+                 timedelta(days=999999999, hours=23, minutes=59, seconds=59, milliseconds=999), id="python-max"),
+    pytest.param("-999999999 00:00:00.000", timedelta(days=-999999999), id="python-min"),
+])
+def test_interval_day_to_second_mapper(value, expected):
+    assert IntervalDayToSecondMapper().map(value) == expected
+
+
+@pytest.mark.parametrize("value", [
+    "1000000000 00:00:00",
+    "-999999999 00:00:00.001",
+])
+def test_interval_day_to_second_mapper_out_of_python_range(value):
+    with pytest.raises(TrinoDataError, match="exceeds the maximum or minimum limit"):
+        IntervalDayToSecondMapper().map(value)
+
+
+def _parametric_interval_day_to_second(start, end, leading_precision, fractional_precision):
+    """typeSignature of a day-time interval as sent to clients supporting PARAMETRIC_INTERVAL."""
+    arguments = [start, end, leading_precision, fractional_precision]
+    return _column("interval day to second", [{"kind": "LONG", "value": a} for a in arguments])
+
+
+def test_parametric_interval_day_to_second_nested_in_structural_types():
+    day = _parametric_interval_day_to_second(2, 2, 1, 0)  # INTERVAL DAY(1)
+    second = _parametric_interval_day_to_second(5, 5, 1, 1)  # INTERVAL SECOND(1, 1)
+    microsecond = _parametric_interval_day_to_second(2, 5, 2, 6)  # INTERVAL DAY(2) TO SECOND(6)
+    signature = _column("row", [
+        {"kind": "NAMED_TYPE", "value": {"fieldName": {"name": "a"}, "typeSignature": _column(
+            "array", [{"kind": "TYPE", "value": second}])}},
+        {"kind": "NAMED_TYPE", "value": {"fieldName": {"name": "m"}, "typeSignature": _column(
+            "map", [{"kind": "TYPE", "value": day}, {"kind": "TYPE", "value": microsecond}])}},
+    ])
+    mapper = RowMapperFactory()._create_value_mapper(signature)
+
+    result = mapper.map([["0 00:00:01.5"], {"1 00:00:00": "0 00:00:01.250000"}])
+
+    assert result.a == [timedelta(seconds=1, microseconds=500000)]
+    assert result.m == {timedelta(days=1): timedelta(seconds=1, microseconds=250000)}
