@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 from dateutil.relativedelta import relativedelta
 
 import trino.exceptions
+from trino.types import MAX_PYTHON_TEMPORAL_PRECISION
 from trino.types import NamedRowTuple
 from trino.types import POWERS_OF_TEN
 from trino.types import Time
@@ -192,18 +193,22 @@ class IntervalYearToMonthMapper(ValueMapper[relativedelta]):
 
 class IntervalDayToSecondMapper(ValueMapper[timedelta]):
     def map(self, value: Any) -> Optional[timedelta]:
+        # The format is: [-]D HH:MM:SS[.F]
+        # D has at least one digit (can be '0')
+        # F, if present, has from 1 to 12 digits, depending on the type's precision
         if value is None:
             return None
         is_negative = value[0] == "-"
         days, time = (value[1:] if is_negative else value).split(' ')
-        hours, minutes, seconds_milliseconds = time.split(':')
-        seconds, milliseconds = seconds_milliseconds.split('.')
-        days, hours, minutes, seconds, milliseconds = (int(days), int(hours), int(minutes), int(seconds),
-                                                       int(milliseconds))
-        if is_negative:
-            days, hours, minutes, seconds, milliseconds = -days, -hours, -minutes, -seconds, -milliseconds
+        hours, minutes, seconds = time.split(':')
+        seconds, _, fraction = seconds.partition('.')
+        microseconds = round(_fraction_to_decimal(fraction) * MAX_PYTHON_TEMPORAL_PRECISION)
         try:
-            return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds)
+            delta = timedelta(
+                days=int(days), hours=int(hours), minutes=int(minutes), seconds=int(seconds),
+                microseconds=microseconds,
+            )
+            return -delta if is_negative else delta
         except OverflowError as e:
             error_str = (
                 f"Could not convert '{value}' into the associated python type, as the value "
