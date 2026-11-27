@@ -28,6 +28,7 @@ from tzlocal import get_localzone_name  # type: ignore
 
 import trino
 from tests.development_server import get_trino_container
+from tests.integration.conftest import skip_if_codec_unavailable_on_pypy
 from tests.integration.conftest import trino_version
 from trino import constants
 from trino.client import InlineSegment
@@ -47,6 +48,7 @@ from trino.transaction import IsolationLevel
 def trino_connection(request, run_trino):
     host, port = run_trino
     encoding = request.param
+    skip_if_codec_unavailable_on_pypy(encoding)
 
     yield trino.dbapi.Connection(
         host=host, port=port, user="test", source="test", max_attempts=1, encoding=encoding

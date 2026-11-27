@@ -61,7 +61,7 @@ tox
 ## Code Style
 
 - **Max line length**: 120 characters (flake8)
-- **Import ordering**: managed by `reorder-python-imports` (Python 3.9+ style)
+- **Import ordering**: managed by `reorder-python-imports` (Python 3.11+ style)
 - **Type checking**: mypy with strict settings, though `tests/*`, `trino/client`, `trino/dbapi`, and `trino/sqlalchemy.*` have `ignore_errors = true`
 - **No mocking libraries**: write mocks by hand instead of using `unittest.mock` or similar. The project uses `httpretty` for HTTP-level stubbing only.
 - **Pre-commit hooks**: flake8, mypy, reorder-python-imports, trailing whitespace, EOF newlines, YAML syntax, case-conflict checks

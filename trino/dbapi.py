@@ -21,12 +21,12 @@ import datetime
 import math
 import uuid
 from collections import OrderedDict
+from collections.abc import Callable
 from decimal import Decimal
 from itertools import islice
 from threading import Lock
 from time import time
 from typing import Any
-from typing import Callable
 from typing import Dict
 from typing import List
 from typing import NamedTuple

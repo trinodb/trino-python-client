@@ -23,8 +23,8 @@ import json
 import re
 import sys
 import urllib.request
+from collections.abc import Callable
 from typing import Any
-from typing import Callable
 
 # From https://github.com/python/devguide/blob/8996911bc6f85f589efc3dc0111ba19351271553/_tools/generate_release_cycle.py#L44 # noqa: E501
 RELEASE_CYCLE_URL = (

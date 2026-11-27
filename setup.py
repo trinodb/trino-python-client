@@ -26,7 +26,8 @@ with open(os.path.join(here, "trino", "_version.py"), "r", "utf-8") as f:
 with open(os.path.join(here, "README.md"), "r", "utf-8") as f:
     readme = f.read()
 
-kerberos_require = ["requests_kerberos"]
+# requests_kerberos depends on gssapi and krb5, which don't build on PyPy
+kerberos_require = ["requests_kerberos ; platform_python_implementation != 'PyPy'"]
 gssapi_require = [""
                   "requests_gssapi",
                   # PyPy compatibility issue https://github.com/jborean93/pykrb5/issues/49
@@ -48,7 +49,8 @@ tests_require = all_require + [
     "isort",
     "keyring",
     "testcontainers",
-    "boto3"
+    "boto3",
+    "tzdata",
 ]
 
 setup(
@@ -72,18 +74,19 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Database :: Front-Ends",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.11",
     install_requires=[
-        "lz4",
+        # no PyPy wheels available, the json+lz4 encoding is unavailable on PyPy unless lz4 is installed explicitly
+        "lz4 ; platform_python_implementation != 'PyPy'",
         "orjson >= 3.11.0 ; platform_python_implementation != 'PyPy'",
         "python-dateutil",
         "pytz",
